@@ -1,0 +1,6 @@
+language: go
+go_import_path: kubevirt.io/hostpath-provisioner-operator
+go:
+  - 1.13.1
+before_install:
+  - make test

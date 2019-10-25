@@ -1,0 +1,11 @@
+apiVersion: hostpathprovisioner.kubevirt.io/v1alpha1
+kind: HostPathProvisioner
+metadata:
+  name: hostpath-provisioner
+spec:
+  imagePullPolicy: IfNotPresent
+  imageRegistry: quay.io/kubevirt
+  imageTag: latest
+  pathConfig:
+    path: "/var/hpvolumes"
+    useNamingPrefix: "false"
