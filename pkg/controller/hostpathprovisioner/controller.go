@@ -492,12 +492,14 @@ func createStorageClassObject(storageClassName string) *storagev1.StorageClass {
 		"k8s-app": storageClassName,
 	}
 	reclaimPolicy := corev1.PersistentVolumeReclaimDelete
+	volumeBindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 	return &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   storageClassName,
 			Labels: labels,
 		},
-		Provisioner:   "kubevirt.io/hostpath-provisioner",
-		ReclaimPolicy: &reclaimPolicy,
+		Provisioner:       "kubevirt.io/hostpath-provisioner",
+		ReclaimPolicy:     &reclaimPolicy,
+		VolumeBindingMode: &volumeBindingMode,
 	}
 }

@@ -249,6 +249,17 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 					"create",
 				},
 			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"nodes",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
 		},
 	}
 }
