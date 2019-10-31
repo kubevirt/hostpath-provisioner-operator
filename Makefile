@@ -19,7 +19,7 @@ DOCKER_REPO?=kubevirt
 all: test build
 
 operator:
-	CGO_ENABLED=0 go build -trimpath -a -ldflags '-extldflags "-static"' -o _out/hostpath-provisioner-operator cmd/manager/main.go
+	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/hostpath-provisioner-operator cmd/manager/main.go
 
 image: operator
 	hack/version.sh _out; \
