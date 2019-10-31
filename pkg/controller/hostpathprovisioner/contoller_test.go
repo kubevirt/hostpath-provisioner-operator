@@ -637,6 +637,7 @@ func verifyCreateClusterRole(cl client.Client) {
 			Verbs: []string{
 				"get",
 				"list",
+				"watch",
 			},
 		},
 		{
@@ -650,7 +651,6 @@ func verifyCreateClusterRole(cl client.Client) {
 				"test-name",
 			},
 			Verbs: []string{
-				"watch",
 				"create",
 				"update",
 				"delete",
