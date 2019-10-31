@@ -610,7 +610,6 @@ func verifyCreateClusterRole(cl client.Client) {
 				"watch",
 				"create",
 				"delete",
-				"get",
 			},
 		},
 		{
@@ -642,22 +641,6 @@ func verifyCreateClusterRole(cl client.Client) {
 		},
 		{
 			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"storageclasses",
-			},
-			ResourceNames: []string{
-				"test-name",
-			},
-			Verbs: []string{
-				"create",
-				"update",
-				"delete",
-			},
-		},
-		{
-			APIGroups: []string{
 				"",
 			},
 			Resources: []string{
@@ -667,6 +650,8 @@ func verifyCreateClusterRole(cl client.Client) {
 				"list",
 				"watch",
 				"create",
+				"patch",
+				"update",
 			},
 		},
 		{
