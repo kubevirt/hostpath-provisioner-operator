@@ -190,7 +190,6 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 					"watch",
 					"create",
 					"delete",
-					"get",
 				},
 			},
 			{
@@ -222,22 +221,6 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"storage.k8s.io",
-				},
-				Resources: []string{
-					"storageclasses",
-				},
-				ResourceNames: []string{
-					name,
-				},
-				Verbs: []string{
-					"create",
-					"update",
-					"delete",
-				},
-			},
-			{
-				APIGroups: []string{
 					"",
 				},
 				Resources: []string{
@@ -247,6 +230,8 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 					"list",
 					"watch",
 					"create",
+					"patch",
+					"update",
 				},
 			},
 			{

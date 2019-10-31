@@ -44,4 +44,4 @@ $ sudo chcon -R unconfined_u:object_r:svirt_sandbox_file_t:s0 /var/hpvolumes
 ```
 
 ## Deployment in OpenShift
-The operator will create the appropriate SecurityContextConstraints for the hostpath provisioner to work and assign the ServiceAccount to that SCC. 
+The operator will create the appropriate SecurityContextConstraints for the hostpath provisioner to work and assign the ServiceAccount to that SCC. This operator will only work on OpenShift 4 and later (>= kubernetes 1.12).
