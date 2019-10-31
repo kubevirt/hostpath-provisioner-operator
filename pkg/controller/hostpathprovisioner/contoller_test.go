@@ -669,6 +669,17 @@ func verifyCreateClusterRole(cl client.Client) {
 				"create",
 			},
 		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"nodes",
+			},
+			Verbs: []string{
+				"get",
+			},
+		},
 	}
 	Expect(crole.Rules).To(Equal(expectedRules))
 }
