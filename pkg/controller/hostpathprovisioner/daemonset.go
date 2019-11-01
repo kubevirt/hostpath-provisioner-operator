@@ -33,18 +33,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	provisionerImageDefault    = "hostpath-provisioner"
-	provisionerImageEnvVarName = "PROVISIONER_IMAGE"
-)
-
 // reconcileDaemonSet Reconciles the daemon set.
 func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, instance *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new DaemonSet object
 	provisionerImage := os.Getenv(provisionerImageEnvVarName)
 	if provisionerImage == "" {
 		reqLogger.Info("PROVISIONER_IMAGE not set, defaulting to hostpath-provisioner")
-		provisionerImage = provisionerImageDefault
+		provisionerImage = ProvisionerImageDefault
 	}
 
 	desired := createDaemonSetObject(instance, provisionerImage, namespace)
