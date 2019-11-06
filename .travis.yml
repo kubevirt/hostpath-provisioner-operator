@@ -1,52 +1,44 @@
 env:
   global:
-    - DOCKER_REPO=quay.io/kubevirt
-
+  - DOCKER_REPO=quay.io/kubevirt
 language: go
 go_import_path: kubevirt.io/hostpath-provisioner-operator
 go:
-  - 1.13.1
-
+- 1.13.1
 services:
 - docker
-
 install:
-  - go get -u github.com/mgechev/revive
-
+- go get -u github.com/mgechev/revive
 before_script:
-  - make test
-
+- make test
 before_deploy:
-  - docker login quay.io -u="$QUAY_USER" -p="$QUAY_PASS"
-
+- docker login quay.io -u="$QUAY_USER" -p="$QUAY_PASS"
 deploy:
-# Release :latest images
 - provider: script
   env:
-    - TAG=latest
+  - TAG=latest
   script: make push
   skip_cleanup: true
   on:
     branch: master
     repo: kubevirt/hostpath-provisioner-operator
-# Release versioned images
 - provider: script
   env:
-    - TAG=$TRAVIS_TAG
+  - TAG=$TRAVIS_TAG
   script: make push
   branches:
-      only: /v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+){0,1}/
+    only: "/v[0-9]+\\.[0-9]+\\.[0-9]+(-alpha\\.[0-9]+){0,1}/"
   on:
     tags: true
     repo: kubevirt/hostpath-provisioner-operator
 - provider: releases
   branches:
-    only: /v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+){0,1}/
+    only: "/v[0-9]+\\.[0-9]+\\.[0-9]+(-alpha\\.[0-9]+){0,1}/"
   on:
     tags: true
     repo: kubevirt/hostpath-provisioner-operator
   api_key:
-    secure: c8hWW6C550w9XyK4Tqs+locBrukfQepheNO254jKMj6OxKBdr+m20iHOCwNHJSFtuVvmpeK0x3p+DUO37Rs81NoSOSirtDjTHh7khgJUXvKhFt5f6vlarEcBq2xIJHVNa7trQ62/8fJpKLvdAE9z5b5bqDp+ZD24t1lMSqe0EaYFE6SBkhjCgpmetXpQILD/kJBi1+LuZquJDiXE+CydzE+4sBu+kt7tfAZAKzLObzMorHCSFS/7xDiHfW6pkNwbsAyIgsYp0shn4EzfF47G5AP2M80e5AtFwLTg/xCAdLqWFC2Rs3/7HxGPqEOPfuOl9glgw2jjGri9wkUYZ7xSARxHs6sA4KbkHQXftqMwRBDX8SY7KMGRjqIaDAxZtXPVGmlVUbU3nh51z4wEu9eUWUzVWwki9R3FCoof4VWz1BVuKmZT06a9ZhLCJNJ9oYcCSf6ZOGnE7YgeBzGCarfFL5IZj5fUdF/BS+2I0iH9kA2FAD5Gdgec6ypKuhUiVV4hlQVnfoDSA9ApgyOqGha+lWEHXs0IUhqlHpDW7CyG64vLtXCMsjJ8vpryWn2xAahTItC/zuaKcfWg8twQ0YqMo5wZteflqgQQ0+pf2J0wxN6kH+3UHP6WdYRPYKOI7TNUz6OZWqG/2ZKbtaD1S0nN61uOdocx8JSLgswu7yIGs1I=
+    secure: "SFo0Id3ghKOyF85I0/Gvm7vDh34qaz3zV/gLGP43M+0t9B/GCkJXB+JRnxwUUn/cuKqId4tVTRhWOG4VhjXr46DcbCRObeapeEAG6zItuu5vxdE4ZdGf+VdM4LNjMNonNTFSSe8s4JH/sFfUo/IqAcyyB+GduI/nf3zZ90ia1TnvWuYACscAxKsj78E6Ppb8tudvwOfFOEv+2w9pIBlfdc6yYZyBhHmzeBRdUTuEdEZ/h7gaY4TH6O0hDVc/mEyMKPLvo1OCMWRVqTgr4rLMybtSAhJTRfngS32iTtK8/cDDA+D6quek0F0I6MhcZBf/8b5fBL0GBB2Kz0841Wenwi89zaK2oKbvCxUs1g0t0hgi4n0xacObbHLvwld1euYa0ANfjkVe/cmN5JRrfBSAsU2oWu6mQecMmFq6aEtx9db+7F9Pl/u3ztgSJXGbf/l/SL2Gs27F55TBAvqVSyj7nhKcs+HsQLpd61ezXONm8eBcR0/eHuHuONuwanKpHx2LyYKfLtsfPUocB1qZRl19fgJ9pQZSW3p5w3VnzLaXorL+zyJIBcMd43y6zbJDbG7lOE2HI5YemTNVqOAJ3ZBME1gzh0Nwe4G/AMmiD2gonAp5DFk7gOPkQ83FgH735d+dgV/tqac2ZG+fkCCxrPZqMB1Ar+aeOPgX3Bqfa5vxlS8="
   overwrite: true
   skip_cleanup: true
   file_glob: true
