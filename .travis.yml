@@ -32,8 +32,6 @@ deploy:
     tags: true
     repo: kubevirt/hostpath-provisioner-operator
 - provider: releases
-  env:
-    - TAG=$TRAVIS_TAG
   branches:
     only: "/v[0-9]+\\.[0-9]+\\.[0-9]+(-alpha\\.[0-9]+){0,1}/"
   on:
