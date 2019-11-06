@@ -8,6 +8,7 @@ go:
 - 1.13.1
 services:
 - docker
+
 install:
 - go get -u github.com/mgechev/revive
 before_script:
@@ -16,7 +17,7 @@ before_deploy:
 - docker login quay.io -u="$QUAY_USER" -p="$QUAY_PASS"
 deploy:
 - provider: script
-  env: TAG=${TAG:-latest}
+  env: TAG=latest
   script: make push
   skip_cleanup: true
   on:
