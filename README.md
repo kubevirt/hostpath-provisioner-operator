@@ -40,7 +40,7 @@ Once the CustomResource has been created, the operator will deploy the provision
 ## Selinux
 On each node you will have to give the directory you specify in the CR the appropriate selinux rules by running the following (assuming you pick /var/hpvolumes as your PathConfig path):
 ```bash
-$ sudo chcon -R unconfined_u:object_r:svirt_sandbox_file_t:s0 /var/hpvolumes
+$ sudo chcon -t container_file_t -R /var/hpvolumes
 ```
 
 ## Deployment in OpenShift
