@@ -3,15 +3,16 @@ The kubernetes [operator](https://github.com/operator-framework) for managing [K
 Leverages the [operator-sdk](https://github.com/operator-framework/operator-sdk/).
 
 ## How to deploy
-In order to deploy the operator you have to create the hostpath provisioner namespace (or another namespace if you prefer, but will have to update the operator.yaml with your namespace)
+Before deploying the operator, you need to create the hostpath provisioner namespace:
 ```bash
 $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/master/deploy/namespace.yaml
 ```
-After you have created the namespace you need to create the operator by calling
+And then you can create the operator:
 ```bash
 $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/master/deploy/operator.yaml -n hostpath-provisioner
 ```
-If you have changed the namespace in which you want to create the provisioner, make sure to update the ClusterRoleBinding and RoleBinding namespaces in the operator.yaml to match your namespace. Also change the namespace by changing the -n argument
+
+If you want to change the namespace in which you create the provisioner, make sure to update the ClusterRoleBinding and RoleBinding namespaces in the operator.yaml to match your namespace. Also change the namespace by changing the -n argument
 
 Once you have installed the operator, you need to create an instance of the Custom Resource to deploy the hostpath provisioner in the hostpath-provisioner namespace.
 
