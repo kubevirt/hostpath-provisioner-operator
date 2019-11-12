@@ -1,5 +1,5 @@
 # hostpath-provisioner-operator
-The kubernetes [operator](https://github.com/operator-framework) for managing [Kubevirt hostpath provisioner](https://github.com/kubevirt/hostpath-provisioner) deployment.
+The Kubernetes [operator](https://github.com/operator-framework) for managing [KubeVirt hostpath provisioner](https://github.com/kubevirt/hostpath-provisioner) deployment.
 Leverages the [operator-sdk](https://github.com/operator-framework/operator-sdk/).
 
 ## How to deploy
@@ -38,11 +38,11 @@ $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisio
 ```
 Once the CustomResource has been created, the operator will deploy the provisioner as a DaemonSet on each node.
 
-## Selinux
+## SELinux
 On each node you will have to give the directory you specify in the CR the appropriate selinux rules by running the following (assuming you pick /var/hpvolumes as your PathConfig path):
 ```bash
 $ sudo chcon -t container_file_t -R /var/hpvolumes
 ```
 
 ## Deployment in OpenShift
-The operator will create the appropriate SecurityContextConstraints for the hostpath provisioner to work and assign the ServiceAccount to that SCC. This operator will only work on OpenShift 4 and later (>= kubernetes 1.12).
+The operator will create the appropriate SecurityContextConstraints for the hostpath provisioner to work and assign the ServiceAccount to that SCC. This operator will only work on OpenShift 4 and later (Kubernetes >= 1.12).
