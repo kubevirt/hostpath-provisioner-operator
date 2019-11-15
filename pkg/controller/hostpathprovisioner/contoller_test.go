@@ -24,7 +24,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -112,62 +111,6 @@ var _ = Describe("Controller reconcile loop", func() {
 		err = cl.Get(context.TODO(), req.NamespacedName, ds)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("pv-volume"))
-	})
-
-	It("Should fix a changed storage class (excluding annotations)", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name: "test-name",
-			},
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the storage class to something not desired.
-		sc := &storagev1.StorageClass{}
-		err := cl.Get(context.TODO(), req.NamespacedName, sc)
-		Expect(err).NotTo(HaveOccurred())
-		recycle := corev1.PersistentVolumeReclaimRecycle
-		sc.ReclaimPolicy = &recycle
-		err = cl.Update(context.TODO(), sc)
-		Expect(err).NotTo(HaveOccurred())
-		sc = &storagev1.StorageClass{}
-		err = cl.Get(context.TODO(), req.NamespacedName, sc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sc.ReclaimPolicy).To(Equal(&recycle))
-
-		// Run the reconcile loop
-		res, err := r.Reconcile(req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		// Check the storage class value, make sure it changed back.
-		sc = &storagev1.StorageClass{}
-		err = cl.Get(context.TODO(), req.NamespacedName, sc)
-		Expect(err).NotTo(HaveOccurred())
-		delete := corev1.PersistentVolumeReclaimDelete
-		Expect(sc.ReclaimPolicy).To(Equal(&delete))
-
-		annotations := sc.GetObjectMeta().GetAnnotations()
-		annotations["storageclass.kubernetes.io/is-default-class"] = "true"
-		sc.GetObjectMeta().SetAnnotations(annotations)
-		err = cl.Update(context.TODO(), sc)
-		Expect(err).NotTo(HaveOccurred())
-		sc = &storagev1.StorageClass{}
-		err = cl.Get(context.TODO(), req.NamespacedName, sc)
-		Expect(err).NotTo(HaveOccurred())
-		if val, ok := sc.GetObjectMeta().GetAnnotations()["storageclass.kubernetes.io/is-default-class"]; ok {
-			Expect(val).To(Equal("true"))
-		}
-		// Run the reconcile loop
-		res, err = r.Reconcile(req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		sc = &storagev1.StorageClass{}
-		err = cl.Get(context.TODO(), req.NamespacedName, sc)
-		Expect(err).NotTo(HaveOccurred())
-		if val, ok := sc.GetObjectMeta().GetAnnotations()["storageclass.kubernetes.io/is-default-class"]; ok {
-			Expect(val).To(Equal("true"))
-		} else {
-			Fail("Annotations changed, default storage class removed")
-		}
 	})
 
 	It("Should fix a changed service account", func() {
@@ -523,7 +466,6 @@ func createDeployedCr(cr *v1alpha1.HostPathProvisioner) (*v1alpha1.HostPathProvi
 	// Verify all the different objects are created.
 	verifyCreateDaemonSet(r.client, req.NamespacedName)
 	verifyCreateServiceAccount(r.client)
-	verifyCreateStorageClass(r.client)
 	verifyCreateClusterRole(r.client)
 	verifyCreateClusterRoleBinding(r.client)
 	verifyCreateSCC(r.client)
@@ -577,16 +519,6 @@ func verifyCreateServiceAccount(cl client.Client) {
 	err := cl.Get(context.TODO(), nn, sa)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(sa.ObjectMeta.Name).To(Equal("test-name-admin"))
-}
-
-func verifyCreateStorageClass(cl client.Client) {
-	sc := &storagev1.StorageClass{}
-	nn := types.NamespacedName{
-		Name: "test-name",
-	}
-	err := cl.Get(context.TODO(), nn, sc)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(sc.Provisioner).To(Equal("kubevirt.io/hostpath-provisioner"))
 }
 
 func verifyCreateClusterRole(cl client.Client) {
