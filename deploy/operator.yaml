@@ -331,4 +331,4 @@ spec:
             - name: OPERATOR_NAME
               value: "hostpath-provisioner-operator"
             - name: PROVISIONER_IMAGE
-              value: "hostpath-provisioner"
+              value: "quay.io/kubevirt/hostpath-provisioner:latest"
