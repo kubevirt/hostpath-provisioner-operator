@@ -110,7 +110,6 @@ rules:
   - list
   - get
   - watch
-  - create
 - apiGroups:
   - storage.k8s.io
   resources:

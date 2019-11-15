@@ -289,11 +289,6 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		reqLogger.Error(err, "Unable to create ServiceAccount")
 		return reconcile.Result{}, err
 	}
-	res, err = r.reconcileStorageClass(cr)
-	if err != nil {
-		reqLogger.Error(err, "Unable to create Storage Class")
-		return reconcile.Result{}, err
-	}
 	res, err = r.reconcileClusterRole(reqLogger, cr)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ClusterRole")
@@ -427,79 +422,5 @@ func createServiceAccountObject(cr *hostpathprovisionerv1alpha1.HostPathProvisio
 			Namespace: namespace,
 			Labels:    labels,
 		},
-	}
-}
-
-func (r *ReconcileHostPathProvisioner) reconcileStorageClass(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) (reconcile.Result, error) {
-	// Define a new Storage Class object
-	desired := createStorageClassObject(cr.Name)
-	desiredMetaObj := &desired.ObjectMeta
-	setLastAppliedConfiguration(desiredMetaObj)
-
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Storage Class already exists
-	found := &storagev1.StorageClass{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating a new Storage Class", "StorageClass.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// Storage Class created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desiredMetaObj, &found.ObjectMeta)
-
-	// create merged StorageClass from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// StorageClass already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(log, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		log.Info("Updating StorageClass", "StorageClass.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{}, nil
-	}
-
-	// Storage Class already exists and matches the desired state - don't requeue
-	log.Info("Skip reconcile: Storage Class already exists", "StorageClass.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-// createStorageClassObject returns a new storage class object.
-func createStorageClassObject(storageClassName string) *storagev1.StorageClass {
-	labels := map[string]string{
-		"k8s-app": storageClassName,
-	}
-	reclaimPolicy := corev1.PersistentVolumeReclaimDelete
-	volumeBindingMode := storagev1.VolumeBindingWaitForFirstConsumer
-	return &storagev1.StorageClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   storageClassName,
-			Labels: labels,
-		},
-		Provisioner:       "kubevirt.io/hostpath-provisioner",
-		ReclaimPolicy:     &reclaimPolicy,
-		VolumeBindingMode: &volumeBindingMode,
 	}
 }
