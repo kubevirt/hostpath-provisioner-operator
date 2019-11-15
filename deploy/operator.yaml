@@ -242,10 +242,6 @@ spec:
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
-            imageRegistry:
-              type: string
-            imageTag:
-              type: string
             pathConfig:
               description: PathConfig contains the information needed to build the
                 path where the PVs will be created.

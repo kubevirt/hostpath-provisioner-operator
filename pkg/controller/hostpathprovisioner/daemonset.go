@@ -18,7 +18,6 @@ package hostpathprovisioner
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"reflect"
 
@@ -133,7 +132,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, 
 					Containers: []corev1.Container{
 						{
 							Name:            cr.Name,
-							Image:           fmt.Sprintf("%s/%s:%s", cr.Spec.ImageRegistry, provisionerImage, cr.Spec.ImageTag),
+							Image:           provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
 							Env: []corev1.EnvVar{
 								{
