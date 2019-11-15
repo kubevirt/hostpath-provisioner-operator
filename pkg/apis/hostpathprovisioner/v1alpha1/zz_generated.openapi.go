@@ -69,18 +69,6 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerSpec(ref co
 				Description: "HostPathProvisionerSpec defines the desired state of HostPathProvisioner",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"imageRegistry": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"imageTag": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

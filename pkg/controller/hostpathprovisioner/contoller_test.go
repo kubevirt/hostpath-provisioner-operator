@@ -67,9 +67,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				Namespace: "test-namespace",
 			},
 			Spec: v1alpha1.HostPathProvisionerSpec{
-				ImageRegistry:   "test-registry",
 				ImagePullPolicy: corev1.PullAlways,
-				ImageTag:        "canary",
 				PathConfig: v1alpha1.PathConfig{
 					Path:            "/tmp/test",
 					UseNamingPrefix: "false",
@@ -503,7 +501,7 @@ func verifyCreateDaemonSet(cl client.Client, nn types.NamespacedName) {
 	// Check Service Account
 	Expect(ds.Spec.Template.Spec.ServiceAccountName).To(Equal("test-name-admin"))
 	// Check container image
-	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("test-registry/hostpath-provisioner:canary"))
+	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("hostpath-provisioner"))
 	// Check use naming prefix
 	Expect(ds.Spec.Template.Spec.Containers[0].Env[0].Value).To(Equal("false"))
 	// Check directory
