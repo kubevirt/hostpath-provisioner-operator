@@ -25,8 +25,6 @@ import (
 // HostPathProvisionerSpec defines the desired state of HostPathProvisioner
 // +k8s:openapi-gen=true
 type HostPathProvisionerSpec struct {
-	ImageRegistry   string            `json:"imageRegistry,omitempty"`
-	ImageTag        string            `json:"imageTag,omitempty"`
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 	PathConfig      PathConfig        `json:"pathConfig" valid:"required"`
 }
