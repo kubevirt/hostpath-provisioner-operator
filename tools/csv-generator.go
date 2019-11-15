@@ -43,9 +43,6 @@ var (
 	logoBase64 = flag.String("logo-base64", "", "")
 	verbosity  = flag.String("verbosity", "1", "")
 
-	dockerRepo = flag.String("docker-repo", "", "")
-	dockerTag  = flag.String("docker-tag", "", "")
-
 	operatorImage    = flag.String("operator-image-name", hostpathprovisioner.OperatorImageDefault, "optional")
 	provisionerImage = flag.String("provisioner-image-name", hostpathprovisioner.ProvisionerImageDefault, "optional")
 	dumpCRDs         = flag.Bool("dump-crds", false, "optional - dumps operator related crd manifests to stdout")
@@ -62,8 +59,6 @@ func main() {
 		IconBase64:         *logoBase64,
 		Verbosity:          *verbosity,
 
-		DockerPrefix:     *dockerRepo,
-		DockerTag:        *dockerTag,
 		OperatorImage:    *operatorImage,
 		ProvisionerImage: *provisionerImage,
 	}
@@ -594,10 +589,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 				"hostpath-provisioner",
 			},
 			Verbs: []string{
-				"create",
-				"delete",
 				"watch",
-				"update",
 			},
 		},
 		{
