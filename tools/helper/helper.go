@@ -17,8 +17,6 @@ limitations under the License.
 package helper
 
 import (
-	"fmt"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -92,10 +90,10 @@ func CreateOperatorDeployment(name, namespace, matchKey, matchValue, serviceAcco
 }
 
 //CreateOperatorContainer creates container spec for the operator pod.
-func CreateOperatorContainer(name, repo, image, tag, verbosity string, pullPolicy corev1.PullPolicy) corev1.Container {
+func CreateOperatorContainer(name, image, verbosity string, pullPolicy corev1.PullPolicy) corev1.Container {
 	return corev1.Container{
 		Name:            name,
-		Image:           fmt.Sprintf("%s/%s:%s", repo, image, tag),
+		Image:           image,
 		ImagePullPolicy: pullPolicy,
 	}
 }
