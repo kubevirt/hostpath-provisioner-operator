@@ -108,7 +108,7 @@ type csvStrategySpec struct {
 
 func createOperatorDeployment(repo, namespace, deployClusterResources, operatorImage, provisionerImage, tag, verbosity, pullPolicy string) *appsv1.Deployment {
 	deployment := helper.CreateOperatorDeployment("hostpath-provisioner-operator", namespace, "name", "hostpath-provisioner-operator", hostpathprovisioner.OperatorServiceAccountName, int32(1))
-	container := helper.CreateOperatorContainer("hostpath-provisioner-operator", repo, operatorImage, tag, verbosity, corev1.PullPolicy(pullPolicy))
+	container := helper.CreateOperatorContainer("hostpath-provisioner-operator", operatorImage, verbosity, corev1.PullPolicy(pullPolicy))
 	container.Env = *helper.CreateOperatorEnvVar(repo, deployClusterResources, operatorImage, provisionerImage, pullPolicy)
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 	return deployment
