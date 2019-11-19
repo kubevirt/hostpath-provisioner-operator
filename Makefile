@@ -24,7 +24,7 @@ operator:
 csv-generator:
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/csv-generator tools/csv-generator.go
 
-image: operator
+image: operator csv-generator
 	hack/version.sh _out; \
 		docker build -t $(DOCKER_REPO)/$(IMAGE):$(TAG) -f Dockerfile .
 
