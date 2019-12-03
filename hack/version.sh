@@ -14,6 +14,6 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-VERSION=${VERSION:-"v0.0.1"}
+VERSION=${TAG:-"v0.0.1"}
 
 echo "$VERSION" > $1/version.txt
