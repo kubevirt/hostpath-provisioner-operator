@@ -568,6 +568,18 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 		},
 		{
 			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"storageclasses",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+		},
+		{
+			APIGroups: []string{
 				"",
 			},
 			Resources: []string{

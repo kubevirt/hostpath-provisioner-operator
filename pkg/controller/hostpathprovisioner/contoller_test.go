@@ -558,6 +558,18 @@ func verifyCreateClusterRole(cl client.Client) {
 		},
 		{
 			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"storageclasses",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+		},
+		{
+			APIGroups: []string{
 				"",
 			},
 			Resources: []string{
