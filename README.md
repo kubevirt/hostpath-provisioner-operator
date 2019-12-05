@@ -17,7 +17,7 @@ If you want to change the namespace in which you create the provisioner, make su
 Once you have installed the operator, you need to create an instance of the Custom Resource to deploy the hostpath provisioner in the hostpath-provisioner namespace.
 
 ### Custom Resource (CR)
-[Example CR](deploy/hostpathprovisioner_cr.yaml) allows you specify the directory you wish to use as the backing directory for the persistent volumes. You can also specify if you wish to use the name of the PersistentVolume as part of the directory that is created by the provisioner. All the values in the spec are required.
+[Example CR](deploy/hostpathprovisioner_cr.yaml) allows you specify the directory you wish to use as the backing directory for the persistent volumes. You can also specify if you wish to use the name of the PersistentVolume as part of the directory that is created by the provisioner. All the values in the spec are required. The location of provisioner container is defined in the [deploy/operator.yaml](operator.yaml) file
 ```yaml
 apiVersion: hostpathprovisioner.kubevirt.io/v1alpha1
 kind: HostPathProvisioner
@@ -25,8 +25,6 @@ metadata:
   name: hostpath-provisioner
 spec:
   imagePullPolicy: IfNotPresent
-  imageRegistry: quay.io/kubevirt/hostpath-provisioner #Registry to get the hostpath provisioner container from
-  imageTag: latest #Tag of the hostpath provisioner container
   pathConfig:
     path: "/var/hpvolumes" #The path of the directory on the node
     useNamingPrefix: "false" #Use the name of the PVC bound to the created PV as part of the directory name.
