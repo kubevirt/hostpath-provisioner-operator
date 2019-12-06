@@ -1,8 +1,8 @@
-# cloud.google.com/go v0.37.2
+# cloud.google.com/go v0.34.0
 cloud.google.com/go/compute/metadata
 # contrib.go.opencensus.io/exporter/ocagent v0.4.12
 contrib.go.opencensus.io/exporter/ocagent
-# github.com/Azure/go-autorest v11.7.0+incompatible
+# github.com/Azure/go-autorest v11.2.8+incompatible
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/adal
 github.com/Azure/go-autorest/autorest/azure
@@ -30,12 +30,12 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
-# github.com/emicklei/go-restful v2.9.5+incompatible
+# github.com/emicklei/go-restful v2.9.3+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/evanphx/json-patch v4.5.0+incompatible
 github.com/evanphx/json-patch
-# github.com/ghodss/yaml v1.0.0
+# github.com/ghodss/yaml v1.0.1-0.20180820084758-c7ce16629ff4
 github.com/ghodss/yaml
 # github.com/go-logr/logr v0.1.0
 github.com/go-logr/logr
@@ -67,9 +67,15 @@ github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
+# github.com/google/go-cmp v0.3.0
+github.com/google/go-cmp/cmp
+github.com/google/go-cmp/cmp/internal/diff
+github.com/google/go-cmp/cmp/internal/flags
+github.com/google/go-cmp/cmp/internal/function
+github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.0.0
 github.com/google/gofuzz
-# github.com/google/uuid v1.1.1
+# github.com/google/uuid v1.0.0
 github.com/google/uuid
 # github.com/googleapis/gnostic v0.3.1
 github.com/googleapis/gnostic/OpenAPIv2
@@ -83,7 +89,7 @@ github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
 github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/pagination
-# github.com/grpc-ecosystem/grpc-gateway v1.8.5
+# github.com/grpc-ecosystem/grpc-gateway v1.9.0
 github.com/grpc-ecosystem/grpc-gateway/internal
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
@@ -146,11 +152,11 @@ github.com/onsi/gomega/types
 github.com/openshift/api/security/v1
 # github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 github.com/openshift/custom-resource-status/conditions/v1
-# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190626212234-73c00f855607
+# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190605231540-b8a4faf68e36
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
 github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version
-# github.com/operator-framework/operator-sdk v0.11.1-0.20191014155558-888dde512025 => github.com/operator-framework/operator-sdk v0.11.0
+# github.com/operator-framework/operator-sdk v0.12.1-0.20191112211508-82fc57de5e5b
 github.com/operator-framework/operator-sdk/pkg/k8sutil
 github.com/operator-framework/operator-sdk/pkg/leader
 github.com/operator-framework/operator-sdk/pkg/log/zap
@@ -207,7 +213,7 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
 # golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+# golang.org/x/net v0.0.0-20190812203447-cdfb69ac37fc
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -225,9 +231,9 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+# golang.org/x/sync v0.0.0-20190423024810-112230192c58
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
+# golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
@@ -272,11 +278,11 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20190404172233-64821d5d2107
+# google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19
 google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/grpc v1.19.1
+# google.golang.org/grpc v1.21.0
 google.golang.org/grpc
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/base
@@ -291,6 +297,7 @@ google.golang.org/grpc/encoding/proto
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
+google.golang.org/grpc/internal/balancerload
 google.golang.org/grpc/internal/binarylog
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/envconfig
@@ -316,7 +323,7 @@ gopkg.in/inf.v0
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# k8s.io/api v0.0.0-20190918155943-95b840bb6a1f => k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
+# k8s.io/api v0.0.0 => k8s.io/api v0.0.0-20190918195907-bd6ac527cfd2
 k8s.io/api/admission/v1beta1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
@@ -354,10 +361,10 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783 => k8s.io/apiextensions-apiserver v0.0.0-20190409022649-727a075fdec8
+# k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.0.0-20190918201827-3de75813f604
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
-# k8s.io/apimachinery v0.0.0-20190913080033-27d36303b655 => k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d
+# k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.0.0-20190817020851-f2f3a405f61d
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
 k8s.io/apimachinery/pkg/api/resource
@@ -402,7 +409,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible => k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
+# k8s.io/client-go v11.0.0+incompatible => k8s.io/client-go v0.0.0-20190918200256-06eb1244587a
 k8s.io/client-go/discovery
 k8s.io/client-go/dynamic
 k8s.io/client-go/kubernetes
@@ -482,20 +489,21 @@ k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
 # k8s.io/klog v0.3.3
 k8s.io/klog
-# k8s.io/kube-openapi v0.0.0-20190709113604-33be087ad058
+# k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
-# k8s.io/utils v0.0.0-20190801114015-581e00157fb1
+# k8s.io/utils v0.0.0-20190506122338-8fab8cb257d5
 k8s.io/utils/buffer
 k8s.io/utils/integer
+k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/client-go v0.22.0
+# kubevirt.io/client-go v0.24.0
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/precond
-# kubevirt.io/containerized-data-importer v1.10.9
+# kubevirt.io/containerized-data-importer v1.10.6
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
-# sigs.k8s.io/controller-runtime v0.4.0
+# sigs.k8s.io/controller-runtime v0.3.0
 sigs.k8s.io/controller-runtime/pkg/cache
 sigs.k8s.io/controller-runtime/pkg/cache/internal
 sigs.k8s.io/controller-runtime/pkg/client
@@ -506,7 +514,6 @@ sigs.k8s.io/controller-runtime/pkg/controller
 sigs.k8s.io/controller-runtime/pkg/controller/controllerutil
 sigs.k8s.io/controller-runtime/pkg/event
 sigs.k8s.io/controller-runtime/pkg/handler
-sigs.k8s.io/controller-runtime/pkg/healthz
 sigs.k8s.io/controller-runtime/pkg/internal/controller
 sigs.k8s.io/controller-runtime/pkg/internal/controller/metrics
 sigs.k8s.io/controller-runtime/pkg/internal/log

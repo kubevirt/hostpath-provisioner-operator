@@ -1738,11 +1738,6 @@ func schema_kubevirtio_client_go_api_v1_KubeVirt(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtSpec"),
@@ -1754,10 +1749,11 @@ func schema_kubevirtio_client_go_api_v1_KubeVirt(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtStatus"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtStatus"},
 	}
 }
 
@@ -2438,11 +2434,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachine(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec contains the specification of VirtualMachineInstance created",
@@ -2456,10 +2447,11 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachine(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineStatus"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineStatus"},
 	}
 }
 
@@ -2532,11 +2524,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstance(ref common.Refere
 							Format:      "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -2550,10 +2537,11 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstance(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceStatus"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceStatus"},
 	}
 }
 
@@ -2671,11 +2659,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigration(ref comm
 							Format:      "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationSpec"),
@@ -2687,10 +2670,11 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigration(ref comm
 						},
 					},
 				},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationStatus"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationStatus"},
 	}
 }
 
@@ -2912,11 +2896,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstancePreset(ref common.
 							Format:      "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -2927,7 +2906,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstancePreset(ref common.
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstancePresetSpec"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstancePresetSpec"},
 	}
 }
 
@@ -3023,11 +3002,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceReplicaSet(ref com
 							Format:      "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
@@ -3041,10 +3015,11 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceReplicaSet(ref com
 						},
 					},
 				},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetStatus"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetStatus"},
 	}
 }
 
@@ -3414,6 +3389,12 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							},
 						},
 					},
+					"guestOSInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Guest OS Information",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo"),
+						},
+					},
 					"migrationState": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the status of a live migration",
@@ -3438,7 +3419,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface"},
 	}
 }
 
@@ -3493,8 +3474,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineList(ref common.ReferenceC
 					},
 					"items": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Items is a list of VirtualMachines",
-							Type:        []string{"array"},
+							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -3505,7 +3485,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"metadata", "items"},
+				Required: []string{"items"},
 			},
 		},
 		Dependencies: []string{
