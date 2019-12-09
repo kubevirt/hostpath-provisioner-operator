@@ -137,11 +137,14 @@ type ReconcileHostPathProvisioner struct {
 func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling HostPathProvisioner")
-	versionString := version.VersionStringFunc()
+	versionString, err := version.VersionStringFunc()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Fetch the HostPathProvisioner instance
 	cr := &hostpathprovisionerv1alpha1.HostPathProvisioner{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
+	err = r.client.Get(context.TODO(), request.NamespacedName, cr)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -190,9 +193,9 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	cr.Status.OperatorVersion = *versionString
-	cr.Status.TargetVersion = *versionString
-	canUpgrade, err := canUpgrade(cr.Status.ObservedVersion, *versionString)
+	cr.Status.OperatorVersion = versionString
+	cr.Status.TargetVersion = versionString
+	canUpgrade, err := canUpgrade(cr.Status.ObservedVersion, versionString)
 	if err != nil {
 		// Downgrading not supported
 		return reconcile.Result{}, err
@@ -228,7 +231,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 			return reconcile.Result{}, err
 		}
 		if !degraded {
-			cr.Status.ObservedVersion = *versionString
+			cr.Status.ObservedVersion = versionString
 		}
 		reqLogger.Info("Finished main reconcile loop")
 		err = r.client.Update(context.TODO(), cr)
