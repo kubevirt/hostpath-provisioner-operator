@@ -56,9 +56,8 @@ var _ = Describe("Controller reconcile loop", func() {
 		watchNamespaceFunc = func() (string, error) {
 			return "test-namespace", nil
 		}
-		version.VersionStringFunc = func() *string {
-			value := versionString
-			return &value
+		version.VersionStringFunc = func() (string, error) {
+			return versionString, nil
 		}
 
 		cr = &v1alpha1.HostPathProvisioner{
@@ -311,9 +310,8 @@ var _ = Describe("Controller reconcile loop", func() {
 
 	It("Should fail if trying to downgrade", func() {
 		cr, r, cl = createDeployedCr(cr)
-		version.VersionStringFunc = func() *string {
-			value := "1.0.0"
-			return &value
+		version.VersionStringFunc = func() (string, error) {
+			return "1.0.0", nil
 		}
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -335,9 +333,8 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		cr, r, cl = createDeployedCr(cr)
-		version.VersionStringFunc = func() *string {
-			value := "1.0.2"
-			return &value
+		version.VersionStringFunc = func() (string, error) {
+			return "1.0.2", nil
 		}
 		res, err := r.Reconcile(req)
 		Expect(err).NotTo(HaveOccurred())
@@ -355,9 +352,8 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
 
 		// Upgrade again, but make daemon set unavailable
-		version.VersionStringFunc = func() *string {
-			value := "1.0.3"
-			return &value
+		version.VersionStringFunc = func() (string, error) {
+			return "1.0.3", nil
 		}
 		ds := &appsv1.DaemonSet{}
 		err = cl.Get(context.TODO(), req.NamespacedName, ds)
