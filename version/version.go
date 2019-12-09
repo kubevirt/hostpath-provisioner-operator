@@ -25,11 +25,17 @@ import (
 )
 
 //VersionStringFunc is the function that feeds the version string into GetVersion
-var VersionStringFunc = getStringFromVersionTxt
+var (
+	VersionStringFunc = getStringFromVersionTxt
+)
 
 //GetVersion reads the version.txt and returns the version as a semver.Version.
 func GetVersion() (*semver.Version, error) {
-	return GetVersionFromString(*VersionStringFunc())
+	versionString, err := VersionStringFunc()
+	if err != nil {
+		return nil, err
+	}
+	return GetVersionFromString(versionString)
 }
 
 //GetVersionFromString takes the passed in string and attempts to make semver.Version out of it.
@@ -39,19 +45,18 @@ func GetVersionFromString(versionString string) (*semver.Version, error) {
 	return &version, err
 }
 
-func getStringFromVersionTxt() *string {
+func getStringFromVersionTxt() (string, error) {
 	return GetStringFromFile("version.txt")
 }
 
 // GetStringFromFile returns the first line of the passed in file.
-func GetStringFromFile(fileName string) *string {
+func GetStringFromFile(fileName string) (string, error) {
 	file, err := os.OpenFile(fileName, os.O_RDONLY, os.ModeExclusive)
 	if err != nil {
-		return nil
+		return "", err
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	scanner.Scan()
-	result := scanner.Text()
-	return &result
+	return scanner.Text(), nil
 }

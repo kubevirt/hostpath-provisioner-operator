@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("Version", func() {
-	var orgFunc func() *string
+	var orgFunc func() (string, error)
 
 	BeforeEach(func() {
 		orgFunc = VersionStringFunc
@@ -35,18 +35,16 @@ var _ = Describe("Version", func() {
 	})
 
 	It("should return error on invalid string", func() {
-		VersionStringFunc = func() *string {
-			value := "latest"
-			return &value
+		VersionStringFunc = func() (string, error) {
+			return "latest", nil
 		}
 		_, err := GetVersion()
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return 0.0.1 on v0.0.1", func() {
-		VersionStringFunc = func() *string {
-			value := "v0.0.1"
-			return &value
+		VersionStringFunc = func() (string, error) {
+			return "v0.0.1", nil
 		}
 		result, err := GetVersion()
 		Expect(err).ToNot(HaveOccurred())
@@ -54,9 +52,8 @@ var _ = Describe("Version", func() {
 	})
 
 	It("should return 1.0.1 on 1.0.1", func() {
-		VersionStringFunc = func() *string {
-			value := "1.0.1"
-			return &value
+		VersionStringFunc = func() (string, error) {
+			return "1.0.1", nil
 		}
 		result, err := GetVersion()
 		Expect(err).ToNot(HaveOccurred())
@@ -66,8 +63,9 @@ var _ = Describe("Version", func() {
 
 var _ = Describe("GetStringFromFile", func() {
 	It("should return nil on invalid file", func() {
-		result := GetStringFromFile("invalid")
-		Expect(result).To(BeNil())
+		result, err := GetStringFromFile("invalid")
+		Expect(err).To(HaveOccurred())
+		Expect(result).To(Equal(""))
 	})
 
 	It("Should return valid string", func() {
@@ -75,7 +73,8 @@ var _ = Describe("GetStringFromFile", func() {
 		Expect(err).ToNot(HaveOccurred())
 		testFile := filepath.Join(tmpDir, "version.txt")
 		ioutil.WriteFile(testFile, []byte("v1.1.1"), 0644)
-		result := GetStringFromFile(testFile)
-		Expect(*result).To(Equal("v1.1.1"))
+		result, err := GetStringFromFile(testFile)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal("v1.1.1"))
 	})
 })
