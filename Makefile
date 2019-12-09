@@ -37,6 +37,9 @@ generate:
 	$(OPERATOR_SDK) generate openapi
 
 clean:
+	GO111MODULE=on; \
+	go mod tidy; \
+	go mod vendor; \
 	rm -rf _out
 
 build: clean operator csv-generator
