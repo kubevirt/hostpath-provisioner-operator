@@ -216,6 +216,7 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 				Verbs: []string{
 					"get",
 					"list",
+					"watch",
 				},
 			},
 			{
