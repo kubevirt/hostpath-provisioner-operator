@@ -311,6 +311,9 @@ spec:
       labels:
         name: hostpath-provisioner-operator
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
       serviceAccountName: hostpath-provisioner-operator
       containers:
         - name: hostpath-provisioner-operator
