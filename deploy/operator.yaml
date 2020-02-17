@@ -313,7 +313,7 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
+        runAsUser: 1000590000
       serviceAccountName: hostpath-provisioner-operator
       containers:
         - name: hostpath-provisioner-operator
