@@ -46,7 +46,7 @@ func WithOperatorLabels(labels map[string]string) map[string]string {
 //CreateOperatorDeploymentSpec creates deployment
 func CreateOperatorDeploymentSpec(name, namespace, matchKey, matchValue, serviceAccount string, numReplicas int32) *appsv1.DeploymentSpec {
 	matchMap := map[string]string{matchKey: matchValue}
-	user := int64(1000)
+	user := int64(1000590000)
 	spec := &appsv1.DeploymentSpec{
 		Replicas: &numReplicas,
 		Selector: &metav1.LabelSelector{
