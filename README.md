@@ -37,7 +37,7 @@ $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisio
 Once the CustomResource has been created, the operator will deploy the provisioner as a DaemonSet on each node.
 
 ### Storage Class
-The hostpath provisioner supports two volumeBindingModes, Immediate and WaitForFirstConsumer. In general WaitForFirstConsumer is preferred however this requires Kubernetes >= 1.12 and if one is running an older kubernetes that volumeBindingMode will not work. For this reason the operator will not create the StorageClass for you and you will have to do it yourself. Example storageclass yamls are available in [deploy](deploy) directory in this repository.
+The hostpath provisioner supports two volumeBindingModes, Immediate and WaitForFirstConsumer. In general WaitForFirstConsumer is preferred however this requires Kubernetes >= 1.12 and if one is running an older kubernetes that volumeBindingMode will not work. Immediate binding mode is now *deprecated* and may be removed in the future. For this reason the operator will not create the StorageClass for you and you will have to do it yourself. Example storageclass yamls are available in [deploy](deploy) directory in this repository.
 
 ## SELinux
 On each node you will have to give the directory you specify in the CR the appropriate selinux rules by running the following (assuming you pick /var/hpvolumes as your PathConfig path):
