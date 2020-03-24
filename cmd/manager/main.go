@@ -25,9 +25,6 @@ import (
 
 	secv1 "github.com/openshift/api/security/v1"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller"
 

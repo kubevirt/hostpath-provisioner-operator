@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 
@@ -266,6 +267,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		r := &ReconcileHostPathProvisioner{
 			client: cl,
 			scheme: s,
+			Log:    logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
 		}
 
 		req := reconcile.Request{
@@ -293,6 +295,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		r := &ReconcileHostPathProvisioner{
 			client: cl,
 			scheme: s,
+			Log:    logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
 		}
 
 		// Mock request to simulate Reconcile() being called on an event for a
@@ -435,6 +438,7 @@ func createDeployedCr(cr *v1alpha1.HostPathProvisioner) (*v1alpha1.HostPathProvi
 	r := &ReconcileHostPathProvisioner{
 		client: cl,
 		scheme: s,
+		Log:    logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
 	}
 
 	// Mock request to simulate Reconcile() being called on an event for a

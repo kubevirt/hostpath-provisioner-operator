@@ -56,7 +56,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileHostPathProvisioner{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileHostPathProvisioner{
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		Log:    log,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -104,16 +108,19 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
-	})
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			log.Info("Not watching SecurityContextConstraints")
-			return nil
+
+	if used, _ := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used == true {
+		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
+		})
+		if err != nil {
+			if meta.IsNoMatchError(err) {
+				log.Info("Not watching SecurityContextConstraints")
+				return nil
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil
@@ -128,6 +135,7 @@ type ReconcileHostPathProvisioner struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 // Reconcile reads that state of the cluster for a HostPathProvisioner object and makes changes based on the state read
@@ -135,7 +143,7 @@ type ReconcileHostPathProvisioner struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling HostPathProvisioner")
 	versionString, err := version.VersionStringFunc()
 	if err != nil {
@@ -159,13 +167,23 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	isMarkedToBeDeleted := cr.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
 		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", cr.Name)
-		err := r.deleteSCC(cr)
-		if err != nil {
+		if err := r.deleteSCC(cr); err != nil {
 			reqLogger.Error(err, "Unable to delete SecurityContextConstraints")
 			// TODO, should we return and in essence keep retrying, and thus never be able to delete the CR if deleting the SCC fails, or
 			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
 			return reconcile.Result{}, err
 		}
+		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", cr.Name)
+		if err := r.deleteClusterRoleBindingObject(cr); err != nil {
+			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Deleting ClusterRole", "ClusterRole", cr.Name)
+		if err := r.deleteClusterRoleObject(cr); err != nil {
+			reqLogger.Error(err, "Unable to delete ClusterRole")
+			return reconcile.Result{}, err
+		}
+
 		cr.SetFinalizers(nil)
 
 		// Update CR
@@ -178,7 +196,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	}
 
 	// Add finalizer for this CR
-	if err := r.addSCCFinalizer(reqLogger, cr); err != nil {
+	if err := r.addFinalizer(reqLogger, cr); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -417,4 +435,19 @@ func createServiceAccountObject(cr *hostpathprovisionerv1alpha1.HostPathProvisio
 			Labels:    labels,
 		},
 	}
+}
+
+func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+	if len(cr.GetFinalizers()) < 1 && cr.GetDeletionTimestamp() == nil {
+		reqLogger.Info("Adding deletion Finalizer")
+		cr.SetFinalizers([]string{"finalizer.delete.hostpath-provisioner"})
+
+		// Update CR
+		err := r.client.Update(context.TODO(), cr)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update cr with finalizer")
+			return err
+		}
+	}
+	return nil
 }

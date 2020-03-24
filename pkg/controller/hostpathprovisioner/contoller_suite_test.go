@@ -20,7 +20,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+var _ = BeforeSuite(func() {
+	logf.SetLogger(logf.ZapLoggerTo(GinkgoWriter, true))
+})
 
 func TestHostpathProvisioners(t *testing.T) {
 	RegisterFailHandler(Fail)
