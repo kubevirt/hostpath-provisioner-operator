@@ -7,28 +7,21 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.2
-	github.com/keegancsmith/rpc v1.1.0 // indirect
-	github.com/mgechev/revive v0.0.0-20191017201419-88015ccf8e97 // indirect
-	github.com/onsi/ginkgo v1.8.0
-	github.com/onsi/gomega v1.5.1-0.20190515112211-6a48b4839f85
+	github.com/onsi/ginkgo v1.11.0
+	github.com/onsi/gomega v1.8.1
 	github.com/openshift/api v3.9.1-0.20190424152011-77b8897ec79a+incompatible
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190626212234-73c00f855607
 	github.com/operator-framework/operator-sdk v0.11.1-0.20191014155558-888dde512025
 	github.com/rogpeppe/godef v1.1.1 // indirect
 	github.com/spf13/pflag v1.0.3
-	github.com/stamblerre/gocode v0.0.0-20190327203809-810592086997 // indirect
-	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
-	golang.org/x/tools v0.0.0-20191018212557-ed542cd5b28a // indirect
-	k8s.io/api v0.0.0-20190918155943-95b840bb6a1f
-	k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
-	k8s.io/apimachinery v0.0.0-20190913080033-27d36303b655
+	k8s.io/api v0.17.2
+	k8s.io/apiextensions-apiserver v0.17.2
+	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
-	k8s.io/kube-openapi v0.0.0-20190709113604-33be087ad058
-	kubevirt.io/client-go v0.22.0
-	kubevirt.io/containerized-data-importer v1.10.9 // indirect
-	kubevirt.io/qe-tools v0.1.3 // indirect
-	sigs.k8s.io/controller-runtime v0.2.0
+	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
+	kubevirt.io/client-go v0.24.0
+	sigs.k8s.io/controller-runtime v0.3.0
 )
 
 // Pinned to kubernetes-1.14.1
