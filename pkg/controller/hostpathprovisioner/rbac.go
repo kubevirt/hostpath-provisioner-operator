@@ -21,7 +21,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -36,11 +35,6 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	desired := createClusterRoleBindingObject(instance, namespace)
 	desiredMetaObj := &desired.ObjectMeta
 	setLastAppliedConfiguration(desiredMetaObj)
-
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
 
 	// Check if this ClusterRoleBinding already exists
 	found := &rbacv1.ClusterRoleBinding{}
@@ -111,16 +105,26 @@ func createClusterRoleBindingObject(cr *hostpathprovisionerv1alpha1.HostPathProv
 	}
 }
 
+func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+	// Check if this ClusterRoleBinding still exists.
+	crb := &rbacv1.ClusterRoleBinding{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, crb)
+	if err != nil && errors.IsNotFound(err) {
+		// Already gone, return
+		return nil
+	} else if err != nil {
+		return err
+	}
+	// Delete ClusterRoleBinding
+	return r.client.Delete(context.TODO(), crb)
+
+}
+
 func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, instance *hostpathprovisionerv1alpha1.HostPathProvisioner) (reconcile.Result, error) {
 	// Define a new ClusterRole object
 	desired := createClusterRoleObject(instance.Name)
 	desiredMetaObj := &desired.ObjectMeta
 	setLastAppliedConfiguration(desiredMetaObj)
-
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
 
 	// Check if this ClusterRole already exists
 	found := &rbacv1.ClusterRole{}
@@ -247,4 +251,19 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 			},
 		},
 	}
+}
+
+func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+	// Check if this ClusterRole still exists.
+	role := &rbacv1.ClusterRole{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, role)
+	if err != nil && errors.IsNotFound(err) {
+		// Already gone, return
+		return nil
+	} else if err != nil {
+		return err
+	}
+	// Delete ClusterRoleBinding
+	return r.client.Delete(context.TODO(), role)
+
 }

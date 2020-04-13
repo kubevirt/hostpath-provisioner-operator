@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -43,11 +42,6 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	desired := createSecurityContextConstraintsObject(cr, namespace)
 	desiredMetaObj := &desired.ObjectMeta
 	setLastAppliedConfiguration(desiredMetaObj)
-
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
 
 	// Check if this SecurityContextConstraints already exists
 	found := &secv1.SecurityContextConstraints{}
@@ -107,24 +101,6 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(cr *hostpathprovisionerv1alpha1
 	}
 	// Delete SCC
 	return r.client.Delete(context.TODO(), scc)
-}
-
-func (r *ReconcileHostPathProvisioner) addSCCFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
-	if used, err := r.checkSCCUsed(); used == false {
-		return err
-	}
-	if len(cr.GetFinalizers()) < 1 && cr.GetDeletionTimestamp() == nil {
-		reqLogger.Info("Adding SCC Finalizer")
-		cr.SetFinalizers([]string{"finalizer.scc.hostpath-provisioner"})
-
-		// Update CR
-		err := r.client.Update(context.TODO(), cr)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update cr with finalizer")
-			return err
-		}
-	}
-	return nil
 }
 
 func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {

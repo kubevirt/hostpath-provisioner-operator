@@ -41,7 +41,7 @@ func (in *HostPathProvisioner) DeepCopyObject() runtime.Object {
 func (in *HostPathProvisionerList) DeepCopyInto(out *HostPathProvisionerList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]HostPathProvisioner, len(*in))
