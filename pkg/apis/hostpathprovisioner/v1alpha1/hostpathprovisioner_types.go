@@ -26,16 +26,21 @@ import (
 // +k8s:openapi-gen=true
 type HostPathProvisionerSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
-	PathConfig      PathConfig        `json:"pathConfig" valid:"required"`
+	// PathConfig describes the location and layout of PV storage on nodes
+	PathConfig PathConfig `json:"pathConfig" valid:"required"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
 // +k8s:openapi-gen=true
 type HostPathProvisionerStatus struct {
-	Conditions      []conditions.Condition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion string                 `json:"operatorVersion,omitempty" optional:"true"`
-	TargetVersion   string                 `json:"targetVersion,omitempty" optional:"true"`
-	ObservedVersion string                 `json:"observedVersion,omitempty" optional:"true"`
+	// Conditions contains the current conditions observed by the operator
+	Conditions []conditions.Condition `json:"conditions,omitempty" optional:"true"`
+	// OperatorVersion The version of the HostPathProvisioner Operator
+	OperatorVersion string `json:"operatorVersion,omitempty" optional:"true"`
+	// TargetVersion The targeted version of the HostPathProvisioner deployment
+	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
+	// ObservedVersion The observed version of the HostPathProvisioner deployment
+	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -63,7 +68,9 @@ type HostPathProvisionerList struct {
 // PathConfig contains the information needed to build the path where the PVs will be created.
 // +k8s:openapi-gen=true
 type PathConfig struct {
-	Path            string `json:"path,omitempty" valid:"required"`
+	// Path The path the directories for the PVs are created under
+	Path string `json:"path,omitempty" valid:"required"`
+	// UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created
 	UseNamingPrefix string `json:"useNamingPrefix,omitempty"`
 }
 

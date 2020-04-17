@@ -71,13 +71,15 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerSpec(ref co
 				Properties: map[string]spec.Schema{
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "ImagePullPolicy is the container pull policy for the host path provisioner containers",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"pathConfig": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1.PathConfig"),
+							Description: "PathConfig is the path configuration of the path used to create PVs",
+							Ref:         ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1.PathConfig"),
 						},
 					},
 				},
@@ -98,7 +100,8 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerStatus(ref 
 				Properties: map[string]spec.Schema{
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Conditions contains the current conditions observed by the operator",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -110,20 +113,23 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerStatus(ref 
 					},
 					"operatorVersion": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "OperatorVersion The version of the operator",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"targetVersion": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "TargetVersion The desired version of the hostpath provisioner",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"observedVersion": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "ObservedVersion The observed version fo the hostpath provisioner",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -143,14 +149,16 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_PathConfig(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"path": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Path The path the directories for the PVs are created under",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"useNamingPrefix": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
