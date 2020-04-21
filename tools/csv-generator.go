@@ -269,25 +269,25 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 						SpecDescriptors: []csvv1.SpecDescriptor{
 
 							{
-								Description:  "The ImageRegistry to use for the HostPathProvisioner components.",
+								Description:  "The ImageRegistry to use for the HostPathProvisioner components",
 								DisplayName:  "ImageRegistry",
 								Path:         "imageRegistry",
 								XDescriptors: []string{"urn:alm:descriptor:text"},
 							},
 							{
-								Description:  "The ImageTag to use for the HostPathProvisioner components.",
+								Description:  "The ImageTag to use for the HostPathProvisioner components",
 								DisplayName:  "ImageTag",
 								Path:         "imageTag",
 								XDescriptors: []string{"urn:alm:descriptor:text"},
 							},
 							{
-								Description:  "The ImagePullPolicy to use for the HostPathProvisioner components.",
+								Description:  "The ImagePullPolicy to use for the HostPathProvisioner components",
 								DisplayName:  "ImagePullPolicy",
 								Path:         "imagePullPolicy",
 								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes:imagePullPolicy"},
 							},
 							{
-								Description:  "The PathConfig object allows you to specify where and how you want the directories created that will back the PVs.",
+								Description:  "describes the location and layout of PV storage on nodes",
 								DisplayName:  "PathConfig",
 								Path:         "pathConfig",
 								XDescriptors: []string{"urn:alm:descriptor:text"},
@@ -301,13 +301,13 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes.conditions"},
 							},
 							{
-								Description:  "The observed version of the HostPathProvisioner deployment.",
+								Description:  "The observed version of the HostPathProvisioner deployment",
 								DisplayName:  "Observed HostPathProvisioner Version",
 								Path:         "observedVersion",
 								XDescriptors: []string{"urn:alm:descriptor:text"},
 							},
 							{
-								Description:  "The targeted version of the HostPathProvisioner deployment.",
+								Description:  "The targeted version of the HostPathProvisioner deployment",
 								DisplayName:  "Target HostPathProvisioner Version",
 								Path:         "targetVersion",
 								XDescriptors: []string{"urn:alm:descriptor:text"},
