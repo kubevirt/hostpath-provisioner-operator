@@ -233,12 +233,12 @@ roleRef:
             properties:
               imagePullPolicy:
                 type: string
-              imageTag:
-                type: string
                 enum:
                 - Always
                 - IfNotPresent
                 - Never
+              imageTag:
+                type: string
               imageRegistry:
                 type: string
               pathConfig:
