@@ -261,11 +261,9 @@ roleRef:
             description: HostPathProvisionerStatus defines the observed state of HostPathProvisioner
             properties:
               conditions:
-                description: Conditions contains the current conditions observed by
-                  the operator
+                description: Conditions contains the current conditions observed by the operator
                 items:
-                  description: Condition represents the state of the operator's reconciliation
-                    functionality.
+                  description: Condition represents the state of the operator's reconciliation functionality.
                   properties:
                     lastHeartbeatTime:
                       format: date-time
@@ -280,8 +278,7 @@ roleRef:
                     status:
                       type: string
                     type:
-                      description: ConditionType is the state of the operator's reconciliation
-                        functionality.
+                      description: ConditionType is the state of the operator's reconciliation functionality.
                       type: string
                   required:
                   - status
@@ -304,7 +301,7 @@ roleRef:
     - name: v1alpha1
       served: true
       storage: true
-  ---
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
