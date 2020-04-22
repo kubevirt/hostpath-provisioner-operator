@@ -220,11 +220,18 @@ roleRef:
     scope: Cluster
     validation:
       openAPIV3Schema:
-        description: Represents a HostPathProvisioner deployment
+        description: HostPathProvisioner is the Schema for the hostpathprovisioners
+          API
         properties:
           apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -232,24 +239,21 @@ roleRef:
             description: HostPathProvisionerSpec defines the desired state of HostPathProvisioner
             properties:
               imagePullPolicy:
-                type: string
-                enum:
-                - Always
-                - IfNotPresent
-                - Never
-              imageTag:
-                type: string
-              imageRegistry:
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
                 type: string
               pathConfig:
-                description: describes the location and layout of PV storage on nodes
+                description: PathConfig describes the location and layout of PV storage
+                  on nodes
                 properties:
                   path:
-                    description: The provisioner will store PVs at this location on each node
+                    description: Path The path the directories for the PVs are created
+                      under
                     type: string
                   useNamingPrefix:
-                    description: Indicates whether the name of the requesting PVC is included in the directory name when dynamically provisioning a PV
-                    type: boolean
+                    description: UseNamingPrefix Use the name of the PVC requesting
+                      the PV as part of the directory created
+                    type: string
                 type: object
             required:
             - pathConfig
@@ -258,9 +262,11 @@ roleRef:
             description: HostPathProvisionerStatus defines the observed state of HostPathProvisioner
             properties:
               conditions:
-                description: Conditions contains the current conditions observed by the operator
+                description: Conditions contains the current conditions observed by
+                  the operator
                 items:
-                  description: Condition represents the state of the operator's reconciliation functionality.
+                  description: Condition represents the state of the operator's reconciliation
+                    functionality.
                   properties:
                     lastHeartbeatTime:
                       format: date-time
@@ -275,7 +281,8 @@ roleRef:
                     status:
                       type: string
                     type:
-                      description: ConditionType is the state of the operator's reconciliation functionality.
+                      description: ConditionType is the state of the operator's reconciliation
+                        functionality.
                       type: string
                   required:
                   - status
@@ -283,13 +290,16 @@ roleRef:
                   type: object
                 type: array
               observedVersion:
-                description: The observed version of the HostPathProvisioner deployment
+                description: ObservedVersion The observed version of the HostPathProvisioner
+                  deployment
                 type: string
               operatorVersion:
-                description: The version of the HostPathProvisioner Operator
+                description: OperatorVersion The version of the HostPathProvisioner
+                  Operator
                 type: string
               targetVersion:
-                description: The targeted version of the HostPathProvisioner deployment
+                description: TargetVersion The targeted version of the HostPathProvisioner
+                  deployment
                 type: string
             type: object
         type: object

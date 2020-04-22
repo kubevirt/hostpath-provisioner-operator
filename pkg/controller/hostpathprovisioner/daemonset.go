@@ -20,7 +20,6 @@ import (
 	"context"
 	"os"
 	"reflect"
-	"strconv"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -138,7 +137,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, 
 							Env: []corev1.EnvVar{
 								{
 									Name:  "USE_NAMING_PREFIX",
-									Value: strconv.FormatBool(cr.Spec.PathConfig.UseNamingPrefix),
+									Value: cr.Spec.PathConfig.UseNamingPrefix,
 								},
 								{
 									Name: "NODE_NAME",
