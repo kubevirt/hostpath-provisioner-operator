@@ -206,15 +206,7 @@ func CreateCRDDef() *extv1beta1.CustomResourceDefinition {
 										},
 										"useNamingPrefix": {
 											Description: "Indicates whether the name of the requesting PVC is included in the directory name when dynamically provisioning a PV",
-											Type:        "string",
-											Enum: []extv1beta1.JSON{
-												{
-													Raw: []byte(`"true"`),
-												},
-												{
-													Raw: []byte(`"false"`),
-												},
-											},
+											Type:        "boolean",
 										},
 									},
 									Type: "object",
