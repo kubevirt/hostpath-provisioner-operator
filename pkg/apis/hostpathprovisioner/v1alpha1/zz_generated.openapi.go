@@ -27,14 +27,14 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisioner(ref common
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"apiVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -71,14 +71,13 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerSpec(ref co
 				Properties: map[string]spec.Schema{
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ImagePullPolicy is the container pull policy for the host path provisioner containers",
-							Type:        []string{"string"},
-							Format:      "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"pathConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PathConfig is the path configuration of the path used to create PVs",
+							Description: "PathConfig describes the location and layout of PV storage on nodes",
 							Ref:         ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1.PathConfig"),
 						},
 					},
@@ -113,21 +112,21 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerStatus(ref 
 					},
 					"operatorVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OperatorVersion The version of the operator",
+							Description: "OperatorVersion The version of the HostPathProvisioner Operator",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"targetVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TargetVersion The desired version of the hostpath provisioner",
+							Description: "TargetVersion The targeted version of the HostPathProvisioner deployment",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"observedVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ObservedVersion The observed version fo the hostpath provisioner",
+							Description: "ObservedVersion The observed version of the HostPathProvisioner deployment",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -157,7 +156,7 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_PathConfig(ref common.Referenc
 					"useNamingPrefix": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created",
-							Type:        []string{"string"},
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
