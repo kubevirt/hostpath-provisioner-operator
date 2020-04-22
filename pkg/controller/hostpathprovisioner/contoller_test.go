@@ -70,7 +70,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				ImagePullPolicy: corev1.PullAlways,
 				PathConfig: v1alpha1.PathConfig{
 					Path:            "/tmp/test",
-					UseNamingPrefix: false,
+					UseNamingPrefix: "false",
 				},
 			},
 		}

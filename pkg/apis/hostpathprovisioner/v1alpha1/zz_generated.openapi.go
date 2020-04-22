@@ -156,7 +156,7 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_PathConfig(ref common.Referenc
 					"useNamingPrefix": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created",
-							Type:        []string{"boolean"},
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
