@@ -71,7 +71,7 @@ type PathConfig struct {
 	// Path The path the directories for the PVs are created under
 	Path string `json:"path,omitempty" valid:"required"`
 	// UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created
-	UseNamingPrefix string `json:"useNamingPrefix,omitempty"`
+	UseNamingPrefix bool `json:"useNamingPrefix,omitempty"`
 }
 
 func init() {
