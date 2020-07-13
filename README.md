@@ -45,5 +45,7 @@ On each node you will have to give the directory you specify in the CR the appro
 $ sudo chcon -t container_file_t -R /var/hpvolumes
 ```
 
+Another way to configure SELinux when using OpenShift is using a [MachineConfig](./contrib/machineconfig-selinux-hpp.yaml).
+
 ## Deployment in OpenShift
 The operator will create the appropriate SecurityContextConstraints for the hostpath provisioner to work and assign the ServiceAccount to that SCC. This operator will only work on OpenShift 4 and later (Kubernetes >= 1.12).
