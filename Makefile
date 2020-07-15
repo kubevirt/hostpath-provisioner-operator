@@ -34,7 +34,8 @@ push: image
 generate:
 	@test -n "$(OPERATOR_SDK)" || (echo "operator sdk not defined, install operator_sdk executable and define OPERATOR_SDK to point to it"; exit 1)
 	$(OPERATOR_SDK) generate k8s
-	$(OPERATOR_SDK) generate openapi
+	@test -n "$(OPENAPI_GEN)" || (echo "openapi generator not defined, install openapi_gen executable and define OPENAPI_GEN to point to it"; exit 1)
+	$(OPENAPI_GEN) --logtostderr=true -o "" -i ./pkg/apis/hostpathprovisioner/v1beta1 -O zz_generated.openapi -p ./pkg/apis/hostpathprovisioner/v1beta1 -h ./hack/boilerplate.go.txt -r "-"
 
 clean:
 	GO111MODULE=on; \

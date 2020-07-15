@@ -27,10 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, instance *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, instance *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new ClusterRoleBinding object
 	desired := createClusterRoleBindingObject(instance, namespace)
 	desiredMetaObj := &desired.ObjectMeta
@@ -81,7 +81,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	return reconcile.Result{}, nil
 }
 
-func createClusterRoleBindingObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) *rbacv1.ClusterRoleBinding {
+func createClusterRoleBindingObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *rbacv1.ClusterRoleBinding {
 	labels := map[string]string{
 		"k8s-app": cr.Name,
 	}
@@ -105,7 +105,7 @@ func createClusterRoleBindingObject(cr *hostpathprovisionerv1alpha1.HostPathProv
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpathprovisionerv1.HostPathProvisioner) error {
 	// Check if this ClusterRoleBinding still exists.
 	crb := &rbacv1.ClusterRoleBinding{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, crb)
@@ -120,7 +120,7 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpa
 
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, instance *hostpathprovisionerv1alpha1.HostPathProvisioner) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, instance *hostpathprovisionerv1.HostPathProvisioner) (reconcile.Result, error) {
 	// Define a new ClusterRole object
 	desired := createClusterRoleObject(instance.Name)
 	desiredMetaObj := &desired.ObjectMeta
@@ -253,7 +253,7 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(cr *hostpathprovisionerv1.HostPathProvisioner) error {
 	// Check if this ClusterRole still exists.
 	role := &rbacv1.ClusterRole{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, role)

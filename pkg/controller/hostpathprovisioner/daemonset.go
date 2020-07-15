@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,13 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // reconcileDaemonSet Reconciles the daemon set.
-func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, instance *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, instance *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new DaemonSet object
 	provisionerImage := os.Getenv(provisionerImageEnvVarName)
 	if provisionerImage == "" {
@@ -102,7 +103,7 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 }
 
 // createDaemonSetObject returns a new DaemonSet in the same namespace as the cr
-func createDaemonSetObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, provisionerImage, namespace string) *appsv1.DaemonSet {
+func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, provisionerImage, namespace string) *appsv1.DaemonSet {
 	volumeType := corev1.HostPathDirectoryOrCreate
 	labels := map[string]string{
 		"k8s-app": cr.Name,
@@ -137,7 +138,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, 
 							Env: []corev1.EnvVar{
 								{
 									Name:  "USE_NAMING_PREFIX",
-									Value: cr.Spec.PathConfig.UseNamingPrefix,
+									Value: strconv.FormatBool(cr.Spec.PathConfig.UseNamingPrefix),
 								},
 								{
 									Name: "NODE_NAME",

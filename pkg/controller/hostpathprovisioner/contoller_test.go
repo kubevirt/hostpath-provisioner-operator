@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
+	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -48,7 +48,7 @@ const (
 
 var _ = Describe("Controller reconcile loop", func() {
 	var (
-		cr *v1alpha1.HostPathProvisioner
+		cr *hppv1.HostPathProvisioner
 		cl client.Client
 		r  *ReconcileHostPathProvisioner
 	)
@@ -61,16 +61,16 @@ var _ = Describe("Controller reconcile loop", func() {
 			return versionString, nil
 		}
 
-		cr = &v1alpha1.HostPathProvisioner{
+		cr = &hppv1.HostPathProvisioner{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
 			},
-			Spec: v1alpha1.HostPathProvisionerSpec{
+			Spec: hppv1.HostPathProvisionerSpec{
 				ImagePullPolicy: corev1.PullAlways,
-				PathConfig: v1alpha1.PathConfig{
+				PathConfig: hppv1.PathConfig{
 					Path:            "/tmp/test",
-					UseNamingPrefix: "false",
+					UseNamingPrefix: false,
 				},
 			},
 		}
@@ -257,7 +257,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		objs := []runtime.Object{cr}
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
-		s.AddKnownTypes(v1alpha1.SchemeGroupVersion, cr)
+		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 		secv1.AddToScheme(s)
 
 		// Create a fake client to mock API calls.
@@ -285,7 +285,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		objs := []runtime.Object{cr}
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
-		s.AddKnownTypes(v1alpha1.SchemeGroupVersion, cr)
+		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 		secv1.AddToScheme(s)
 
 		// Create a fake client to mock API calls.
@@ -343,7 +343,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
-		updatedCr := &v1alpha1.HostPathProvisioner{}
+		updatedCr := &hppv1.HostPathProvisioner{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updatedCr.Status.OperatorVersion).To(Equal("1.0.2"))
@@ -370,7 +370,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
-		updatedCr = &v1alpha1.HostPathProvisioner{}
+		updatedCr = &hppv1.HostPathProvisioner{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updatedCr.Status.OperatorVersion).To(Equal("1.0.3"))
@@ -394,7 +394,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
-		updatedCr = &v1alpha1.HostPathProvisioner{}
+		updatedCr = &hppv1.HostPathProvisioner{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updatedCr.Status.OperatorVersion).To(Equal("1.0.3"))
@@ -424,11 +424,11 @@ var _ = Describe("Controller reconcile loop", func() {
 })
 
 // After this has run, the returned cr state should be available, not progressing and not degraded.
-func createDeployedCr(cr *v1alpha1.HostPathProvisioner) (*v1alpha1.HostPathProvisioner, *ReconcileHostPathProvisioner, client.Client) {
+func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner, *ReconcileHostPathProvisioner, client.Client) {
 	objs := []runtime.Object{cr}
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, cr)
+	s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 	secv1.AddToScheme(s)
 
 	// Create a fake client to mock API calls.
@@ -452,7 +452,7 @@ func createDeployedCr(cr *v1alpha1.HostPathProvisioner) (*v1alpha1.HostPathProvi
 	res, err := r.Reconcile(req)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(res.Requeue).To(BeFalse())
-	updatedCr := &v1alpha1.HostPathProvisioner{}
+	updatedCr := &hppv1.HostPathProvisioner{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(updatedCr.Status.OperatorVersion).To(Equal(versionString))
@@ -481,7 +481,7 @@ func createDeployedCr(cr *v1alpha1.HostPathProvisioner) (*v1alpha1.HostPathProvi
 	res, err = r.Reconcile(req)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(res.Requeue).To(BeFalse())
-	updatedCr = &v1alpha1.HostPathProvisioner{}
+	updatedCr = &hppv1.HostPathProvisioner{}
 	err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(updatedCr.Status.OperatorVersion).To(Equal(versionString))

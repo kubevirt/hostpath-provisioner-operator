@@ -19,7 +19,7 @@ Once you have installed the operator, you need to create an instance of the Cust
 ### Custom Resource (CR)
 [Example CR](deploy/hostpathprovisioner_cr.yaml) allows you specify the directory you wish to use as the backing directory for the persistent volumes. You can also specify if you wish to use the name of the PersistentVolume as part of the directory that is created by the provisioner. All the values in the spec are required. The location of provisioner container is defined in the [deploy/operator.yaml](operator.yaml) file
 ```yaml
-apiVersion: hostpathprovisioner.kubevirt.io/v1alpha1
+apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
 kind: HostPathProvisioner
 metadata:
   name: hostpath-provisioner
@@ -27,7 +27,7 @@ spec:
   imagePullPolicy: IfNotPresent
   pathConfig:
     path: "/var/hpvolumes" #The path of the directory on the node
-    useNamingPrefix: "false" #Use the name of the PVC bound to the created PV as part of the directory name.
+    useNamingPrefix: false #Use the name of the PVC bound to the created PV as part of the directory name.
 ```
 
 To create the CustomResource
