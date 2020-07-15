@@ -188,7 +188,7 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 			"imagePullPolicy":"IfNotPresent",
 			"pathConfig": {
 			  "path": "/var/hpvolumes",
-			  "useNamingPrefix": "false"
+			  "useNamingPrefix": false
 			}
           }
         }
