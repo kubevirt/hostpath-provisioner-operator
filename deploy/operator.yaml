@@ -253,7 +253,7 @@ roleRef:
                   useNamingPrefix:
                     description: UseNamingPrefix Use the name of the PVC requesting
                       the PV as part of the directory created
-                    type: string
+                    type: boolean
                 type: object
             required:
             - pathConfig
