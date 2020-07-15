@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
@@ -34,6 +34,7 @@ type HostPathProvisionerSpec struct {
 // +k8s:openapi-gen=true
 type HostPathProvisionerStatus struct {
 	// Conditions contains the current conditions observed by the operator
+	// +listType=set
 	Conditions []conditions.Condition `json:"conditions,omitempty" optional:"true"`
 	// OperatorVersion The version of the HostPathProvisioner Operator
 	OperatorVersion string `json:"operatorVersion,omitempty" optional:"true"`
@@ -71,7 +72,7 @@ type PathConfig struct {
 	// Path The path the directories for the PVs are created under
 	Path string `json:"path,omitempty" valid:"required"`
 	// UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created
-	UseNamingPrefix string `json:"useNamingPrefix,omitempty"`
+	UseNamingPrefix bool `json:"useNamingPrefix,omitempty"`
 }
 
 func init() {

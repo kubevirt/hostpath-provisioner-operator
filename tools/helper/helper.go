@@ -142,12 +142,12 @@ func CreateCRDDef() *extv1beta1.CustomResourceDefinition {
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
 			Group:   "hostpathprovisioner.kubevirt.io",
-			Version: "v1alpha1",
+			Version: "v1beta1",
 			Scope:   "Cluster",
 
 			Versions: []extv1beta1.CustomResourceDefinitionVersion{
 				{
-					Name:    "v1alpha1",
+					Name:    "v1beta1",
 					Served:  true,
 					Storage: true,
 				},

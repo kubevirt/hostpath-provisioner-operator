@@ -33,7 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	hostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -72,14 +72,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource HostPathProvisioner
-	err = c.Watch(&source.Kind{Type: &hostpathprovisionerv1alpha1.HostPathProvisioner{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &hostpathprovisionerv1.HostPathProvisioner{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	err = c.Watch(&source.Kind{Type: &appsv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 	})
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 	})
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 	})
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 	})
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if used, _ := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used == true {
 		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestForOwner{
 			IsController: true,
-			OwnerType:    &hostpathprovisionerv1alpha1.HostPathProvisioner{},
+			OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 		})
 		if err != nil {
 			if meta.IsNoMatchError(err) {
@@ -151,7 +151,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	}
 
 	// Fetch the HostPathProvisioner instance
-	cr := &hostpathprovisionerv1alpha1.HostPathProvisioner{}
+	cr := &hostpathprovisionerv1.HostPathProvisioner{}
 	err = r.client.Get(context.TODO(), request.NamespacedName, cr)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -289,7 +289,7 @@ func canUpgrade(current, target string) (bool, error) {
 	return result, nil
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, request reconcile.Request, cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, request reconcile.Request, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Reconcile the objects this operator manages.
 	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace)
 	if err != nil {
@@ -327,7 +327,7 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	return res, nil
 }
 
-func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (bool, error) {
+func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (bool, error) {
 	degraded := false
 
 	daemonSet := &appsv1.DaemonSet{}
@@ -367,7 +367,7 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 	return daemonSet.Status.NumberReady > 0
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new Service Account object
 	desired := createServiceAccountObject(cr, namespace)
 	desiredMetaObj := &desired.ObjectMeta
@@ -424,7 +424,7 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 }
 
 // createServiceAccount returns a new Service Account object in the same namespace as the cr.
-func createServiceAccountObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) *corev1.ServiceAccount {
+func createServiceAccountObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *corev1.ServiceAccount {
 	labels := map[string]string{
 		"k8s-app": cr.Name,
 	}
@@ -437,7 +437,7 @@ func createServiceAccountObject(cr *hostpathprovisionerv1alpha1.HostPathProvisio
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner) error {
 	if len(cr.GetFinalizers()) < 1 && cr.GetDeletionTimestamp() == nil {
 		reqLogger.Info("Adding deletion Finalizer")
 		cr.SetFinalizers([]string{"finalizer.delete.hostpath-provisioner"})

@@ -30,10 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	hostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	if used, err := r.checkSCCUsed(); used == false {
 		return reconcile.Result{}, err
 	}
@@ -86,7 +86,7 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHostPathProvisioner) deleteSCC(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) deleteSCC(cr *hostpathprovisionerv1.HostPathProvisioner) error {
 	if used, err := r.checkSCCUsed(); used == false {
 		return err
 	}
@@ -103,7 +103,7 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(cr *hostpathprovisionerv1alpha1
 	return r.client.Delete(context.TODO(), scc)
 }
 
-func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
+func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
 	saName := fmt.Sprintf("system:serviceaccount:%s:%s-admin", namespace, cr.Name)
 	labels := map[string]string{
 		"k8s-app": cr.Name,

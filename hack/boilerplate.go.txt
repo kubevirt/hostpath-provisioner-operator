@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The hostpath provisioner operator Authors.
+Copyright 2020 The hostpath provisioner operator Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,3 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apis
-
-import (
-	//secv1 "github.com/openshift/api/security/v1"
-	"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
-)
-
-func init() {
-	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-	AddToSchemes = append(AddToSchemes, v1beta1.SchemeBuilder.AddToScheme)
-}

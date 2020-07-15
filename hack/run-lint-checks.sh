@@ -28,7 +28,7 @@ if [[ ${out} ]]; then
 fi
 for p in "${LINTABLE[@]}"; do
   echo "running revive on directory: ${p}"
-  out="$(revive -formatter friendly -exclude pkg/apis/hostpathprovisioner/v1alpha1/zz_generated.openapi.go ${p}/...)"
+  out="$(revive -formatter friendly -exclude pkg/apis/hostpathprovisioner/v1beta1/zz_generated.openapi.go ${p}/...)"
   if [[ ${out} ]]; then
     echo "FAIL: following revive errors found:"
     echo "${out}"

@@ -20,14 +20,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
-	hostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
-func (r *ReconcileHostPathProvisioner) isDeploying(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) bool {
+func (r *ReconcileHostPathProvisioner) isDeploying(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
 	return cr.Status.ObservedVersion == ""
 }
 
-func (r *ReconcileHostPathProvisioner) isUpgrading(cr *hostpathprovisionerv1alpha1.HostPathProvisioner) bool {
+func (r *ReconcileHostPathProvisioner) isUpgrading(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
 	return cr.Status.ObservedVersion != "" && cr.Status.ObservedVersion != cr.Status.TargetVersion
 }
 
@@ -36,7 +36,7 @@ func (r *ReconcileHostPathProvisioner) isUpgrading(cr *hostpathprovisionerv1alph
 // ApplicationAvailable: true
 // Progressing: false
 // Degraded: false
-func MarkCrHealthyMessage(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, reason, message string) {
+func MarkCrHealthyMessage(cr *hostpathprovisionerv1.HostPathProvisioner, reason, message string) {
 	conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
 		Type:    conditions.ConditionAvailable,
 		Status:  corev1.ConditionTrue,
@@ -58,7 +58,7 @@ func MarkCrHealthyMessage(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, r
 // ApplicationAvailable: true
 // Progressing: true
 // Degraded: true
-func MarkCrUpgradeHealingDegraded(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, reason, message string) {
+func MarkCrUpgradeHealingDegraded(cr *hostpathprovisionerv1.HostPathProvisioner, reason, message string) {
 	conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
 		Type:   conditions.ConditionAvailable,
 		Status: corev1.ConditionTrue,
@@ -80,7 +80,7 @@ func MarkCrUpgradeHealingDegraded(cr *hostpathprovisionerv1alpha1.HostPathProvis
 // ApplicationAvailable: false
 // Progressing: false
 // Degraded: true
-func MarkCrFailed(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, reason, message string) {
+func MarkCrFailed(cr *hostpathprovisionerv1.HostPathProvisioner, reason, message string) {
 	conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
 		Type:   conditions.ConditionAvailable,
 		Status: corev1.ConditionFalse,
@@ -102,7 +102,7 @@ func MarkCrFailed(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, reason, m
 // ApplicationAvailable: false
 // Progressing: true
 // Degraded: true
-func MarkCrFailedHealing(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, reason, message string) {
+func MarkCrFailedHealing(cr *hostpathprovisionerv1.HostPathProvisioner, reason, message string) {
 	conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
 		Type:   conditions.ConditionAvailable,
 		Status: corev1.ConditionFalse,
@@ -124,7 +124,7 @@ func MarkCrFailedHealing(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, re
 // ApplicationAvailable: false
 // Progressing: true
 // Degraded: false
-func MarkCrDeploying(cr *hostpathprovisionerv1alpha1.HostPathProvisioner, reason, message string) {
+func MarkCrDeploying(cr *hostpathprovisionerv1.HostPathProvisioner, reason, message string) {
 	conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
 		Type:   conditions.ConditionAvailable,
 		Status: corev1.ConditionFalse,
