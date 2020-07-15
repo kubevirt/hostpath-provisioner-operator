@@ -19,7 +19,7 @@ package helper
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -128,10 +128,10 @@ func CreateOperatorEnvVar(repo, deployClusterResources, operatorImage, provision
 }
 
 // CreateCRDDef creates the hostpath provisioner CRD definition.
-func CreateCRDDef() *extv1beta1.CustomResourceDefinition {
-	return &extv1beta1.CustomResourceDefinition{
+func CreateCRDDef() *extv1.CustomResourceDefinition {
+	return &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
+			APIVersion: "apiextensions.k8s.io/v1",
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,103 +140,101 @@ func CreateCRDDef() *extv1beta1.CustomResourceDefinition {
 				"operator.hostpathprovisioner.kubevirt.io": "",
 			},
 		},
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   "hostpathprovisioner.kubevirt.io",
-			Version: "v1beta1",
-			Scope:   "Cluster",
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "hostpathprovisioner.kubevirt.io",
+			Scope: "Cluster",
 
-			Versions: []extv1beta1.CustomResourceDefinitionVersion{
+			Versions: []extv1.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1beta1",
 					Served:  true,
 					Storage: true,
-				},
-			},
-			Names: extv1beta1.CustomResourceDefinitionNames{
-				Kind:       "HostPathProvisioner",
-				ListKind:   "HostPathProvisionerList",
-				Plural:     "hostpathprovisioners",
-				Singular:   "hostpathprovisioner",
-				ShortNames: []string{"hpp", "hpps"},
-			},
-
-			Validation: &extv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
-					Type:        "object",
-					Description: "Represents a HostPathProvisioner deployment",
-					Properties: map[string]extv1beta1.JSONSchemaProps{
-						"apiVersion": {
-							Type: "string",
-						},
-						"kind": {
-							Type: "string",
-						},
-						"metadata": {
-							Type: "object",
-						},
-						"spec": {
-							Description: "HostPathProvisionerSpec defines the desired state of HostPathProvisioner",
-							Properties: map[string]extv1beta1.JSONSchemaProps{
-								"imageRegistry": {
+					Schema: &extv1.CustomResourceValidation{
+						OpenAPIV3Schema: &extv1.JSONSchemaProps{
+							Type:        "object",
+							Description: "Represents a HostPathProvisioner deployment",
+							Properties: map[string]extv1.JSONSchemaProps{
+								"apiVersion": {
 									Type: "string",
 								},
-								"imageTag": {
+								"kind": {
 									Type: "string",
 								},
-								"imagePullPolicy": {
-									Type: "string",
-									Enum: []extv1beta1.JSON{
-										{
-											Raw: []byte(`"Always"`),
-										},
-										{
-											Raw: []byte(`"IfNotPresent"`),
-										},
-										{
-											Raw: []byte(`"Never"`),
-										},
-									},
+								"metadata": {
+									Type: "object",
 								},
-								"pathConfig": {
-									Description: "describes the location and layout of PV storage on nodes",
-									Properties: map[string]extv1beta1.JSONSchemaProps{
-										"path": {
-											Description: "The provisioner will store PVs at this location on each node",
-											Type:        "string",
+								"spec": {
+									Description: "HostPathProvisionerSpec defines the desired state of HostPathProvisioner",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"imageRegistry": {
+											Type: "string",
 										},
-										"useNamingPrefix": {
-											Description: "Indicates whether the name of the requesting PVC is included in the directory name when dynamically provisioning a PV",
-											Type:        "boolean",
+										"imageTag": {
+											Type: "string",
+										},
+										"imagePullPolicy": {
+											Type: "string",
+											Enum: []extv1.JSON{
+												{
+													Raw: []byte(`"Always"`),
+												},
+												{
+													Raw: []byte(`"IfNotPresent"`),
+												},
+												{
+													Raw: []byte(`"Never"`),
+												},
+											},
+										},
+										"pathConfig": {
+											Description: "describes the location and layout of PV storage on nodes",
+											Properties: map[string]extv1.JSONSchemaProps{
+												"path": {
+													Description: "The provisioner will store PVs at this location on each node",
+													Type:        "string",
+												},
+												"useNamingPrefix": {
+													Description: "Indicates whether the name of the requesting PVC is included in the directory name when dynamically provisioning a PV",
+													Type:        "boolean",
+												},
+											},
+											Type: "object",
 										},
 									},
 									Type: "object",
 								},
-							},
-							Type: "object",
-						},
-						"status": {
-							Description: "HostPathProvisionerStatus defines the observed state of HostPathProvisioner",
-							Properties: map[string]extv1beta1.JSONSchemaProps{
-								"conditions": {
-									Description: "Conditions contains the current conditions observed by the operator",
-									Type:        "array",
-								},
-								"observedVersion": {
-									Description: "The observed version of the HostPathProvisioner deployment",
-									Type:        "string",
-								},
-								"operatorVersion": {
-									Description: "The version of the HostPathProvisioner Operator",
-									Type:        "string",
-								},
-								"targetVersion": {
-									Description: "The targeted version of the HostPathProvisioner deployment",
-									Type:        "string",
+								"status": {
+									Description: "HostPathProvisionerStatus defines the observed state of HostPathProvisioner",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"conditions": {
+											Description: "Conditions contains the current conditions observed by the operator",
+											Type:        "array",
+										},
+										"observedVersion": {
+											Description: "The observed version of the HostPathProvisioner deployment",
+											Type:        "string",
+										},
+										"operatorVersion": {
+											Description: "The version of the HostPathProvisioner Operator",
+											Type:        "string",
+										},
+										"targetVersion": {
+											Description: "The targeted version of the HostPathProvisioner deployment",
+											Type:        "string",
+										},
+									},
 								},
 							},
 						},
 					},
 				},
+			},
+			Names: extv1.CustomResourceDefinitionNames{
+				Kind:       "HostPathProvisioner",
+				ListKind:   "HostPathProvisionerList",
+				Plural:     "hostpathprovisioners",
+				Singular:   "hostpathprovisioner",
+				ShortNames: []string{"hpp", "hpps"},
 			},
 		},
 	}
