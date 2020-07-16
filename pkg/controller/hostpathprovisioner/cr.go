@@ -53,6 +53,17 @@ func MarkCrHealthyMessage(cr *hostpathprovisionerv1.HostPathProvisioner, reason,
 	})
 }
 
+// IsCrHealthy returns true if the application is healthy.
+// Healthy means the following status conditions are set:
+// ApplicationAvailable: true
+// Progressing: false
+// Degraded: false
+func IsCrHealthy(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
+	return conditions.IsStatusConditionTrue(cr.Status.Conditions, conditions.ConditionAvailable) &&
+		conditions.IsStatusConditionFalse(cr.Status.Conditions, conditions.ConditionProgressing) &&
+		conditions.IsStatusConditionFalse(cr.Status.Conditions, conditions.ConditionDegraded)
+}
+
 // MarkCrUpgradeHealingDegraded marks the passed CR as upgrading and degraded. The CR object needs to be updated by the caller afterwards.
 // Failed means the following status conditions are set:
 // ApplicationAvailable: true

@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,9 +58,10 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileHostPathProvisioner{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
-		Log:    log,
+		client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		recorder: mgr.GetEventRecorderFor("operator-controller"),
+		Log:      log,
 	}
 }
 
@@ -133,9 +135,10 @@ var _ reconcile.Reconciler = &ReconcileHostPathProvisioner{}
 type ReconcileHostPathProvisioner struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	Log    logr.Logger
+	client   client.Client
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
+	Log      logr.Logger
 }
 
 // Reconcile reads that state of the cluster for a HostPathProvisioner object and makes changes based on the state read
@@ -202,7 +205,8 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 
 	namespace, err := watchNamespaceFunc()
 	if err != nil {
-		MarkCrFailed(cr, "WatchNameSpace", err.Error())
+		MarkCrFailed(cr, watchNameSpace, err.Error())
+		r.recorder.Event(cr, corev1.EventTypeWarning, watchNameSpace, err.Error())
 		err2 := r.client.Update(context.TODO(), cr)
 		if err2 != nil {
 			reqLogger.Error(err2, "Unable to update CR to failed state")
@@ -220,7 +224,8 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	}
 	if r.isDeploying(cr) {
 		//New install, mark deploying.
-		MarkCrDeploying(cr, "DeployStarted", "Started Deployment")
+		MarkCrDeploying(cr, deployStarted, deployStartedMessage)
+		r.recorder.Event(cr, corev1.EventTypeNormal, deployStarted, deployStartedMessage)
 		err = r.client.Update(context.TODO(), cr)
 		if err != nil {
 			reqLogger.Info("Marked deploying failed", "Error", err.Error())
@@ -231,7 +236,8 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	}
 
 	if canUpgrade && r.isUpgrading(cr) {
-		MarkCrUpgradeHealingDegraded(cr, "UpgradeStarted", fmt.Sprintf("Started upgrade to version %s", cr.Status.TargetVersion))
+		MarkCrUpgradeHealingDegraded(cr, upgradeStarted, fmt.Sprintf("Started upgrade to version %s", cr.Status.TargetVersion))
+		r.recorder.Event(cr, corev1.EventTypeWarning, upgradeStarted, fmt.Sprintf("Started upgrade to version %s", cr.Status.TargetVersion))
 		// Mark Observed version to blank, so we get to the reconcile upgrade section.
 		err = r.client.Update(context.TODO(), cr)
 		if err != nil {
@@ -258,7 +264,8 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 			return reconcile.Result{}, err
 		}
 	} else {
-		MarkCrFailedHealing(cr, "Reconcile Failed", fmt.Sprintf("Unable to successfully reconcile: %v", err))
+		MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
+		r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 	}
 	return res, nil
 }
@@ -291,7 +298,7 @@ func canUpgrade(current, target string) (bool, error) {
 
 func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, request reconcile.Request, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Reconcile the objects this operator manages.
-	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace)
+	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create DaemonSet")
 		return reconcile.Result{}, err
@@ -301,17 +308,17 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		reqLogger.Error(err, "Unable to create ServiceAccount")
 		return reconcile.Result{}, err
 	}
-	res, err = r.reconcileClusterRole(reqLogger, cr)
+	res, err = r.reconcileClusterRole(reqLogger, cr, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ClusterRole")
 		return reconcile.Result{}, err
 	}
-	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace)
+	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ClusterRoleBinding")
 		return reconcile.Result{}, err
 	}
-	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace)
+	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create SecurityContextConstraints")
 		return reconcile.Result{}, err
@@ -322,7 +329,10 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		return reconcile.Result{}, err
 	}
 	if checkApplicationAvailable(daemonSet) {
-		MarkCrHealthyMessage(cr, "", "")
+		if !IsCrHealthy(cr) {
+			r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
+		}
+		MarkCrHealthyMessage(cr, "Complete", "Application Available")
 	}
 	return res, nil
 }
@@ -383,12 +393,15 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating a new Service Account", "ServiceAccount.Namespace", desired.Namespace, "ServiceAccount.Name", desired.Name)
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desiredMetaObj.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 
 		// Service Account created successfully - don't requeue
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desiredMetaObj.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -411,10 +424,13 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 		logJSONDiff(log, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		log.Info("Updating Service Account", "ServiceAccount.Name", desired.Name)
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desiredMetaObj.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
+			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desiredMetaObj.Name))
 		return reconcile.Result{}, nil
 	}
 

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/version"
@@ -265,9 +266,10 @@ var _ = Describe("Controller reconcile loop", func() {
 
 		// Create a ReconcileMemcached object with the scheme and fake client.
 		r := &ReconcileHostPathProvisioner{
-			client: cl,
-			scheme: s,
-			Log:    logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
+			client:   cl,
+			scheme:   s,
+			recorder: record.NewFakeRecorder(250),
+			Log:      logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
 		}
 
 		req := reconcile.Request{
@@ -293,9 +295,10 @@ var _ = Describe("Controller reconcile loop", func() {
 
 		// Create a ReconcileMemcached object with the scheme and fake client.
 		r := &ReconcileHostPathProvisioner{
-			client: cl,
-			scheme: s,
-			Log:    logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
+			client:   cl,
+			scheme:   s,
+			recorder: record.NewFakeRecorder(250),
+			Log:      logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
 		}
 
 		// Mock request to simulate Reconcile() being called on an event for a
@@ -436,9 +439,10 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 
 	// Create a ReconcileMemcached object with the scheme and fake client.
 	r := &ReconcileHostPathProvisioner{
-		client: cl,
-		scheme: s,
-		Log:    logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
+		client:   cl,
+		scheme:   s,
+		recorder: record.NewFakeRecorder(250),
+		Log:      logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
 	}
 
 	// Mock request to simulate Reconcile() being called on an event for a

@@ -24,4 +24,36 @@ const (
 	provisionerImageEnvVarName = "PROVISIONER_IMAGE"
 	// OperatorServiceAccountName is the name of Service Account used to run the operator.
 	OperatorServiceAccountName = "hostpath-provisioner-operator"
+
+	createResourceStart   = "CreateResourceStart"
+	createResourceFailed  = "CreateResourceFailed"
+	createResourceSuccess = "CreateResourceSuccess"
+
+	deleteResourceStart   = "DeleteResourceStart"
+	deleteResourceFailed  = "DeleteResourceFailed"
+	deleteResourceSuccess = "DeleteResourceSuccess"
+
+	updateResourceStart   = "UpdateResourceStart"
+	updateResourceFailed  = "UpdateResourceFailed"
+	updateResourceSuccess = "UpdateResourceSuccess"
+
+	createMessageStart     = "Started creation of resource %T %s"
+	createMessageFailed    = "Failed to create resource %s, %v"
+	createMessageSucceeded = "Successfully created resource %T %s"
+
+	updateMessageStart     = "Started update of resource %T %s"
+	updateMessageFailed    = "Failed to update resource %s, %v"
+	updateMessageSucceeded = "Successfully updated resource %T %s"
+
+	provisionerHealthy        = "ProvisionerHealthy"
+	provisionerHealthyMessage = "Provisioner Healthy"
+
+	watchNameSpace = "WatchNameSpace"
+
+	deployStarted        = "DeployStarted"
+	deployStartedMessage = "Started Deployment"
+
+	upgradeStarted = "UpgradeStarted"
+
+	reconcileFailed = "Reconcile Failed"
 )

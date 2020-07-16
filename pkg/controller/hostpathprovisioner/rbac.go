@@ -18,21 +18,24 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, instance *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new ClusterRoleBinding object
-	desired := createClusterRoleBindingObject(instance, namespace)
+	desired := createClusterRoleBindingObject(cr, namespace)
 	desiredMetaObj := &desired.ObjectMeta
 	setLastAppliedConfiguration(desiredMetaObj)
 
@@ -41,12 +44,15 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 
 		// ClusterRoleBinding created successfully - don't requeue
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -69,10 +75,13 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -120,9 +129,9 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpa
 
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, instance *hostpathprovisionerv1.HostPathProvisioner) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new ClusterRole object
-	desired := createClusterRoleObject(instance.Name)
+	desired := createClusterRoleObject(cr.Name)
 	desiredMetaObj := &desired.ObjectMeta
 	setLastAppliedConfiguration(desiredMetaObj)
 
@@ -131,12 +140,15 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new ClusterRole", "ClusterRole.Name", desired.Name)
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 
 		// ClusterRole created successfully - don't requeue
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -159,10 +171,13 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating ClusterRole", "ClusterRole.Name", desired.Name)
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 

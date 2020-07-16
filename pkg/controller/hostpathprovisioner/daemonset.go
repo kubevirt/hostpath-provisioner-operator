@@ -18,6 +18,7 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -28,13 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // reconcileDaemonSet Reconciles the daemon set.
-func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, instance *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new DaemonSet object
 	provisionerImage := os.Getenv(provisionerImageEnvVarName)
 	if provisionerImage == "" {
@@ -42,12 +44,12 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 		provisionerImage = ProvisionerImageDefault
 	}
 
-	desired := createDaemonSetObject(instance, provisionerImage, namespace)
+	desired := createDaemonSetObject(cr, provisionerImage, namespace)
 	desiredMetaObj := &desired.ObjectMeta
 	setLastAppliedConfiguration(desiredMetaObj)
 
 	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, desired, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -56,12 +58,15 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new DaemonSet", "DaemonSet.Namespace", desired.Namespace, "Daemonset.Name", desired.Name)
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 
 		// DaemonSet created successfully - don't requeue
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -85,10 +90,13 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating DaemonSet", "DaemonSet.Name", desired.Name)
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 
