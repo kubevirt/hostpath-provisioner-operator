@@ -152,7 +152,7 @@ func CreateCRDDef() *extv1.CustomResourceDefinition {
 					Schema: &extv1.CustomResourceValidation{
 						OpenAPIV3Schema: &extv1.JSONSchemaProps{
 							Type:        "object",
-							Description: "Represents a HostPathProvisioner deployment",
+							Description: "HostPathProvisioner is the Schema for the hostpathprovisioners API",
 							Properties: map[string]extv1.JSONSchemaProps{
 								"apiVersion": {
 									Type: "string",
@@ -173,7 +173,8 @@ func CreateCRDDef() *extv1.CustomResourceDefinition {
 											Type: "string",
 										},
 										"imagePullPolicy": {
-											Type: "string",
+											Description: "PullPolicy describes a policy for if/when to pull a container image",
+											Type:        "string",
 											Enum: []extv1.JSON{
 												{
 													Raw: []byte(`"Always"`),
@@ -187,14 +188,14 @@ func CreateCRDDef() *extv1.CustomResourceDefinition {
 											},
 										},
 										"pathConfig": {
-											Description: "describes the location and layout of PV storage on nodes",
+											Description: "PathConfig describes the location and layout of PV storage on nodes",
 											Properties: map[string]extv1.JSONSchemaProps{
 												"path": {
-													Description: "The provisioner will store PVs at this location on each node",
+													Description: "Path The path the directories for the PVs are created under",
 													Type:        "string",
 												},
 												"useNamingPrefix": {
-													Description: "Indicates whether the name of the requesting PVC is included in the directory name when dynamically provisioning a PV",
+													Description: "UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created",
 													Type:        "boolean",
 												},
 											},
@@ -202,27 +203,64 @@ func CreateCRDDef() *extv1.CustomResourceDefinition {
 										},
 									},
 									Type: "object",
+									Required: []string{
+										"pathConfig",
+									},
 								},
 								"status": {
 									Description: "HostPathProvisionerStatus defines the observed state of HostPathProvisioner",
 									Properties: map[string]extv1.JSONSchemaProps{
 										"conditions": {
 											Description: "Conditions contains the current conditions observed by the operator",
-											Type:        "array",
+											Items: &extv1.JSONSchemaPropsOrArray{
+												Schema: &extv1.JSONSchemaProps{
+													Description: "Condition represents the state of the operator's reconciliation functionality.",
+													Properties: map[string]extv1.JSONSchemaProps{
+														"lastHeartbeatTime": {
+															Format: "date-time",
+															Type:   "string",
+														},
+														"lastTransitionTime": {
+															Format: "date-time",
+															Type:   "string",
+														},
+														"message": {
+															Type: "string",
+														},
+														"reason": {
+															Type: "string",
+														},
+														"status": {
+															Type: "string",
+														},
+														"type": {
+															Description: "ConditionType is the state of the operator's reconciliation functionality.",
+															Type:        "string",
+														},
+													},
+													Required: []string{
+														"status",
+														"type",
+													},
+													Type: "object",
+												},
+											},
+											Type: "array",
 										},
 										"observedVersion": {
-											Description: "The observed version of the HostPathProvisioner deployment",
+											Description: "ObservedVersion The observed version of the HostPathProvisioner deployment",
 											Type:        "string",
 										},
 										"operatorVersion": {
-											Description: "The version of the HostPathProvisioner Operator",
+											Description: "OperatorVersion The version of the HostPathProvisioner Operator",
 											Type:        "string",
 										},
 										"targetVersion": {
-											Description: "The targeted version of the HostPathProvisioner deployment",
+											Description: "TargetVersion The targeted version of the HostPathProvisioner deployment",
 											Type:        "string",
 										},
 									},
+									Type: "object",
 								},
 							},
 						},
