@@ -26,7 +26,7 @@ var (
 	exportPath = flag.String("export-path", "", "")
 )
 
-// Export the CDI CRDs schemas from code to yaml.
+// Export the HPP CRDs schemas from code to yaml.
 func main() {
 	flag.Parse()
 
