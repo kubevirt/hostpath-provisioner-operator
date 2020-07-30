@@ -143,8 +143,128 @@ func CreateCRDDef() *extv1.CustomResourceDefinition {
 		Spec: extv1.CustomResourceDefinitionSpec{
 			Group: "hostpathprovisioner.kubevirt.io",
 			Scope: "Cluster",
-
 			Versions: []extv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Served:  true,
+					Storage: false,
+					Schema: &extv1.CustomResourceValidation{
+						OpenAPIV3Schema: &extv1.JSONSchemaProps{
+							Type:        "object",
+							Description: "HostPathProvisioner is the Schema for the hostpathprovisioners API",
+							Properties: map[string]extv1.JSONSchemaProps{
+								"apiVersion": {
+									Type: "string",
+								},
+								"kind": {
+									Type: "string",
+								},
+								"metadata": {
+									Type: "object",
+								},
+								"spec": {
+									Description: "HostPathProvisionerSpec defines the desired state of HostPathProvisioner",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"imageRegistry": {
+											Type: "string",
+										},
+										"imageTag": {
+											Type: "string",
+										},
+										"imagePullPolicy": {
+											Description: "PullPolicy describes a policy for if/when to pull a container image",
+											Type:        "string",
+											Enum: []extv1.JSON{
+												{
+													Raw: []byte(`"Always"`),
+												},
+												{
+													Raw: []byte(`"IfNotPresent"`),
+												},
+												{
+													Raw: []byte(`"Never"`),
+												},
+											},
+										},
+										"pathConfig": {
+											Description: "PathConfig describes the location and layout of PV storage on nodes",
+											Properties: map[string]extv1.JSONSchemaProps{
+												"path": {
+													Description: "Path The path the directories for the PVs are created under",
+													Type:        "string",
+												},
+												"useNamingPrefix": {
+													Description: "UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created",
+													Type:        "string",
+												},
+											},
+											Type: "object",
+										},
+									},
+									Type: "object",
+									Required: []string{
+										"pathConfig",
+									},
+								},
+								"status": {
+									Description: "HostPathProvisionerStatus defines the observed state of HostPathProvisioner",
+									Properties: map[string]extv1.JSONSchemaProps{
+										"conditions": {
+											Description: "Conditions contains the current conditions observed by the operator",
+											Items: &extv1.JSONSchemaPropsOrArray{
+												Schema: &extv1.JSONSchemaProps{
+													Description: "Condition represents the state of the operator's reconciliation functionality.",
+													Properties: map[string]extv1.JSONSchemaProps{
+														"lastHeartbeatTime": {
+															Format: "date-time",
+															Type:   "string",
+														},
+														"lastTransitionTime": {
+															Format: "date-time",
+															Type:   "string",
+														},
+														"message": {
+															Type: "string",
+														},
+														"reason": {
+															Type: "string",
+														},
+														"status": {
+															Type: "string",
+														},
+														"type": {
+															Description: "ConditionType is the state of the operator's reconciliation functionality.",
+															Type:        "string",
+														},
+													},
+													Required: []string{
+														"status",
+														"type",
+													},
+													Type: "object",
+												},
+											},
+											Type: "array",
+										},
+										"observedVersion": {
+											Description: "ObservedVersion The observed version of the HostPathProvisioner deployment",
+											Type:        "string",
+										},
+										"operatorVersion": {
+											Description: "OperatorVersion The version of the HostPathProvisioner Operator",
+											Type:        "string",
+										},
+										"targetVersion": {
+											Description: "TargetVersion The targeted version of the HostPathProvisioner deployment",
+											Type:        "string",
+										},
+									},
+									Type: "object",
+								},
+							},
+						},
+					},
+				},
 				{
 					Name:    "v1beta1",
 					Served:  true,
@@ -273,6 +393,9 @@ func CreateCRDDef() *extv1.CustomResourceDefinition {
 				Plural:     "hostpathprovisioners",
 				Singular:   "hostpathprovisioner",
 				ShortNames: []string{"hpp", "hpps"},
+			},
+			Conversion: &extv1.CustomResourceConversion{
+				Strategy: extv1.NoneConverter,
 			},
 		},
 	}
