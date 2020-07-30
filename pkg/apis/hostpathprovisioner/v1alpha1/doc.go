@@ -14,16 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package apis
-
-import (
-	//secv1 "github.com/openshift/api/security/v1"
-	"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1"
-	"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
-)
-
-func init() {
-	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-	AddToSchemes = append(AddToSchemes, v1beta1.SchemeBuilder.AddToScheme)
-	AddToSchemes = append(AddToSchemes, v1alpha1.SchemeBuilder.AddToScheme)
-}
+// Package v1alpha1 contains API Schema definitions for the hostpathprovisioner v1alpha1 API group
+// +k8s:deepcopy-gen=package,register
+// +groupName=hostpathprovisioner.kubevirt.io
+package v1alpha1
