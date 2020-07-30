@@ -246,11 +246,11 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 				},
 				{
 					Type:      csvv1.InstallModeTypeMultiNamespace,
-					Supported: true,
+					Supported: false,
 				},
 				{
 					Type:      csvv1.InstallModeTypeAllNamespaces,
-					Supported: true,
+					Supported: false,
 				},
 			},
 			InstallStrategy: csvv1.NamedInstallStrategy{
