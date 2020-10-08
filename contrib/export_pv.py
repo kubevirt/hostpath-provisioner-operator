@@ -47,7 +47,7 @@ def get_vms(dv_map):
         for owner_ref in owner_refs:
             if owner_ref["kind"] == "VirtualMachine" and owner_ref["controller"] == True:
                 vm = kubectl_execute(
-                    ["get", "vm", "-n", namespace, owner_ref["name"], "--export"])
+                    ["get", "vm", "-n", namespace, owner_ref["name"]])
                 # namespace is stripped by export but we like it
                 vm["metadata"]["namespace"] = namespace
                 vm["spec"]["running"] = False
@@ -65,7 +65,7 @@ def get_dvs(pvc_map):
         for owner_ref in owner_refs:
             if owner_ref["kind"] == "DataVolume" and owner_ref["controller"] == True:
                 dv = kubectl_execute(
-                    ["get", "dv", "-n", namespace, owner_ref["name"], "--export"])
+                    ["get", "dv", "-n", namespace, owner_ref["name"]])
                 # namespace is stripped by export but we like it
                 dv["metadata"]["namespace"] = namespace
                 dv["spec"]["pvc"]["storageClassName"] = "hostpath-provisioner"
@@ -81,7 +81,7 @@ def get_pvcs(pv_map):
             continue
         namespace, name = cr["namespace"], cr["name"]
         pvc = kubectl_execute(
-            ["get", "pvc", "-n", namespace, name, "--export"])
+            ["get", "pvc", "-n", namespace, name])
         # namespace is stripped by export but we like it
         pvc["metadata"]["namespace"] = namespace
         pvc["spec"]["storageClassName"] = "hostpath-provisioner"
@@ -103,7 +103,7 @@ def get_pvs_for_node(storage_class, node):
             for me in mes:
                 if me["key"] == "kubernetes.io/hostname" and node in me["values"]:
                     pv_export = kubectl_execute(
-                        ["get", "pv", pv["metadata"]["name"], "--export"])
+                        ["get", "pv", pv["metadata"]["name"]])
                     pv_export["spec"]["storageClassName"] = "hostpath-provisioner"
                     result[pv_export["metadata"]["name"]] = pv_export
                     found = True
