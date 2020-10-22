@@ -37,6 +37,11 @@ do
     echo "Data file DOES NOT exist in $node."
     exit 1
   fi
+  echo "Verifying \"dataSource\": null is not in file"
+  if grep -q "\"dataSource\": null" "./$node/export.json"; then
+    echo "Corrupted export file $node/export.json detected, it contains '\"dataSource\": null'"
+    exit 1
+  fi
 done
 
 orgCvoReplicas=$(_kubectl get deployment cluster-version-operator -n openshift-cluster-version -o jsonpath="{@.spec.replicas}")

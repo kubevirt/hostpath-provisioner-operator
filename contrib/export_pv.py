@@ -69,6 +69,8 @@ def get_dvs(pvc_map):
                 # namespace is stripped by export but we like it
                 dv["metadata"]["namespace"] = namespace
                 dv["spec"]["pvc"]["storageClassName"] = "hostpath-provisioner"
+                # ensure we strip out dataSource
+                dv["spec"]["pvc"].pop("dataSource", None)
                 result[(namespace, owner_ref["name"])] = dv
     return result
 
