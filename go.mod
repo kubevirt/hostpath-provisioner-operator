@@ -53,4 +53,6 @@ replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad // Required until https://github.com/operator-framework/operator-lifecycle-manager/pull/1241 is resolved
 
+replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
+
 go 1.13
