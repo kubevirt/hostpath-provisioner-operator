@@ -28,6 +28,8 @@ type HostPathProvisionerSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 	// PathConfig describes the location and layout of PV storage on nodes
 	PathConfig PathConfig `json:"pathConfig" valid:"required"`
+	// Restrict on which nodes HPP workload pods will be scheduled
+	Workloads NodePlacement `json:"workload,omitempty"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
@@ -73,6 +75,34 @@ type PathConfig struct {
 	Path string `json:"path,omitempty" valid:"required"`
 	// UseNamingPrefix Use the name of the PVC requesting the PV as part of the directory created
 	UseNamingPrefix string `json:"useNamingPrefix,omitempty"`
+}
+
+// NodePlacement describes node scheduling configuration.
+// +k8s:openapi-gen=true
+type NodePlacement struct {
+	// nodeSelector is the node selector applied to the relevant kind of pods
+	// It specifies a map of key-value pairs: for the pod to be eligible to run on a node,
+	// the node must have each of the indicated key-value pairs as labels
+	// (it can have additional labels as well).
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	// +kubebuilder:validation:Optional
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// affinity enables pod affinity/anti-affinity placement expanding the types of constraints
+	// that can be expressed with nodeSelector.
+	// affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector
+	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+	// +kubebuilder:validation:Optional
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// tolerations is a list of tolerations applied to the relevant kind of pods
+	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
+	// These are additional tolerations other than default ones.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 func init() {
