@@ -7,3 +7,6 @@ spec:
   pathConfig:
     path: "/var/hpvolumes"
     useNamingPrefix: false
+  workload:
+    nodeSelector:
+      kubernetes.io/os: linux
