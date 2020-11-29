@@ -424,6 +424,43 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 	})
+
+	It("Should create daemonset with node placement", func() {
+		affinityTestValue := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpIn, Values: []string{"somehostname"}},
+							},
+						},
+					},
+				},
+			},
+		}
+		nodeSelectorTestValue := map[string]string{"kubernetes.io/arch": "ppc64le"}
+		tolerationsTestValue := []corev1.Toleration{{Key: "test", Value: "123"}}
+		cr.Spec.Workloads = hppv1.NodePlacement{
+			NodeSelector: nodeSelectorTestValue,
+			Affinity:     affinityTestValue,
+			Tolerations:  tolerationsTestValue,
+		}
+		cr, r, cl = createDeployedCr(cr)
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		ds := &appsv1.DaemonSet{}
+		err := cl.Get(context.TODO(), req.NamespacedName, ds)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
+		Expect(ds.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelectorTestValue))
+		Expect(ds.Spec.Template.Spec.Tolerations).To(Equal(tolerationsTestValue))
+	})
 })
 
 // After this has run, the returned cr state should be available, not progressing and not degraded.
