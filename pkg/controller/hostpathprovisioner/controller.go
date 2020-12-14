@@ -57,9 +57,14 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	mgrScheme := mgr.GetScheme()
+	if err := hostpathprovisionerv1.AddToScheme(mgr.GetScheme()); err != nil {
+		panic(err)
+	}
+
 	return &ReconcileHostPathProvisioner{
 		client:   mgr.GetClient(),
-		scheme:   mgr.GetScheme(),
+		scheme:   mgrScheme,
 		recorder: mgr.GetEventRecorderFor("operator-controller"),
 		Log:      log,
 	}
