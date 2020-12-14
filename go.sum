@@ -1184,6 +1184,7 @@ k8s.io/client-go v0.18.6 h1:I+oWqJbibLSGsZj8Xs8F0aWVXJVIoUHWaaJV3kUN/Zw=
 k8s.io/client-go v0.18.6/go.mod h1:/fwtGLjYMS1MaM5oi+eXhKwG+1UHidUEXRh6cNsdO0Q=
 k8s.io/cloud-provider v0.18.6/go.mod h1:QnPLLdFkvtx1dEyVMaPUdzVWB+ECzEf+PA3DXwIr8bo=
 k8s.io/cluster-bootstrap v0.18.6/go.mod h1:lnM1CXtPImlEBTh5874ZI+ofZzdIy1t2JV9Y+NxvojU=
+k8s.io/code-generator v0.18.6 h1:QdfvGfs4gUCS1dru+rLbCKIFxYEV0IRfF8MXwY/ozLk=
 k8s.io/code-generator v0.18.6/go.mod h1:TgNEVx9hCyPGpdtCWA34olQYLkh3ok9ar7XfSsr8b6c=
 k8s.io/component-base v0.18.6/go.mod h1:knSVsibPR5K6EW2XOjEHik6sdU5nCvKMrzMt2D4In14=
 k8s.io/cri-api v0.18.6/go.mod h1:OJtpjDvfsKoLGhvcc0qfygved0S0dGX56IJzPbqTG1s=
@@ -1193,6 +1194,7 @@ k8s.io/gengo v0.0.0-20190327210449-e17681d19d3a/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8
 k8s.io/gengo v0.0.0-20190822140433-26a664648505/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/gengo v0.0.0-20191010091904-7fa3014cb28f h1:eW/6wVuHNZgQJmFesyAxu0cvj0WAHHUuGaLbPcmNY3Q=
 k8s.io/gengo v0.0.0-20191010091904-7fa3014cb28f/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
+k8s.io/gengo v0.0.0-20200114144118-36b2048a9120 h1:RPscN6KhmG54S33L+lr3GS+oD1jmchIU0ll519K6FA4=
 k8s.io/gengo v0.0.0-20200114144118-36b2048a9120/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/heapster v1.2.0-beta.1/go.mod h1:h1uhptVXMwC8xtZBYsPXKVi8fpdlYkTs6k949KozGrM=
 k8s.io/helm v2.16.1+incompatible/go.mod h1:LZzlS4LQBHfciFOurYBFkCMTaZ0D1l+p0teMg7TSULI=
