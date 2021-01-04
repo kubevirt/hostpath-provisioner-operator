@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
@@ -85,6 +86,9 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	// More complicated values from the CR need to be explicitly set rather than merged automatically, because we want to propagate empty values.
+	merged = updateDaemonSetObject(cr, merged)
 
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
@@ -190,4 +194,14 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, provis
 			},
 		},
 	}
+}
+
+// updateDaemonSetObject returns a DaemonSet with values set from CR.
+func updateDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, orig runtime.Object) runtime.Object {
+	newDaemonSet := orig.(*appsv1.DaemonSet)
+	newDaemonSet.Spec.Template.Spec.NodeSelector = cr.Spec.Workloads.NodeSelector
+	newDaemonSet.Spec.Template.Spec.Tolerations = cr.Spec.Workloads.Tolerations
+	newDaemonSet.Spec.Template.Spec.Affinity = cr.Spec.Workloads.Affinity
+
+	return newDaemonSet.DeepCopyObject()
 }
