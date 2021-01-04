@@ -37,7 +37,7 @@ const (
 	lastAppliedConfigAnnotation = "hostpathprovisioner.kubevirt.io/lastAppliedConfiguration"
 )
 
-func mergeLabelsAndAnnotations(src, dest *metav1.ObjectMeta) {
+func mergeLabelsAndAnnotations(src, dest metav1.Object) {
 	// allow users to add labels but not change ours
 	for k, v := range src.GetLabels() {
 		if dest.GetLabels() == nil {
@@ -119,7 +119,7 @@ func newDefaultInstance(obj runtime.Object) runtime.Object {
 	return reflect.New(typ).Interface().(runtime.Object)
 }
 
-func setLastAppliedConfiguration(obj *metav1.ObjectMeta) error {
+func setLastAppliedConfiguration(obj metav1.Object) error {
 	bytes, err := json.Marshal(obj)
 	if err != nil {
 		return err
