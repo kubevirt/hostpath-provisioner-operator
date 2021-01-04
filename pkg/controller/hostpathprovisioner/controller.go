@@ -152,7 +152,7 @@ type ReconcileHostPathProvisioner struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling HostPathProvisioner")
+	reqLogger.V(3).Info("Reconciling HostPathProvisioner")
 	versionString, err := version.VersionStringFunc()
 	if err != nil {
 		return reconcile.Result{}, err
@@ -259,14 +259,13 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		if !degraded {
+		if !degraded && cr.Status.ObservedVersion != versionString {
 			cr.Status.ObservedVersion = versionString
-		}
-		reqLogger.Info("Finished main reconcile loop")
-		err = r.client.Update(context.TODO(), cr)
-		if err != nil {
-			// Error updating the object - requeue the request.
-			return reconcile.Result{}, err
+			err = r.client.Update(context.TODO(), cr)
+			if err != nil {
+				// Error updating the object - requeue the request.
+				return reconcile.Result{}, err
+			}
 		}
 	} else {
 		MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
@@ -355,7 +354,7 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 		degraded = true
 	}
 
-	logger.Info("Degraded check", "Degraded", degraded)
+	logger.V(3).Info("Degraded check", "Degraded", degraded)
 
 	// If deployed and degraded, mark degraded, otherwise we are still deploying or not degraded.
 	if degraded && !r.isDeploying(cr) {
@@ -370,7 +369,7 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 		})
 	}
 
-	logger.Info("Finished degraded check", "conditions", cr.Status.Conditions)
+	logger.V(3).Info("Finished degraded check", "conditions", cr.Status.Conditions)
 	return degraded, nil
 }
 
@@ -385,8 +384,7 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new Service Account object
 	desired := createServiceAccountObject(cr, namespace)
-	desiredMetaObj := &desired.ObjectMeta
-	setLastAppliedConfiguration(desiredMetaObj)
+	setLastAppliedConfiguration(desired)
 
 	// Set HostPathProvisioner instance as the owner and controller
 	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
@@ -398,7 +396,7 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating a new Service Account", "ServiceAccount.Namespace", desired.Namespace, "ServiceAccount.Name", desired.Name)
-		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desiredMetaObj.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -406,7 +404,7 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 		}
 
 		// Service Account created successfully - don't requeue
-		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desiredMetaObj.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -416,7 +414,7 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 	currentRuntimeObjCopy := found.DeepCopyObject()
 
 	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desiredMetaObj, &found.ObjectMeta)
+	mergeLabelsAndAnnotations(desired, found)
 
 	// create merged ServiceAccount from found and desired.
 	merged, err := mergeObject(desired, found)
@@ -429,18 +427,18 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 		logJSONDiff(log, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		log.Info("Updating Service Account", "ServiceAccount.Name", desired.Name)
-		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desiredMetaObj.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
-		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desiredMetaObj.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 
 	// Service Account already exists and matches desired - don't requeue
-	log.Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
+	log.V(3).Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 

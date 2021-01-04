@@ -128,6 +128,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		sa := &corev1.ServiceAccount{}
 		err := cl.Get(context.TODO(), saNN, sa)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("test-name"))
 		sa.ObjectMeta.Labels["k8s-app"] = "invalid"
 		err = cl.Update(context.TODO(), sa)
 		Expect(err).NotTo(HaveOccurred())
@@ -381,7 +382,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(updatedCr.Status.TargetVersion).To(Equal("1.0.3"))
 		// Didn't make daemonset unavailable, so should be fully healthy
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionAvailable)).To(BeTrue())
-		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeFalse())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeTrue())
 		// It should be degraded
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeTrue())
 
@@ -426,6 +427,61 @@ var _ = Describe("Controller reconcile loop", func() {
 	})
 
 	It("Should create daemonset with node placement", func() {
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		cr, r, cl = createDeployedCr(cr)
+		ds := &appsv1.DaemonSet{}
+		err := cl.Get(context.TODO(), req.NamespacedName, ds)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(ds.Spec.Template.Spec.Affinity).To(BeNil())
+		Expect(ds.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+		Expect(ds.Spec.Template.Spec.Tolerations).To(BeEmpty())
+
+		affinityTestValue := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpIn, Values: []string{"somehostname"}},
+							},
+						},
+					},
+				},
+			},
+		}
+		nodeSelectorTestValue := map[string]string{"kubernetes.io/arch": "ppc64le"}
+		tolerationsTestValue := []corev1.Toleration{{Key: "test", Value: "123"}}
+
+		cr = &hppv1.HostPathProvisioner{}
+		err = cl.Get(context.TODO(), req.NamespacedName, cr)
+		Expect(err).NotTo(HaveOccurred())
+		cr.Spec.Workloads = hppv1.NodePlacement{
+			NodeSelector: nodeSelectorTestValue,
+			Affinity:     affinityTestValue,
+			Tolerations:  tolerationsTestValue,
+		}
+		err = cl.Update(context.TODO(), cr)
+		Expect(err).NotTo(HaveOccurred())
+		res, err := r.Reconcile(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+
+		ds = &appsv1.DaemonSet{}
+		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
+		Expect(ds.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelectorTestValue))
+		Expect(ds.Spec.Template.Spec.Tolerations).To(Equal(tolerationsTestValue))
+	})
+
+	It("Should be able to remove node placement if CR doesn't have it anymore", func() {
 		affinityTestValue := &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
@@ -460,6 +516,24 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
 		Expect(ds.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelectorTestValue))
 		Expect(ds.Spec.Template.Spec.Tolerations).To(Equal(tolerationsTestValue))
+
+		cr = &hppv1.HostPathProvisioner{}
+		err = cl.Get(context.TODO(), req.NamespacedName, cr)
+		Expect(err).NotTo(HaveOccurred())
+		cr.Spec.Workloads = hppv1.NodePlacement{}
+		err = cl.Update(context.TODO(), cr)
+		Expect(err).NotTo(HaveOccurred())
+		res, err := r.Reconcile(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+
+		ds = &appsv1.DaemonSet{}
+		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(ds.Spec.Template.Spec.Affinity).To(BeNil())
+		Expect(ds.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+		Expect(ds.Spec.Template.Spec.Tolerations).To(BeEmpty())
 	})
 })
 
