@@ -88,7 +88,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	}
 
 	// More complicated values from the CR need to be explicitly set rather than merged automatically, because we want to propagate empty values.
-	merged = updateDaemonSetObject(cr, merged)
+	updateDaemonSetObject(cr, merged)
 
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
@@ -197,11 +197,9 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, provis
 }
 
 // updateDaemonSetObject returns a DaemonSet with values set from CR.
-func updateDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, orig runtime.Object) runtime.Object {
-	newDaemonSet := orig.(*appsv1.DaemonSet)
-	newDaemonSet.Spec.Template.Spec.NodeSelector = cr.Spec.Workloads.NodeSelector
-	newDaemonSet.Spec.Template.Spec.Tolerations = cr.Spec.Workloads.Tolerations
-	newDaemonSet.Spec.Template.Spec.Affinity = cr.Spec.Workloads.Affinity
-
-	return newDaemonSet.DeepCopyObject()
+func updateDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, object runtime.Object) {
+	daemonSet := object.(*appsv1.DaemonSet)
+	daemonSet.Spec.Template.Spec.NodeSelector = cr.Spec.Workloads.NodeSelector
+	daemonSet.Spec.Template.Spec.Tolerations = cr.Spec.Workloads.Tolerations
+	daemonSet.Spec.Template.Spec.Affinity = cr.Spec.Workloads.Affinity
 }
