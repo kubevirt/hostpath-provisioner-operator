@@ -41,8 +41,7 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 
 	// Define a new SecurityContextConstraints object
 	desired := createSecurityContextConstraintsObject(cr, namespace)
-	desiredMetaObj := &desired.ObjectMeta
-	setLastAppliedConfiguration(desiredMetaObj)
+	setLastAppliedConfiguration(desired)
 
 	// Check if this SecurityContextConstraints already exists
 	found := &secv1.SecurityContextConstraints{}
@@ -66,7 +65,7 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	currentRuntimeObjCopy := found.DeepCopyObject()
 
 	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desiredMetaObj, &found.ObjectMeta)
+	mergeLabelsAndAnnotations(desired, found)
 
 	// create merged SecurityContextConstraints from found and desired.
 	merged, err := mergeObject(desired, found)
