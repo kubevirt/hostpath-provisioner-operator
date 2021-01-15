@@ -36,9 +36,7 @@ import (
 func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new ClusterRoleBinding object
 	desired := createClusterRoleBindingObject(cr, namespace)
-	desiredMetaObj := &desired.ObjectMeta
-	setLastAppliedConfiguration(desiredMetaObj)
-
+	setLastAppliedConfiguration(desired)
 	// Check if this ClusterRoleBinding already exists
 	found := &rbacv1.ClusterRoleBinding{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
@@ -62,7 +60,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	currentRuntimeObjCopy := found.DeepCopyObject()
 
 	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desiredMetaObj, &found.ObjectMeta)
+	mergeLabelsAndAnnotations(desired, found)
 
 	// create merged ClusterRoleBinding from found and desired.
 	merged, err := mergeObject(desired, found)
@@ -86,7 +84,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	}
 
 	// ClusterRoleBinding already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: ClusterRoleBinding already exists", "ClusterRoleBinding.Name", found.Name)
+	reqLogger.V(3).Info("Skip reconcile: ClusterRoleBinding already exists", "ClusterRoleBinding.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
@@ -132,8 +130,7 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpa
 func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new ClusterRole object
 	desired := createClusterRoleObject(cr.Name)
-	desiredMetaObj := &desired.ObjectMeta
-	setLastAppliedConfiguration(desiredMetaObj)
+	setLastAppliedConfiguration(desired)
 
 	// Check if this ClusterRole already exists
 	found := &rbacv1.ClusterRole{}
@@ -158,7 +155,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 	currentRuntimeObjCopy := found.DeepCopyObject()
 
 	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desiredMetaObj, &found.ObjectMeta)
+	mergeLabelsAndAnnotations(desired, found)
 
 	// create merged ClusterRole from found and desired.
 	merged, err := mergeObject(desired, found)
@@ -182,7 +179,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 	}
 
 	// ClusterRole already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: ClusterRole already exists", "ClusterRole.Name", found.Name)
+	reqLogger.V(3).Info("Skip reconcile: ClusterRole already exists", "ClusterRole.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 

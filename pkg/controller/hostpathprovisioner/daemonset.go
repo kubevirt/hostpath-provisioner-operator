@@ -44,9 +44,8 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 		provisionerImage = ProvisionerImageDefault
 	}
 
-	desired := createDaemonSetObject(cr, provisionerImage, namespace)
-	desiredMetaObj := &desired.ObjectMeta
-	setLastAppliedConfiguration(desiredMetaObj)
+	desired := createDaemonSetObject(cr, reqLogger, provisionerImage, namespace)
+	setLastAppliedConfiguration(desired)
 
 	// Set HostPathProvisioner instance as the owner and controller
 	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
@@ -78,20 +77,16 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	desired = copyStatusFields(desired, found)
 
 	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desiredMetaObj, &found.ObjectMeta)
+	mergeLabelsAndAnnotations(desired, found)
 
-	// create merged DaemonSet from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	found.Spec = *desired.Spec.DeepCopy()
 
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
+	if !reflect.DeepEqual(currentRuntimeObjCopy, found) {
+		logJSONDiff(reqLogger, currentRuntimeObjCopy, found)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating DaemonSet", "DaemonSet.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
-		err = r.client.Update(context.TODO(), merged)
+		err = r.client.Update(context.TODO(), found)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
@@ -101,7 +96,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	}
 
 	// DaemonSet already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: DaemonSet already exists", "DaemonSet.Namespace", found.Namespace, "Daemonset.Name", found.Name)
+	reqLogger.V(3).Info("Skip reconcile: DaemonSet already exists", "DaemonSet.Namespace", found.Namespace, "Daemonset.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
@@ -111,7 +106,8 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 }
 
 // createDaemonSetObject returns a new DaemonSet in the same namespace as the cr
-func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, provisionerImage, namespace string) *appsv1.DaemonSet {
+func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, provisionerImage, namespace string) *appsv1.DaemonSet {
+	reqLogger.Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
 	volumeType := corev1.HostPathDirectoryOrCreate
 	labels := map[string]string{
 		"k8s-app": cr.Name,
