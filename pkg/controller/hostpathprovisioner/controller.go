@@ -78,6 +78,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// mapFn will be used to map reconcile requests to the HPP for resources that don't have an ownerRef
+	mapFn := handler.ToRequestsFunc(func(o handler.MapObject) []reconcile.Request {
+		if val, ok := o.Meta.GetLabels()["k8s-app"]; ok && val == "hostpath-provisioner" {
+			return []reconcile.Request{{
+				NamespacedName: types.NamespacedName{Name: "hostpath-provisioner"},
+			}}
+		}
+		return nil
+	})
+
 	// Watch for changes to primary resource HostPathProvisioner
 	err = c.Watch(&source.Kind{Type: &hostpathprovisionerv1.HostPathProvisioner{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
@@ -100,26 +110,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}}, &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: mapFn,
 	})
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}}, &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: mapFn,
 	})
 	if err != nil {
 		return err
 	}
 
 	if used, _ := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used == true {
-		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestsFromMapFunc{
+			ToRequests: mapFn,
 		})
 		if err != nil {
 			if meta.IsNoMatchError(err) {
