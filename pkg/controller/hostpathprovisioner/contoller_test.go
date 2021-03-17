@@ -260,7 +260,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
-		secv1.AddToScheme(s)
+		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
 		cl := fake.NewFakeClient(objs...)
@@ -289,7 +289,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
-		secv1.AddToScheme(s)
+		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
 		cl := fake.NewFakeClient(objs...)
@@ -543,7 +543,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 	s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
-	secv1.AddToScheme(s)
+	secv1.Install(s)
 
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClientWithScheme(s, objs...)

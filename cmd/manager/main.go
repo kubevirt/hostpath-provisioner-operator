@@ -111,7 +111,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := secv1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := secv1.Install(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
