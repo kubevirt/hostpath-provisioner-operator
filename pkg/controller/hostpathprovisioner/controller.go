@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/version"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -48,6 +49,13 @@ import (
 
 var log = logf.Log.WithName("controller_hostpathprovisioner")
 var watchNamespaceFunc = k8sutil.GetWatchNamespace
+
+func isErrCacheNotStarted(err error) bool {
+	if err == nil {
+		return false
+	}
+	return err.(*cache.ErrCacheNotStarted) != nil
+}
 
 // Add creates a new HostPathProvisioner Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -124,7 +132,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	if used, _ := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used == true {
+	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used == true || isErrCacheNotStarted(err) {
 		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: mapFn,
 		})
