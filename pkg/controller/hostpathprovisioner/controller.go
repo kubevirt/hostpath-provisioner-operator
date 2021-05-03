@@ -88,9 +88,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// mapFn will be used to map reconcile requests to the HPP for resources that don't have an ownerRef
 	mapFn := handler.ToRequestsFunc(func(o handler.MapObject) []reconcile.Request {
-		if val, ok := o.Meta.GetLabels()["k8s-app"]; ok && val == "hostpath-provisioner" {
+		if val, ok := o.Meta.GetLabels()["k8s-app"]; ok && val == MultiPurposeHostPathProvisionerName {
+			hppList := &hostpathprovisionerv1.HostPathProvisionerList{}
+
+			if err := mgr.GetClient().List(context.TODO(), hppList, &client.ListOptions{}); err != nil {
+				log.Error(err, "Error listing HPPs")
+				return nil
+			}
+			if len(hppList.Items) == 0 {
+				log.Info("No HPPs in cluster")
+				return nil
+			} else if len(hppList.Items) > 1 {
+				log.Info("More than 1 HPP in cluster, not supported")
+				return nil
+			}
+
 			return []reconcile.Request{{
-				NamespacedName: types.NamespacedName{Name: "hostpath-provisioner"},
+				NamespacedName: types.NamespacedName{Name: hppList.Items[0].Name},
 			}}
 		}
 		return nil
@@ -189,20 +203,20 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 
 	isMarkedToBeDeleted := cr.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
-		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", cr.Name)
-		if err := r.deleteSCC(cr); err != nil {
+		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", MultiPurposeHostPathProvisionerName)
+		if err := r.deleteSCC(); err != nil {
 			reqLogger.Error(err, "Unable to delete SecurityContextConstraints")
 			// TODO, should we return and in essence keep retrying, and thus never be able to delete the CR if deleting the SCC fails, or
 			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", cr.Name)
-		if err := r.deleteClusterRoleBindingObject(cr); err != nil {
+		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", MultiPurposeHostPathProvisionerName)
+		if err := r.deleteClusterRoleBindingObject(); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Deleting ClusterRole", "ClusterRole", cr.Name)
-		if err := r.deleteClusterRoleObject(cr); err != nil {
+		reqLogger.Info("Deleting ClusterRole", "ClusterRole", MultiPurposeHostPathProvisionerName)
+		if err := r.deleteClusterRoleObject(); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRole")
 			return reconcile.Result{}, err
 		}
@@ -343,7 +357,7 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		return reconcile.Result{}, err
 	}
 	daemonSet := &appsv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: namespace}, daemonSet)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -360,7 +374,7 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 	degraded := false
 
 	daemonSet := &appsv1.DaemonSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: namespace}, daemonSet)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet)
 	if err != nil {
 		return true, err
 	}
@@ -398,7 +412,7 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 
 func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new Service Account object
-	desired := createServiceAccountObject(cr, namespace)
+	desired := createServiceAccountObject(namespace)
 	setLastAppliedConfiguration(desired)
 
 	// Set HostPathProvisioner instance as the owner and controller
@@ -458,13 +472,13 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovi
 }
 
 // createServiceAccount returns a new Service Account object in the same namespace as the cr.
-func createServiceAccountObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *corev1.ServiceAccount {
+func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
 	labels := map[string]string{
-		"k8s-app": cr.Name,
+		"k8s-app": MultiPurposeHostPathProvisionerName,
 	}
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-admin",
+			Name:      ControllerServiceAccountName,
 			Namespace: namespace,
 			Labels:    labels,
 		},

@@ -88,16 +88,20 @@ var _ = Describe("Controller reconcile loop", func() {
 				Namespace: "test-namespace",
 			},
 		}
+		dsNN := types.NamespacedName{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: "test-namespace",
+		}
 		cr, r, cl = createDeployedCr(cr)
 		// Now modify the daemonSet to something not desired.
 		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), req.NamespacedName, ds)
+		err := cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 		ds.Spec.Template.Spec.Volumes[0].Name = "invalid"
 		err = cl.Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
 		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("invalid"))
 
@@ -107,7 +111,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(res.Requeue).To(BeFalse())
 		// Check the daemonSet value, make sure it changed back.
 		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("pv-volume"))
 	})
@@ -120,7 +124,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		saNN := types.NamespacedName{
-			Name:      "test-name-admin",
+			Name:      ControllerServiceAccountName,
 			Namespace: "test-namespace",
 		}
 		cr, r, cl = createDeployedCr(cr)
@@ -128,7 +132,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		sa := &corev1.ServiceAccount{}
 		err := cl.Get(context.TODO(), saNN, sa)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("test-name"))
+		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
 		sa.ObjectMeta.Labels["k8s-app"] = "invalid"
 		err = cl.Update(context.TODO(), sa)
 		Expect(err).NotTo(HaveOccurred())
@@ -144,7 +148,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		sa = &corev1.ServiceAccount{}
 		err = cl.Get(context.TODO(), saNN, sa)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("test-name"))
+		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
 	})
 
 	It("Should fix a changed ClusterRole", func() {
@@ -155,7 +159,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		croleNN := types.NamespacedName{
-			Name: "test-name",
+			Name: MultiPurposeHostPathProvisionerName,
 		}
 		cr, r, cl = createDeployedCr(cr)
 		// Now modify the ClusterRole to something not desired.
@@ -191,7 +195,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		crbNN := types.NamespacedName{
-			Name: "test-name",
+			Name: MultiPurposeHostPathProvisionerName,
 		}
 		cr, r, cl = createDeployedCr(cr)
 
@@ -215,7 +219,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		crb = &rbacv1.ClusterRoleBinding{}
 		err = cl.Get(context.TODO(), crbNN, crb)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(crb.Subjects[0].Name).To(Equal("test-name-admin"))
+		Expect(crb.Subjects[0].Name).To(Equal(ControllerServiceAccountName))
 	})
 
 	It("Should fix a changed SecurityContextConstraints", func() {
@@ -226,7 +230,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		sccNN := types.NamespacedName{
-			Name: "test-name",
+			Name: MultiPurposeHostPathProvisionerName,
 		}
 		cr, r, cl = createDeployedCr(cr)
 		// Now modify the SCC to something not desired.
@@ -363,7 +367,11 @@ var _ = Describe("Controller reconcile loop", func() {
 			return "1.0.3", nil
 		}
 		ds := &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		dsNN := types.NamespacedName{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: "test-namespace",
+		}
+		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 		ds.Status.NumberReady = 1
 		ds.Status.DesiredNumberScheduled = 2
@@ -387,7 +395,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeTrue())
 
 		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 		ds.Status.NumberReady = 2
 		ds.Status.DesiredNumberScheduled = 2
@@ -435,7 +443,11 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		cr, r, cl = createDeployedCr(cr)
 		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), req.NamespacedName, ds)
+		dsNN := types.NamespacedName{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: "test-namespace",
+		}
+		err := cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(ds.Spec.Template.Spec.Affinity).To(BeNil())
@@ -473,7 +485,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(res.Requeue).To(BeFalse())
 
 		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
@@ -510,7 +522,11 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), req.NamespacedName, ds)
+		dsNN := types.NamespacedName{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: "test-namespace",
+		}
+		err := cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
@@ -528,7 +544,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(res.Requeue).To(BeFalse())
 
 		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), req.NamespacedName, ds)
+		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(ds.Spec.Template.Spec.Affinity).To(BeNil())
@@ -577,7 +593,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeTrue())
 	Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
 	// Verify all the different objects are created.
-	verifyCreateDaemonSet(r.client, req.NamespacedName)
+	verifyCreateDaemonSet(r.client)
 	verifyCreateServiceAccount(r.client)
 	verifyCreateClusterRole(r.client)
 	verifyCreateClusterRoleBinding(r.client)
@@ -585,7 +601,11 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 
 	// Now make the daemonSet available, and reconcile again.
 	ds := &appsv1.DaemonSet{}
-	err = cl.Get(context.TODO(), req.NamespacedName, ds)
+	dsNN := types.NamespacedName{
+		Name:      MultiPurposeHostPathProvisionerName,
+		Namespace: "test-namespace",
+	}
+	err = cl.Get(context.TODO(), dsNN, ds)
 	Expect(err).NotTo(HaveOccurred())
 	ds.Status.NumberReady = 2
 	ds.Status.DesiredNumberScheduled = 2
@@ -609,14 +629,18 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 }
 
 // Verify all the proper values are set when creating the daemonset
-func verifyCreateDaemonSet(cl client.Client, nn types.NamespacedName) {
+func verifyCreateDaemonSet(cl client.Client) {
 	ds := &appsv1.DaemonSet{}
+	nn := types.NamespacedName{
+		Name:      MultiPurposeHostPathProvisionerName,
+		Namespace: "test-namespace",
+	}
 	err := cl.Get(context.TODO(), nn, ds)
 	Expect(err).NotTo(HaveOccurred())
 	// Check Service Account
-	Expect(ds.Spec.Template.Spec.ServiceAccountName).To(Equal("test-name-admin"))
+	Expect(ds.Spec.Template.Spec.ServiceAccountName).To(Equal(ControllerServiceAccountName))
 	// Check container image
-	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal("hostpath-provisioner"))
+	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(ProvisionerImageDefault))
 	// Check use naming prefix
 	Expect(ds.Spec.Template.Spec.Containers[0].Env[0].Value).To(Equal("false"))
 	// Check directory
@@ -626,18 +650,18 @@ func verifyCreateDaemonSet(cl client.Client, nn types.NamespacedName) {
 func verifyCreateServiceAccount(cl client.Client) {
 	sa := &corev1.ServiceAccount{}
 	nn := types.NamespacedName{
-		Name:      "test-name-admin",
+		Name:      ControllerServiceAccountName,
 		Namespace: "test-namespace",
 	}
 	err := cl.Get(context.TODO(), nn, sa)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(sa.ObjectMeta.Name).To(Equal("test-name-admin"))
+	Expect(sa.ObjectMeta.Name).To(Equal(ControllerServiceAccountName))
 }
 
 func verifyCreateClusterRole(cl client.Client) {
 	crole := &rbacv1.ClusterRole{}
 	nn := types.NamespacedName{
-		Name: "test-name",
+		Name: MultiPurposeHostPathProvisionerName,
 	}
 	err := cl.Get(context.TODO(), nn, crole)
 	Expect(err).NotTo(HaveOccurred())
@@ -717,18 +741,18 @@ func verifyCreateClusterRole(cl client.Client) {
 func verifyCreateClusterRoleBinding(cl client.Client) {
 	crb := &rbacv1.ClusterRoleBinding{}
 	nn := types.NamespacedName{
-		Name: "test-name",
+		Name: MultiPurposeHostPathProvisionerName,
 	}
 	err := cl.Get(context.TODO(), nn, crb)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(crb.Subjects[0].Name).To(Equal("test-name-admin"))
+	Expect(crb.Subjects[0].Name).To(Equal(ControllerServiceAccountName))
 	Expect(crb.Subjects[0].Namespace).To(Equal("test-namespace"))
 }
 
 func verifyCreateSCC(cl client.Client) {
 	scc := &secv1.SecurityContextConstraints{}
 	nn := types.NamespacedName{
-		Name: "test-name",
+		Name: MultiPurposeHostPathProvisionerName,
 	}
 	err := cl.Get(context.TODO(), nn, scc)
 	Expect(err).NotTo(HaveOccurred())
@@ -761,7 +785,7 @@ func verifyCreateSCC(cl client.Client) {
 		},
 		AllowHostDirVolumePlugin: true,
 		Users: []string{
-			"system:serviceaccount:test-namespace:test-name-admin",
+			fmt.Sprintf("system:serviceaccount:test-namespace:%s", ControllerServiceAccountName),
 		},
 		Volumes: []secv1.FSType{
 			secv1.FSTypeHostPath,
