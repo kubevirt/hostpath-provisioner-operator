@@ -40,12 +40,12 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	}
 
 	// Define a new SecurityContextConstraints object
-	desired := createSecurityContextConstraintsObject(cr, namespace)
+	desired := createSecurityContextConstraintsObject(namespace)
 	setLastAppliedConfiguration(desired)
 
 	// Check if this SecurityContextConstraints already exists
 	found := &secv1.SecurityContextConstraints{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
@@ -92,13 +92,13 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHostPathProvisioner) deleteSCC(cr *hostpathprovisionerv1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) deleteSCC() error {
 	if used, err := r.checkSCCUsed(); used == false {
 		return err
 	}
 	// Check if this SecurityContextConstraints already exists
 	scc := &secv1.SecurityContextConstraints{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, scc)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, scc)
 	if err != nil && errors.IsNotFound(err) {
 		// Already gone, return
 		return nil
@@ -109,10 +109,10 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(cr *hostpathprovisionerv1.HostP
 	return r.client.Delete(context.TODO(), scc)
 }
 
-func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
-	saName := fmt.Sprintf("system:serviceaccount:%s:%s-admin", namespace, cr.Name)
+func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityContextConstraints {
+	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ControllerServiceAccountName)
 	labels := map[string]string{
-		"k8s-app": cr.Name,
+		"k8s-app": MultiPurposeHostPathProvisionerName,
 	}
 	return &secv1.SecurityContextConstraints{
 		Groups: []string{},
@@ -121,7 +121,7 @@ func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathPr
 			Kind:       "SecurityContextConstraints",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   cr.Name,
+			Name:   MultiPurposeHostPathProvisionerName,
 			Labels: labels,
 		},
 		AllowPrivilegedContainer: false,

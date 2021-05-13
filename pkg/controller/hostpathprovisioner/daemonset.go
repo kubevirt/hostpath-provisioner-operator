@@ -110,7 +110,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 	reqLogger.Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
 	volumeType := corev1.HostPathDirectoryOrCreate
 	labels := map[string]string{
-		"k8s-app": cr.Name,
+		"k8s-app": MultiPurposeHostPathProvisionerName,
 	}
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -118,25 +118,23 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
+			Name:      MultiPurposeHostPathProvisionerName,
 			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"k8s-app": cr.Name,
-				},
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: cr.Name + "-admin",
+					ServiceAccountName: ControllerServiceAccountName,
 					Containers: []corev1.Container{
 						{
-							Name:            cr.Name,
+							Name:            MultiPurposeHostPathProvisionerName,
 							Image:           provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
 							Env: []corev1.EnvVar{

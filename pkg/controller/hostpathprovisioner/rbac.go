@@ -35,7 +35,7 @@ import (
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new ClusterRoleBinding object
-	desired := createClusterRoleBindingObject(cr, namespace)
+	desired := createClusterRoleBindingObject(namespace)
 	setLastAppliedConfiguration(desired)
 	// Check if this ClusterRoleBinding already exists
 	found := &rbacv1.ClusterRoleBinding{}
@@ -88,34 +88,34 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	return reconcile.Result{}, nil
 }
 
-func createClusterRoleBindingObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *rbacv1.ClusterRoleBinding {
+func createClusterRoleBindingObject(namespace string) *rbacv1.ClusterRoleBinding {
 	labels := map[string]string{
-		"k8s-app": cr.Name,
+		"k8s-app": MultiPurposeHostPathProvisionerName,
 	}
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   cr.Name,
+			Name:   MultiPurposeHostPathProvisionerName,
 			Labels: labels,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      cr.Name + "-admin",
+				Name:      ControllerServiceAccountName,
 				Namespace: namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			Name:     cr.Name,
+			Name:     MultiPurposeHostPathProvisionerName,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpathprovisionerv1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject() error {
 	// Check if this ClusterRoleBinding still exists.
 	crb := &rbacv1.ClusterRoleBinding{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, crb)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, crb)
 	if err != nil && errors.IsNotFound(err) {
 		// Already gone, return
 		return nil
@@ -129,7 +129,7 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(cr *hostpa
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new ClusterRole object
-	desired := createClusterRoleObject(cr.Name)
+	desired := createClusterRoleObject()
 	setLastAppliedConfiguration(desired)
 
 	// Check if this ClusterRole already exists
@@ -183,13 +183,13 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 	return reconcile.Result{}, nil
 }
 
-func createClusterRoleObject(name string) *rbacv1.ClusterRole {
+func createClusterRoleObject() *rbacv1.ClusterRole {
 	labels := map[string]string{
-		"k8s-app": name,
+		"k8s-app": MultiPurposeHostPathProvisionerName,
 	}
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
+			Name:   MultiPurposeHostPathProvisionerName,
 			Labels: labels,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -265,10 +265,10 @@ func createClusterRoleObject(name string) *rbacv1.ClusterRole {
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(cr *hostpathprovisionerv1.HostPathProvisioner) error {
+func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject() error {
 	// Check if this ClusterRole still exists.
 	role := &rbacv1.ClusterRole{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name}, role)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, role)
 	if err != nil && errors.IsNotFound(err) {
 		// Already gone, return
 		return nil

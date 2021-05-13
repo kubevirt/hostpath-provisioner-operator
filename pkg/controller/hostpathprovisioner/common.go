@@ -24,6 +24,10 @@ const (
 	provisionerImageEnvVarName = "PROVISIONER_IMAGE"
 	// OperatorServiceAccountName is the name of Service Account used to run the operator.
 	OperatorServiceAccountName = "hostpath-provisioner-operator"
+	// ControllerServiceAccountName is the name of Service Account used to run the controller.
+	ControllerServiceAccountName = "hostpath-provisioner-admin"
+	// MultiPurposeHostPathProvisionerName is the name used for the DaemonSet, ClusterRole/Binding, SCC and k8s-app label value.
+	MultiPurposeHostPathProvisionerName = "hostpath-provisioner"
 
 	createResourceStart   = "CreateResourceStart"
 	createResourceFailed  = "CreateResourceFailed"
