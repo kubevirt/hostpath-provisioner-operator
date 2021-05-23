@@ -19,7 +19,6 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
@@ -30,7 +29,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -39,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -89,17 +86,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// mapFn will be used to map reconcile requests to the HPP for resources that don't have an ownerRef
 	mapFn := handler.ToRequestsFunc(func(o handler.MapObject) []reconcile.Request {
 		if val, ok := o.Meta.GetLabels()["k8s-app"]; ok && val == MultiPurposeHostPathProvisionerName {
-			hppList := &hostpathprovisionerv1.HostPathProvisionerList{}
-
-			if err := mgr.GetClient().List(context.TODO(), hppList, &client.ListOptions{}); err != nil {
-				log.Error(err, "Error listing HPPs")
+			hppList, err := getHppList(mgr.GetClient())
+			if err != nil {
+				log.Error(err, "Error getting HPPs")
 				return nil
 			}
-			if len(hppList.Items) == 0 {
-				log.Info("No HPPs in cluster")
-				return nil
-			} else if len(hppList.Items) > 1 {
-				log.Info("More than 1 HPP in cluster, not supported")
+			if size := len(hppList.Items); size != 1 {
+				log.Info("There should be exactly one HPP instance")
 				return nil
 			}
 
@@ -182,6 +175,19 @@ type ReconcileHostPathProvisioner struct {
 func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(3).Info("Reconciling HostPathProvisioner")
+
+	// Checks that only a single HPP instance exists
+	hppList, err := getHppList(r.client)
+	if err != nil {
+		reqLogger.Error(err, "Error getting HPPs")
+		return reconcile.Result{}, err
+	}
+	if size := len(hppList.Items); size > 1 {
+		err := fmt.Errorf("There should be a single hostpath provisioner, %d items found", size)
+		reqLogger.Error(err, "Multiple HPPs detected")
+		return reconcile.Result{}, err
+	}
+
 	versionString, err := version.VersionStringFunc()
 	if err != nil {
 		return reconcile.Result{}, err
@@ -204,19 +210,19 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	isMarkedToBeDeleted := cr.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
 		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", MultiPurposeHostPathProvisionerName)
-		if err := r.deleteSCC(); err != nil {
+		if err := r.deleteSCC(MultiPurposeHostPathProvisionerName); err != nil {
 			reqLogger.Error(err, "Unable to delete SecurityContextConstraints")
 			// TODO, should we return and in essence keep retrying, and thus never be able to delete the CR if deleting the SCC fails, or
 			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", MultiPurposeHostPathProvisionerName)
-		if err := r.deleteClusterRoleBindingObject(); err != nil {
+		if err := r.deleteClusterRoleBindingObject(MultiPurposeHostPathProvisionerName); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("Deleting ClusterRole", "ClusterRole", MultiPurposeHostPathProvisionerName)
-		if err := r.deleteClusterRoleObject(); err != nil {
+		if err := r.deleteClusterRoleObject(MultiPurposeHostPathProvisionerName); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRole")
 			return reconcile.Result{}, err
 		}
@@ -336,7 +342,7 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		reqLogger.Error(err, "Unable to create DaemonSet")
 		return reconcile.Result{}, err
 	}
-	res, err = r.reconcileServiceAccount(cr, namespace)
+	res, err = r.reconcileServiceAccount(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ServiceAccount")
 		return reconcile.Result{}, err
@@ -410,81 +416,6 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 	return daemonSet.Status.NumberReady > 0
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
-	// Define a new Service Account object
-	desired := createServiceAccountObject(namespace)
-	setLastAppliedConfiguration(desired)
-
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this ServiceAccount already exists
-	found := &corev1.ServiceAccount{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating a new Service Account", "ServiceAccount.Namespace", desired.Namespace, "ServiceAccount.Name", desired.Name)
-		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-
-		// Service Account created successfully - don't requeue
-		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged ServiceAccount from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// ServiceAccount already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(log, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		log.Info("Updating Service Account", "ServiceAccount.Name", desired.Name)
-		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-
-	// Service Account already exists and matches desired - don't requeue
-	log.V(3).Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-// createServiceAccount returns a new Service Account object in the same namespace as the cr.
-func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
-	labels := map[string]string{
-		"k8s-app": MultiPurposeHostPathProvisionerName,
-	}
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ControllerServiceAccountName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-	}
-}
-
 func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner) error {
 	if len(cr.GetFinalizers()) < 1 && cr.GetDeletionTimestamp() == nil {
 		reqLogger.Info("Adding deletion Finalizer")
@@ -498,4 +429,15 @@ func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *h
 		}
 	}
 	return nil
+}
+
+// This function returns the list of HPP instances in the cluster and an error otherwise
+func getHppList(c client.Client) (*hostpathprovisionerv1.HostPathProvisionerList, error) {
+	hppList := &hostpathprovisionerv1.HostPathProvisionerList{}
+
+	if err := c.List(context.TODO(), hppList, &client.ListOptions{}); err != nil {
+		return nil, err
+	}
+
+	return hppList, nil
 }

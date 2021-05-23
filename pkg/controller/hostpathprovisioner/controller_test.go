@@ -264,6 +264,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
+		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
@@ -293,6 +294,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
+		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
@@ -417,6 +419,92 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeFalse())
 		// It should NOT be degraded
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
+	})
+
+	It("Should delete CR name dependent resource when upgrading", func() {
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		cr, r, cl = createDeployedCr(cr)
+		// Mimic a service account from a previous version whose name depends on the CR's
+		err := r.client.Create(context.TODO(), createServiceAccountWithNameThatDependsOnCr())
+		Expect(err).NotTo(HaveOccurred())
+		saList := &corev1.ServiceAccountList{}
+		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: "test-namespace"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(saList.Items)).To(Equal(2))
+		Expect(saList.Items[1].Name).To(Equal("test-name-admin"))
+
+		version.VersionStringFunc = func() (string, error) {
+			return "1.0.2", nil
+		}
+		res, err := r.Reconcile(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+
+		updatedCr := &hppv1.HostPathProvisioner{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedCr.Status.OperatorVersion).To(Equal("1.0.2"))
+		Expect(updatedCr.Status.ObservedVersion).To(Equal("1.0.2"))
+		Expect(updatedCr.Status.TargetVersion).To(Equal("1.0.2"))
+
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionAvailable)).To(BeTrue())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeFalse())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
+
+		saList = &corev1.ServiceAccountList{}
+		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: "test-namespace"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(saList.Items)).To(Equal(1))
+		Expect(saList.Items[0].Name).To(Equal(ControllerServiceAccountName))
+	})
+
+	It("Should err when more than one CR", func() {
+		secondCr := &hppv1.HostPathProvisioner{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name-second",
+				Namespace: "test-namespace",
+			},
+			Spec: hppv1.HostPathProvisionerSpec{
+				ImagePullPolicy: corev1.PullAlways,
+				PathConfig: hppv1.PathConfig{
+					Path:            "/tmp/test",
+					UseNamingPrefix: false,
+				},
+			},
+		}
+		objs := []runtime.Object{cr, secondCr}
+		// Register operator types with the runtime scheme.
+		s := scheme.Scheme
+		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
+		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
+		secv1.Install(s)
+
+		// Create a fake client to mock API calls.
+		cl := fake.NewFakeClient(objs...)
+
+		// Create a ReconcileMemcached object with the scheme and fake client.
+		r := &ReconcileHostPathProvisioner{
+			client:   cl,
+			scheme:   s,
+			recorder: record.NewFakeRecorder(250),
+			Log:      logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
+		}
+
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		res, err := r.Reconcile(req)
+		Expect(err).To(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+		Expect(err.Error()).To(Equal("There should be a single hostpath provisioner, 2 items found"))
 	})
 
 	It("Should not requeue when CR is deleted", func() {
@@ -559,6 +647,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
 	s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
+	s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
 	secv1.Install(s)
 
 	// Create a fake client to mock API calls.
@@ -793,4 +882,17 @@ func verifyCreateSCC(cl client.Client) {
 		},
 	}
 	Expect(scc).To(Equal(expected))
+}
+
+func createServiceAccountWithNameThatDependsOnCr() *corev1.ServiceAccount {
+	labels := map[string]string{
+		"k8s-app": MultiPurposeHostPathProvisionerName,
+	}
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name-admin",
+			Namespace: "test-namespace",
+			Labels:    labels,
+		},
+	}
 }
