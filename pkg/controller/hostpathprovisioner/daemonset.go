@@ -28,15 +28,29 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // reconcileDaemonSet Reconciles the daemon set.
 func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
+	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
+	dups, err := r.getDuplicateDaemonSet(cr.Name, namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	for _, dup := range dups {
+		if err := r.deleteDaemonSet(dup.Name, namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// Define a new DaemonSet object
 	provisionerImage := os.Getenv(provisionerImageEnvVarName)
 	if provisionerImage == "" {
@@ -54,7 +68,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 
 	// Check if this DaemonSet already exists
 	found := &appsv1.DaemonSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new DaemonSet", "DaemonSet.Namespace", desired.Namespace, "Daemonset.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
@@ -98,6 +112,22 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	// DaemonSet already exists and matches the desired state - don't requeue
 	reqLogger.V(3).Info("Skip reconcile: DaemonSet already exists", "DaemonSet.Namespace", found.Namespace, "Daemonset.Name", found.Name)
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHostPathProvisioner) deleteDaemonSet(name, namespace string) error {
+	// Check if this DaemonSet already exists
+	ds := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+
+	if err := r.client.Delete(context.TODO(), ds); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
 }
 
 func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
@@ -184,4 +214,28 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 			},
 		},
 	}
+}
+
+// getDuplicateDaemonSet will give us duplicate DaemonSets from a previous version if they exist.
+// This is possible from a previous HPP version where the resources (DaemonSet, RBAC) were named depending on the CR, whereas now, we have fixed names for those.
+func (r *ReconcileHostPathProvisioner) getDuplicateDaemonSet(customCrName, namespace string) ([]appsv1.DaemonSet, error) {
+	dsList := &appsv1.DaemonSetList{}
+	dups := make([]appsv1.DaemonSet, 0)
+
+	ls, err := labels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
+	if err != nil {
+		return dups, err
+	}
+	lo := &client.ListOptions{LabelSelector: ls, Namespace: namespace}
+	if err := r.client.List(context.TODO(), dsList, lo); err != nil {
+		return dups, err
+	}
+
+	for _, ds := range dsList.Items {
+		if ds.Name != MultiPurposeHostPathProvisionerName {
+			dups = append(dups, ds)
+		}
+	}
+
+	return dups, nil
 }
