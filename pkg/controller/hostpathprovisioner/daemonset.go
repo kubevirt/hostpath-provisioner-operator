@@ -233,7 +233,12 @@ func (r *ReconcileHostPathProvisioner) getDuplicateDaemonSet(customCrName, names
 
 	for _, ds := range dsList.Items {
 		if ds.Name != MultiPurposeHostPathProvisionerName {
-			dups = append(dups, ds)
+			for _, ownerRef := range ds.OwnerReferences {
+				if ownerRef.Kind == "HostPathProvisioner" && ownerRef.Name == customCrName {
+					dups = append(dups, ds)
+					break
+				}
+			}
 		}
 	}
 
