@@ -340,19 +340,6 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 				"get",
 				"watch",
 				"create",
-			},
-		},
-		{
-			APIGroups: []string{
-				"apps",
-			},
-			Resources: []string{
-				"daemonsets",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner",
-			},
-			Verbs: []string{
 				"delete",
 				"update",
 			},
@@ -387,25 +374,8 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 			Resources: []string{
 				"serviceaccounts",
 			},
-			ResourceNames: []string{
-				"hostpath-provisioner-admin",
-			},
 			Verbs: []string{
 				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"serviceaccounts",
-			},
-			Verbs: []string{
-				"list",
-				"get",
-				"watch",
-				"create",
 			},
 		},
 	}

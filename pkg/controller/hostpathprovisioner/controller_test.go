@@ -893,6 +893,14 @@ func createServiceAccountWithNameThatDependsOnCr() *corev1.ServiceAccount {
 			Name:      "test-name-admin",
 			Namespace: "test-namespace",
 			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "hostpathprovisioner.kubevirt.io/test",
+					Kind:       "HostPathProvisioner",
+					Name:       "test-name",
+					UID:        "1234",
+				},
+			},
 		},
 	}
 }
