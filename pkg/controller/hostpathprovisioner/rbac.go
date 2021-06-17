@@ -22,38 +22,24 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
-	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
-	dups, err := r.getDuplicateClusterRoleBinding(cr.Name)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	for _, dup := range dups {
-		if err := r.deleteClusterRoleBindingObject(dup.Name); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	// Define a new ClusterRoleBinding object
 	desired := createClusterRoleBindingObject(namespace)
 	setLastAppliedConfiguration(desired)
 	// Check if this ClusterRoleBinding already exists
 	found := &rbacv1.ClusterRoleBinding{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
@@ -142,25 +128,13 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(name strin
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
-	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
-	dups, err := r.getDuplicateClusterRole(cr.Name)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	for _, dup := range dups {
-		if err := r.deleteClusterRoleObject(dup.Name); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	// Define a new ClusterRole object
 	desired := createClusterRoleObject()
 	setLastAppliedConfiguration(desired)
 
 	// Check if this ClusterRole already exists
 	found := &rbacv1.ClusterRole{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new ClusterRole", "ClusterRole.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
@@ -304,52 +278,4 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(name string) erro
 	}
 
 	return nil
-}
-
-// getDuplicateClusterRole will give us duplicate ClusterRoles from a previous version if they exist.
-// This is possible from a previous HPP version where the resources (DaemonSet, RBAC) were named depending on the CR, whereas now, we have fixed names for those.
-func (r *ReconcileHostPathProvisioner) getDuplicateClusterRole(customCrName string) ([]rbacv1.ClusterRole, error) {
-	crList := &rbacv1.ClusterRoleList{}
-	dups := make([]rbacv1.ClusterRole, 0)
-
-	ls, err := labels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
-	if err != nil {
-		return dups, err
-	}
-	lo := &client.ListOptions{LabelSelector: ls}
-	if err := r.client.List(context.TODO(), crList, lo); err != nil {
-		return dups, err
-	}
-
-	for _, cr := range crList.Items {
-		if cr.Name != MultiPurposeHostPathProvisionerName {
-			dups = append(dups, cr)
-		}
-	}
-
-	return dups, nil
-}
-
-// getDuplicateClusterRoleBinding will give us duplicate ClusterRoleBindings from a previous version if they exist.
-// This is possible from a previous HPP version where the resources (DaemonSet, RBAC) were named depending on the CR, whereas now, we have fixed names for those.
-func (r *ReconcileHostPathProvisioner) getDuplicateClusterRoleBinding(customCrName string) ([]rbacv1.ClusterRoleBinding, error) {
-	crbList := &rbacv1.ClusterRoleBindingList{}
-	dups := make([]rbacv1.ClusterRoleBinding, 0)
-
-	ls, err := labels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
-	if err != nil {
-		return dups, err
-	}
-	lo := &client.ListOptions{LabelSelector: ls}
-	if err := r.client.List(context.TODO(), crbList, lo); err != nil {
-		return dups, err
-	}
-
-	for _, crb := range crbList.Items {
-		if crb.Name != MultiPurposeHostPathProvisionerName {
-			dups = append(dups, crb)
-		}
-	}
-
-	return dups, nil
 }
