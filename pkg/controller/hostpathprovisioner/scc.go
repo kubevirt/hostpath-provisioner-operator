@@ -25,13 +25,11 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
@@ -41,25 +39,13 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 		return reconcile.Result{}, err
 	}
 
-	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
-	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
-	dups, err := r.getDuplicateSecurityContextConstraints(cr.Name)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	for _, dup := range dups {
-		if err := r.deleteSCC(dup.Name); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	// Define a new SecurityContextConstraints object
 	desired := createSecurityContextConstraintsObject(namespace)
 	setLastAppliedConfiguration(desired)
 
 	// Check if this SecurityContextConstraints already exists
 	found := &secv1.SecurityContextConstraints{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
@@ -180,28 +166,4 @@ func (r *ReconcileHostPathProvisioner) checkSCCUsed() (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-// getDuplicateSecurityContextConstraints will give us duplicate SecurityContextConstraints from a previous version if they exist.
-// This is possible from a previous HPP version where the resources (DaemonSet, RBAC) were named depending on the CR, whereas now, we have fixed names for those.
-func (r *ReconcileHostPathProvisioner) getDuplicateSecurityContextConstraints(customCrName string) ([]secv1.SecurityContextConstraints, error) {
-	sccList := &secv1.SecurityContextConstraintsList{}
-	dups := make([]secv1.SecurityContextConstraints, 0)
-
-	ls, err := labels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
-	if err != nil {
-		return dups, err
-	}
-	lo := &client.ListOptions{LabelSelector: ls}
-	if err := r.client.List(context.TODO(), sccList, lo); err != nil {
-		return dups, err
-	}
-
-	for _, scc := range sccList.Items {
-		if scc.Name != MultiPurposeHostPathProvisionerName {
-			dups = append(dups, scc)
-		}
-	}
-
-	return dups, nil
 }
