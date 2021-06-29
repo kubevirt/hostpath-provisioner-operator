@@ -150,6 +150,7 @@ func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathPr
 		Volumes: []secv1.FSType{
 			secv1.FSTypeHostPath,
 			secv1.FSTypeSecret,
+			secv1.FSProjected,
 		},
 	}
 }

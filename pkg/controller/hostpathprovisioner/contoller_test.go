@@ -766,6 +766,7 @@ func verifyCreateSCC(cl client.Client) {
 		Volumes: []secv1.FSType{
 			secv1.FSTypeHostPath,
 			secv1.FSTypeSecret,
+			secv1.FSProjected,
 		},
 	}
 	Expect(scc).To(Equal(expected))
