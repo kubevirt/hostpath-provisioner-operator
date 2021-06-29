@@ -151,6 +151,7 @@ func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityCon
 		Volumes: []secv1.FSType{
 			secv1.FSTypeHostPath,
 			secv1.FSTypeSecret,
+			secv1.FSProjected,
 		},
 	}
 }
