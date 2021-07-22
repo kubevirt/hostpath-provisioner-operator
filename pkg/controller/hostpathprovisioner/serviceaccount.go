@@ -37,7 +37,7 @@ import (
 func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
 	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
-	dups, err := r.getDuplicateServiceAccount(cr.Name, namespace)
+	dups, err := r.getDuplicateServiceAccount(cr.Name, namespace, cr.Spec.DisableCSI)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -126,9 +126,13 @@ func (r *ReconcileHostPathProvisioner) deleteServiceAccount(name, namespace stri
 // createServiceAccount returns a new Service Account object in the same namespace as the cr.
 func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
 	labels := getRecommendedLabels()
+	return createServiceAccount(ProvisionerServiceAccountName, namespace, labels)
+}
+
+func createServiceAccount(name, namespace string, labels map[string]string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ControllerServiceAccountName,
+			Name:      name,
 			Namespace: namespace,
 			Labels:    labels,
 		},
@@ -137,7 +141,7 @@ func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
 
 // getDuplicateServiceAccount will give us duplicate ServiceAccounts from a previous version if they exist.
 // This is possible from a previous HPP version where the resources (DaemonSet, RBAC) were named depending on the CR, whereas now, we have fixed names for those.
-func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, namespace string) ([]corev1.ServiceAccount, error) {
+func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, namespace string, disableCSI bool) ([]corev1.ServiceAccount, error) {
 	saList := &corev1.ServiceAccountList{}
 	dups := make([]corev1.ServiceAccount, 0)
 
@@ -151,7 +155,7 @@ func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, 
 	}
 
 	for _, sa := range saList.Items {
-		if sa.Name != ControllerServiceAccountName {
+		if sa.Name != ProvisionerServiceAccountName && (disableCSI || (sa.Name != attacherName && sa.Name != healthCheckName)) {
 			for _, ownerRef := range sa.OwnerReferences {
 				if ownerRef.Kind == "HostPathProvisioner" && ownerRef.Name == customCrName {
 					dups = append(dups, sa)

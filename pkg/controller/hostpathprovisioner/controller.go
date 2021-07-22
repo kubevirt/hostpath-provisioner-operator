@@ -139,7 +139,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used == true || isErrCacheNotStarted(err) {
+	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used || isErrCacheNotStarted(err) {
 		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: mapFn,
 		})
@@ -183,7 +183,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 	if size := len(hppList.Items); size > 1 {
-		err := fmt.Errorf("There should be a single hostpath provisioner, %d items found", size)
+		err := fmt.Errorf("there should be a single hostpath provisioner, %d items found", size)
 		reqLogger.Error(err, "Multiple HPPs detected")
 		return reconcile.Result{}, err
 	}
@@ -206,6 +206,23 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	if !cr.Spec.DisableCSI {
+		reqLogger.Info("Reconciling CSI plugin")
+	} else {
+		reqLogger.Info("Reconciling legacy controller, this controller is deprecated")
+	}
+
+	namespace, err := watchNamespaceFunc()
+	if err != nil {
+		MarkCrFailed(cr, watchNameSpace, err.Error())
+		r.recorder.Event(cr, corev1.EventTypeWarning, watchNameSpace, err.Error())
+		err2 := r.client.Update(context.TODO(), cr)
+		if err2 != nil {
+			reqLogger.Error(err2, "Unable to update CR to failed state")
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
 
 	isMarkedToBeDeleted := cr.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
@@ -216,14 +233,12 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", MultiPurposeHostPathProvisionerName)
-		if err := r.deleteClusterRoleBindingObject(MultiPurposeHostPathProvisionerName); err != nil {
-			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
-			return reconcile.Result{}, err
+		if res, err := r.deleteAllRbac(reqLogger, namespace); err != nil {
+			return res, err
 		}
-		reqLogger.Info("Deleting ClusterRole", "ClusterRole", MultiPurposeHostPathProvisionerName)
-		if err := r.deleteClusterRoleObject(MultiPurposeHostPathProvisionerName); err != nil {
-			reqLogger.Error(err, "Unable to delete ClusterRole")
+		reqLogger.Info("Deleting CSIDriver", "CSIDriver", MultiPurposeHostPathProvisionerName)
+		if err := r.deleteCSIDriver(driverName); err != nil {
+			reqLogger.Error(err, "Unable to delete CSIDriver")
 			return reconcile.Result{}, err
 		}
 
@@ -240,18 +255,6 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 
 	// Add finalizer for this CR
 	if err := r.addFinalizer(reqLogger, cr); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	namespace, err := watchNamespaceFunc()
-	if err != nil {
-		MarkCrFailed(cr, watchNameSpace, err.Error())
-		r.recorder.Event(cr, corev1.EventTypeWarning, watchNameSpace, err.Error())
-		err2 := r.client.Update(context.TODO(), cr)
-		if err2 != nil {
-			reqLogger.Error(err2, "Unable to update CR to failed state")
-		}
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
@@ -309,6 +312,32 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	return res, nil
 }
 
+func (r *ReconcileHostPathProvisioner) deleteAllRbac(reqLogger logr.Logger, namespace string) (reconcile.Result, error) {
+	for _, name := range []string{ProvisionerServiceAccountName, attacherName, healthCheckName} {
+		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", name)
+		if err := r.deleteClusterRoleBindingObject(name); err != nil {
+			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Deleting ClusterRole", "ClusterRole", name)
+		if err := r.deleteClusterRoleObject(name); err != nil {
+			reqLogger.Error(err, "Unable to delete ClusterRole")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Deleting RoleBinding", "ClusterRoleBinding", name)
+		if err := r.deleteRoleBindingObject(name, namespace); err != nil {
+			reqLogger.Error(err, "Unable to delete RoleBinding")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Deleting Role", "ClusterRole", name)
+		if err := r.deleteRoleObject(name, namespace); err != nil {
+			reqLogger.Error(err, "Unable to delete Role")
+			return reconcile.Result{}, err
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
 func canUpgrade(current, target string) (bool, error) {
 	if current == "" {
 		// Can't upgrade if no current is set
@@ -355,6 +384,21 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ClusterRoleBinding")
+		return reconcile.Result{}, err
+	}
+	res, err = r.reconcileRole(reqLogger, cr, namespace, r.recorder)
+	if err != nil {
+		reqLogger.Error(err, "Unable to create Role")
+		return reconcile.Result{}, err
+	}
+	res, err = r.reconcileRoleBinding(reqLogger, cr, namespace, r.recorder)
+	if err != nil {
+		reqLogger.Error(err, "Unable to create RoleBinding")
+		return reconcile.Result{}, err
+	}
+	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace, r.recorder)
+	if err != nil {
+		reqLogger.Error(err, "Unable to create CSIDriver")
 		return reconcile.Result{}, err
 	}
 	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)

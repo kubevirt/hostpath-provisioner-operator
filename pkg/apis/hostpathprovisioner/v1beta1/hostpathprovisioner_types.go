@@ -31,6 +31,8 @@ type HostPathProvisionerSpec struct {
 	PathConfig PathConfig `json:"pathConfig" valid:"required"`
 	// Restrict on which nodes HPP workload pods will be scheduled
 	Workloads NodePlacement `json:"workload,omitempty"`
+	// DisableCSI Use old in tree based provisioner instead of CSI provisioner, default: false
+	DisableCSI bool `json:"disableCsi,omitempty"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
