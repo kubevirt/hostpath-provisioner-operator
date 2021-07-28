@@ -734,6 +734,8 @@ func verifyCreateDaemonSet(cl client.Client) {
 	Expect(ds.Spec.Template.Spec.Containers[0].Env[0].Value).To(Equal("false"))
 	// Check directory
 	Expect(ds.Spec.Template.Spec.Containers[0].Env[2].Value).To(Equal("/tmp/test"))
+	// Check k8s recommended labels
+	Expect(ds.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateServiceAccount(cl client.Client) {
@@ -745,6 +747,7 @@ func verifyCreateServiceAccount(cl client.Client) {
 	err := cl.Get(context.TODO(), nn, sa)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(sa.ObjectMeta.Name).To(Equal(ControllerServiceAccountName))
+	Expect(sa.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateClusterRole(cl client.Client) {
@@ -825,6 +828,7 @@ func verifyCreateClusterRole(cl client.Client) {
 		},
 	}
 	Expect(crole.Rules).To(Equal(expectedRules))
+	Expect(crole.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateClusterRoleBinding(cl client.Client) {
@@ -836,6 +840,7 @@ func verifyCreateClusterRoleBinding(cl client.Client) {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(crb.Subjects[0].Name).To(Equal(ControllerServiceAccountName))
 	Expect(crb.Subjects[0].Namespace).To(Equal("test-namespace"))
+	Expect(crb.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateSCC(cl client.Client) {
@@ -883,6 +888,7 @@ func verifyCreateSCC(cl client.Client) {
 		},
 	}
 	Expect(scc).To(Equal(expected))
+	Expect(scc.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func createServiceAccountWithNameThatDependsOnCr() *corev1.ServiceAccount {

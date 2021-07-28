@@ -125,9 +125,7 @@ func (r *ReconcileHostPathProvisioner) deleteServiceAccount(name, namespace stri
 
 // createServiceAccount returns a new Service Account object in the same namespace as the cr.
 func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
-	labels := map[string]string{
-		"k8s-app": MultiPurposeHostPathProvisionerName,
-	}
+	labels := getRecommendedLabels()
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ControllerServiceAccountName,

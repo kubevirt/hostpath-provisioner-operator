@@ -89,9 +89,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 }
 
 func createClusterRoleBindingObject(namespace string) *rbacv1.ClusterRoleBinding {
-	labels := map[string]string{
-		"k8s-app": MultiPurposeHostPathProvisionerName,
-	}
+	labels := getRecommendedLabels()
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MultiPurposeHostPathProvisionerName,
@@ -184,9 +182,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 }
 
 func createClusterRoleObject() *rbacv1.ClusterRole {
-	labels := map[string]string{
-		"k8s-app": MultiPurposeHostPathProvisionerName,
-	}
+	labels := getRecommendedLabels()
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MultiPurposeHostPathProvisionerName,
