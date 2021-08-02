@@ -139,9 +139,7 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, provisionerImage, namespace string) *appsv1.DaemonSet {
 	reqLogger.Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
 	volumeType := corev1.HostPathDirectoryOrCreate
-	labels := map[string]string{
-		"k8s-app": MultiPurposeHostPathProvisionerName,
-	}
+	labels := getRecommendedLabels()
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -184,6 +182,24 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 								{
 									Name:  "PV_DIR",
 									Value: cr.Spec.PathConfig.Path,
+								},
+								{
+									Name: "INSTALLER_PART_OF_LABEL",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "metadata.labels['app.kubernetes.io/part-of']",
+										},
+									},
+								},
+								{
+									Name: "INSTALLER_VERSION_LABEL",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "metadata.labels['app.kubernetes.io/version']",
+										},
+									},
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{

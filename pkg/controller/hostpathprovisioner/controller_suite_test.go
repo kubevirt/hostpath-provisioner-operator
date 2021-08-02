@@ -16,6 +16,7 @@ limitations under the License.
 package hostpathprovisioner
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -26,6 +27,13 @@ import (
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(logf.ZapLoggerTo(GinkgoWriter, true))
+	os.Setenv(PartOfLabelEnvVarName, "testing")
+	os.Setenv(VersionLabelEnvVarName, "v0.0.0-tests")
+})
+
+var _ = AfterSuite(func() {
+	os.Unsetenv(PartOfLabelEnvVarName)
+	os.Unsetenv(VersionLabelEnvVarName)
 })
 
 func TestHostpathProvisioners(t *testing.T) {

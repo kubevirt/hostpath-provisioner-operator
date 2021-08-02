@@ -124,6 +124,22 @@ func CreateOperatorEnvVar(repo, deployClusterResources, operatorImage, provision
 			Name:  "PULL_POLICY",
 			Value: pullPolicy,
 		},
+		{
+			Name: "INSTALLER_PART_OF_LABEL",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.labels['app.kubernetes.io/part-of']",
+				},
+			},
+		},
+		{
+			Name: "INSTALLER_VERSION_LABEL",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.labels['app.kubernetes.io/version']",
+				},
+			},
+		},
 	}
 }
 

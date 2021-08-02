@@ -112,9 +112,7 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(name string) error {
 
 func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityContextConstraints {
 	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ControllerServiceAccountName)
-	labels := map[string]string{
-		"k8s-app": MultiPurposeHostPathProvisionerName,
-	}
+	labels := getRecommendedLabels()
 	return &secv1.SecurityContextConstraints{
 		Groups: []string{},
 		TypeMeta: metav1.TypeMeta{
