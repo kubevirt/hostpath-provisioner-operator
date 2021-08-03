@@ -89,6 +89,8 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	currentRuntimeObjCopy := found.DeepCopyObject()
 	// Copy found status fields, so the compare won't fail on desired/scheduled/ready pods being different. Updating will ignore them anyway.
 	desired = copyStatusFields(desired, found)
+	// Leave out spec.selector updates; this section is a minimal set that is needed to know which pods are under our governance, and is immutable
+	desired.Spec.Selector = found.Spec.Selector.DeepCopy()
 
 	// allow users to add new annotations (but not change ours)
 	mergeLabelsAndAnnotations(desired, found)
