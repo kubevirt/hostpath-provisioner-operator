@@ -155,7 +155,7 @@ func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, 
 	}
 
 	for _, sa := range saList.Items {
-		if sa.Name != ProvisionerServiceAccountName && (disableCSI || (sa.Name != attacherName && sa.Name != healthCheckName)) {
+		if sa.Name != ProvisionerServiceAccountName && (disableCSI || sa.Name != healthCheckName) {
 			for _, ownerRef := range sa.OwnerReferences {
 				if ownerRef.Kind == "HostPathProvisioner" && ownerRef.Name == customCrName {
 					dups = append(dups, sa)

@@ -23,8 +23,6 @@ const (
 	ProvisionerImageDefault = "hostpath-provisioner"
 	// CsiProvisionerImageDefault is the default value of the hostpath provisioner csi container image name.
 	CsiProvisionerImageDefault = "hostpath-provisioner-csi"
-	// CsiAttacherImageDefault is the default value of the sig storage csi attacher side car container image name.
-	CsiAttacherImageDefault = "k8s.gcr.io/sig-storage/csi-attacher:v3.2.1"
 	// CsiExternalHealthMonitorControllerImageDefault is the default value of the sig storage csi health monitor controller side car container image name.
 	CsiExternalHealthMonitorControllerImageDefault = "k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0"
 	// CsiNodeDriverRegistrationImageDefault is the default value of the sig storage csi node registration side car container image name.
@@ -39,7 +37,6 @@ const (
 	externalHealthMonitorControllerImageEnvVarName = "EXTERNAL_HEALTH_MON_IMAGE"
 	nodeDriverRegistrarImageEnvVarName             = "NODE_DRIVER_REG_IMAGE"
 	livenessProbeImageEnvVarName                   = "LIVENESS_PROVE_IMAGE"
-	csiAttacherImageEnvVarName                     = "ATTACHER_IMAGE"
 	csiSigStorageProvisionerImageEnvVarName        = "CSI_SIG_STORAGE_PROVISIONER_IMAGE"
 	verbosityEnvVarName                            = "VERBOSITY"
 
@@ -47,7 +44,6 @@ const (
 	OperatorServiceAccountName = "hostpath-provisioner-operator"
 	// ProvisionerServiceAccountName is the name of Service Account used to run the controller.
 	ProvisionerServiceAccountName = "hostpath-provisioner-admin"
-	attacherName                  = "hostpath-provisioner-attacher"
 	healthCheckName               = "hostpath-provisioner-health-check"
 	// MultiPurposeHostPathProvisionerName is the name used for the DaemonSet, ClusterRole/Binding, SCC and k8s-app label value.
 	MultiPurposeHostPathProvisionerName = "hostpath-provisioner"

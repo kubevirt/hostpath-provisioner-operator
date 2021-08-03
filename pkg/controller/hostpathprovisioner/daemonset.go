@@ -52,7 +52,6 @@ type daemonSetArgs struct {
 	externalHealthMonitorControllerImage string
 	nodeDriverRegistrarImage             string
 	livenessProbeImage                   string
-	csiAttacherImage                     string
 	csiProvisionerImage                  string
 	namespace                            string
 	verbosity                            int
@@ -152,12 +151,6 @@ func getDaemonSetArgs(reqLogger logr.Logger, namespace string, disableCSI bool) 
 		if res.provisionerImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiProvisionerImageEnvVarName, CsiProvisionerImageDefault))
 			res.provisionerImage = CsiProvisionerImageDefault
-		}
-
-		res.csiAttacherImage = os.Getenv(csiAttacherImageEnvVarName)
-		if res.csiAttacherImage == "" {
-			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiAttacherImageEnvVarName, CsiAttacherImageDefault))
-			res.csiAttacherImage = CsiAttacherImageDefault
 		}
 
 		res.externalHealthMonitorControllerImage = os.Getenv(externalHealthMonitorControllerImageEnvVarName)
@@ -512,23 +505,6 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 							VolumeMounts: []corev1.VolumeMount{
 								socketDirVolumeMount,
 							},
-						},
-						{
-							Name:            "csi-attacher",
-							Image:           args.csiAttacherImage,
-							ImagePullPolicy: cr.Spec.ImagePullPolicy,
-							Args: []string{
-								fmt.Sprintf("--v=%d", args.verbosity),
-								fmt.Sprintf("--csi-address=%s", csiSocket),
-							},
-							SecurityContext: &corev1.SecurityContext{
-								Privileged: &privileged,
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								socketDirVolumeMount,
-							},
-							TerminationMessagePath:   "/dev/termination-log",
-							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
 							Name:            "csi-provisioner",

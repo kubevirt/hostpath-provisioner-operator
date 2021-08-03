@@ -40,21 +40,15 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 		return reconcile.Result{}, err
 	}
 	if !cr.Spec.DisableCSI {
-		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Attacher RBAC"), createClusterRoleBindingObject(attacherName, namespace), cr, namespace, recorder)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createClusterRoleBindingObject(healthCheckName, namespace), cr, namespace, recorder)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
 		// Make sure to delete CSI specific cluster role bindings
-		for _, name := range []string{attacherName, healthCheckName} {
-			if err := r.deleteClusterRoleBindingObject(name); err != nil {
-				reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
-				return reconcile.Result{}, err
-			}
+		if err := r.deleteClusterRoleBindingObject(healthCheckName); err != nil {
+			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
+			return reconcile.Result{}, err
 		}
 	}
 	return result, nil
@@ -155,21 +149,15 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 		return reconcile.Result{}, err
 	}
 	if !cr.Spec.DisableCSI {
-		result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectAttacher(), cr, recorder)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 		result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectHealthCheck(), cr, recorder)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
 		// Make sure to delete CSI specific cluster roles
-		for _, name := range []string{attacherName, healthCheckName} {
-			if err := r.deleteClusterRoleObject(name); err != nil {
-				reqLogger.Error(err, "Unable to delete ClusterRole")
-				return reconcile.Result{}, err
-			}
+		if err := r.deleteClusterRoleObject(healthCheckName); err != nil {
+			reqLogger.Error(err, "Unable to delete ClusterRole")
+			return reconcile.Result{}, err
 		}
 	}
 	return result, nil
@@ -398,45 +386,6 @@ func createClusterRoleObjectProvisioner(disableCSI bool) *rbacv1.ClusterRole {
 					"watch",
 				},
 			},
-		},
-	}
-}
-
-func createClusterRoleObjectAttacher() *rbacv1.ClusterRole {
-	labels := getRecommendedLabels()
-	return &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   attacherName,
-			Labels: labels,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"persistentvolumes",
-				},
-				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-					"patch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"storage.k8s.io",
-				},
-				Resources: []string{
-					"csinodes",
-				},
-				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-				},
-			},
 			{
 				APIGroups: []string{
 					"storage.k8s.io",
@@ -562,7 +511,7 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(name string) erro
 func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	if cr.Spec.DisableCSI {
 		// Make sure to delete CSI specific role bindings
-		for _, name := range []string{ProvisionerServiceAccountName, attacherName, healthCheckName} {
+		for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
 			if err := r.deleteRoleBindingObject(name, namespace); err != nil {
 				reqLogger.Error(err, "Unable to delete RoleBinding")
 				return reconcile.Result{}, err
@@ -572,10 +521,6 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logge
 		return reconcile.Result{}, nil
 	}
 	result, err := r.reconcileRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createRoleBindingObject(ProvisionerServiceAccountName, namespace), cr, namespace, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	result, err = r.reconcileRoleBindingForSa(reqLogger.WithName("Attacher RBAC"), createRoleBindingObject(attacherName, namespace), cr, namespace, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -665,7 +610,7 @@ func createRoleBindingObject(name, namespace string) *rbacv1.RoleBinding {
 func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	if cr.Spec.DisableCSI {
 		// Make sure to delete CSI specific roles
-		for _, name := range []string{ProvisionerServiceAccountName, attacherName, healthCheckName} {
+		for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
 			if err := r.deleteRoleObject(name, namespace); err != nil {
 				reqLogger.Error(err, "Unable to delete RoleBinding")
 				return reconcile.Result{}, err
@@ -676,10 +621,6 @@ func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *
 	}
 
 	result, err := r.reconcileRoleForSa(reqLogger.WithName("provisioner RBAC"), createRoleObjectProvisioner(namespace), cr, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	result, err = r.reconcileRoleForSa(reqLogger.WithName("attacher RBAC"), createRoleObjectAttacher(namespace), cr, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -794,35 +735,6 @@ func createRoleObjectProvisioner(namespace string) *rbacv1.Role {
 				},
 				Verbs: []string{
 					"get",
-				},
-			},
-		},
-	}
-}
-
-func createRoleObjectAttacher(namespace string) *rbacv1.Role {
-	labels := getRecommendedLabels()
-	return &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      attacherName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{
-					"coordination.k8s.io",
-				},
-				Resources: []string{
-					"leases",
-				},
-				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-					"delete",
-					"update",
-					"create",
 				},
 			},
 		},

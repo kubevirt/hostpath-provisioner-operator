@@ -313,7 +313,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 }
 
 func (r *ReconcileHostPathProvisioner) deleteAllRbac(reqLogger logr.Logger, namespace string) (reconcile.Result, error) {
-	for _, name := range []string{ProvisionerServiceAccountName, attacherName, healthCheckName} {
+	for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
 		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", name)
 		if err := r.deleteClusterRoleBindingObject(name); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")

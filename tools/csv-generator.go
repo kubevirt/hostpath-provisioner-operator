@@ -454,7 +454,6 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 			},
 			ResourceNames: []string{
 				"hostpath-provisioner-admin",
-				"hostpath-provisioner-attacher",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
@@ -485,7 +484,6 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 			},
 			ResourceNames: []string{
 				"hostpath-provisioner-admin",
-				"hostpath-provisioner-attacher",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
@@ -550,7 +548,6 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			ResourceNames: []string{
 				"hostpath-provisioner",
 				"hostpath-provisioner-admin",
-				"hostpath-provisioner-attacher",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
@@ -582,7 +579,6 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			ResourceNames: []string{
 				"hostpath-provisioner",
 				"hostpath-provisioner-admin",
-				"hostpath-provisioner-attacher",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{

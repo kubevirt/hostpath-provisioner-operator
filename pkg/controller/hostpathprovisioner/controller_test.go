@@ -884,44 +884,6 @@ func verifyCreateCSIClusterRole(cl client.Client) {
 				"watch",
 			},
 		},
-	}
-	Expect(crole.Rules).To(Equal(expectedRules))
-	Expect(crole.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
-
-	crole = &rbacv1.ClusterRole{}
-	nn = types.NamespacedName{
-		Name: attacherName,
-	}
-	err = cl.Get(context.TODO(), nn, crole)
-	Expect(err).NotTo(HaveOccurred())
-	expectedRules = []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"persistentvolumes",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"patch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"csinodes",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
 		{
 			APIGroups: []string{
 				"storage.k8s.io",
@@ -1166,33 +1128,7 @@ func verifyCreateCSIRole(cl client.Client) {
 	}
 	Expect(role.Rules).To(Equal(expectedRules))
 	Expect(role.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
-	role = &rbacv1.Role{}
-	nn = types.NamespacedName{
-		Name:      attacherName,
-		Namespace: "test-namespace",
-	}
-	err = cl.Get(context.TODO(), nn, role)
-	Expect(err).NotTo(HaveOccurred())
-	expectedRules = []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				"coordination.k8s.io",
-			},
-			Resources: []string{
-				"leases",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"delete",
-				"update",
-				"create",
-			},
-		},
-	}
-	Expect(role.Rules).To(Equal(expectedRules))
-	Expect(role.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+
 	role = &rbacv1.Role{}
 	nn = types.NamespacedName{
 		Name:      healthCheckName,

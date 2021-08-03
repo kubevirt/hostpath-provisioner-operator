@@ -42,7 +42,6 @@ rules:
   resourceNames:
   - hostpath-provisioner
   - hostpath-provisioner-admin
-  - hostpath-provisioner-attacher
   - hostpath-provisioner-health-check
   verbs:
   - update
@@ -72,7 +71,6 @@ rules:
   resourceNames:
   - hostpath-provisioner
   - hostpath-provisioner-admin
-  - hostpath-provisioner-attacher
   - hostpath-provisioner-health-check
   verbs:
   - update
@@ -265,7 +263,6 @@ rules:
   - rolebindings
   resourceNames:
   - hostpath-provisioner-admin
-  - hostpath-provisioner-attacher
   - hostpath-provisioner-health-check
   verbs:
   - update
@@ -276,7 +273,6 @@ rules:
   - roles
   resourceNames:
   - hostpath-provisioner-admin
-  - hostpath-provisioner-attacher
   - hostpath-provisioner-health-check
   verbs:
   - update
@@ -1898,8 +1894,6 @@ spec:
               value: "registry:5000/hostpath-provisioner:latest"
             - name: CSI_PROVISIONER_IMAGE
               value: "registry:5000/hostpath-provisioner-csi:latest"
-            - name: ATTACHER_IMAGE
-              value: "k8s.gcr.io/sig-storage/csi-attacher:v3.2.1"
             - name: EXTERNAL_HEALTH_MON_IMAGE
               value: "k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0"
             - name: NODE_DRIVER_REG_IMAGE
