@@ -387,6 +387,10 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 									Name:  "PV_DIR",
 									Value: cr.Spec.PathConfig.Path,
 								},
+								{
+									Name:  "VERSION",
+									Value: cr.Status.TargetVersion,
+								},
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
@@ -396,6 +400,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								fmt.Sprintf("--v=%d", args.verbosity),
 								"--endpoint=$(CSI_ENDPOINT)",
 								"--nodeid=$(NODE_NAME)",
+								"--version=$(VERSION)",
 							},
 							Ports: []corev1.ContainerPort{
 								{
