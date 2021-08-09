@@ -83,3 +83,4 @@ _out
 build/_output/*
 #coverage
 hack/.coverprofile
+bin

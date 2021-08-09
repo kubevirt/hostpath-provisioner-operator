@@ -340,6 +340,19 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 				"get",
 				"watch",
 				"create",
+			},
+		},
+		{
+			APIGroups: []string{
+				"apps",
+			},
+			Resources: []string{
+				"daemonsets",
+			},
+			ResourceNames: [] string{
+				"hostpath-provisioner",
+			},
+			Verbs: []string{
 				"delete",
 				"update",
 			},
@@ -375,7 +388,107 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 				"serviceaccounts",
 			},
 			Verbs: []string{
+				"list",
+				"get",
+				"create",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"serviceaccounts",
+			},
+			ResourceNames: []string{
+				"hostpath-provisioner-admin",
+			},
+			Verbs: []string{
+				"update",
+				"delete",
+			},
+		},
+		{
+			APIGroups: []string{
+				"coordination.k8s.io",
+			},
+			Resources: []string{
+				"leases",
+			},
+			Verbs: []string{
 				"*",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"csistoragecapacities",
+			},
+			Verbs: []string{
+				"*",
+			},
+		},
+		{
+			APIGroups: []string{
+				"rbac.authorization.k8s.io",
+			},
+			Resources: []string{
+				"rolebindings",
+			},
+			Verbs: []string{
+				"list",
+				"create",
+				"get",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"rbac.authorization.k8s.io",
+			},
+			Resources: []string{
+				"rolebindings",
+			},
+			ResourceNames: []string{
+				"hostpath-provisioner-admin",
+				"hostpath-provisioner-health-check",
+			},
+			Verbs: []string{
+				"update",
+				"delete",
+			},
+		},
+		{
+			APIGroups: []string{
+				"rbac.authorization.k8s.io",
+			},
+			Resources: []string{
+				"roles",
+			},
+			Verbs: []string{
+				"list",
+				"create",
+				"get",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"rbac.authorization.k8s.io",
+			},
+			Resources: []string{
+				"roles",
+			},
+			ResourceNames: []string{
+				"hostpath-provisioner-admin",
+				"hostpath-provisioner-health-check",
+			},
+			Verbs: []string{
+				"update",
+				"delete",
 			},
 		},
 	}
@@ -417,6 +530,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 				"events",
 			},
 			Verbs: []string{
+				"get",
 				"list",
 				"watch",
 				"create",
@@ -433,6 +547,8 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			ResourceNames: []string{
 				"hostpath-provisioner",
+				"hostpath-provisioner-admin",
+				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
 				"update",
@@ -462,6 +578,8 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			ResourceNames: []string{
 				"hostpath-provisioner",
+				"hostpath-provisioner-admin",
+				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
 				"update",
@@ -558,6 +676,88 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			Verbs: []string{
 				"get",
+				"list",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"csinodes",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"csidrivers",
+			},
+			Verbs: []string{
+				"list",
+				"create",
+				"get",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"csidrivers",
+			},
+			ResourceNames: []string{
+				"kubevirt.io.hostpath-provisioner",
+			},
+			Verbs: []string{
+				"update",
+				"delete",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"volumeattachments",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"volumeattachments/status",
+			},
+			Verbs: []string{
+				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"pods",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
 			},
 		},
 	}

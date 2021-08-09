@@ -38,6 +38,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	csiSocket = "/csi/csi.sock"
+)
+
+var (
+	socketDirVolumeMount = corev1.VolumeMount{Name: "socket-dir", MountPath: "/csi"}
+	dataDirVolumeMount   = corev1.VolumeMount{Name: "csi-data-dir", MountPath: "/csi-data-dir"}
+)
+
+type daemonSetArgs struct {
+	provisionerImage                     string
+	externalHealthMonitorControllerImage string
+	nodeDriverRegistrarImage             string
+	livenessProbeImage                   string
+	csiProvisionerImage                  string
+	namespace                            string
+	verbosity                            int
+	version                              string
+}
+
 // reconcileDaemonSet Reconciles the daemon set.
 func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
@@ -52,14 +72,16 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 		}
 	}
 
+	args := getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, cr.Spec.DisableCSI)
+	args.version = cr.Status.TargetVersion
 	// Define a new DaemonSet object
-	provisionerImage := os.Getenv(provisionerImageEnvVarName)
-	if provisionerImage == "" {
-		reqLogger.Info("PROVISIONER_IMAGE not set, defaulting to hostpath-provisioner")
-		provisionerImage = ProvisionerImageDefault
-	}
+	var desired *appsv1.DaemonSet
 
-	desired := createDaemonSetObject(cr, reqLogger, provisionerImage, namespace)
+	if cr.Spec.DisableCSI {
+		desired = createDaemonSetObject(cr, reqLogger, args.provisionerImage, namespace)
+	} else {
+		desired = createCSIDaemonSetObject(cr, reqLogger, args)
+	}
 	setLastAppliedConfiguration(desired)
 
 	// Set HostPathProvisioner instance as the owner and controller
@@ -89,9 +111,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	// Keep a copy of the original for comparison later.
 	currentRuntimeObjCopy := found.DeepCopyObject()
 	// Copy found status fields, so the compare won't fail on desired/scheduled/ready pods being different. Updating will ignore them anyway.
-	desired = copyStatusFields(desired, found)
-	// Leave out spec.selector updates; this section is a minimal set that is needed to know which pods are under our governance, and is immutable
-	desired.Spec.Selector = found.Spec.Selector.DeepCopy()
+	desired = copyIgnoredFields(desired, found)
 
 	// allow users to add new annotations (but not change ours)
 	mergeLabelsAndAnnotations(desired, found)
@@ -117,6 +137,58 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	return reconcile.Result{}, nil
 }
 
+func getDaemonSetArgs(reqLogger logr.Logger, namespace string, disableCSI bool) *daemonSetArgs {
+	res := &daemonSetArgs{}
+
+	if disableCSI {
+		res.provisionerImage = os.Getenv(provisionerImageEnvVarName)
+		if res.provisionerImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", provisionerImageEnvVarName, ProvisionerImageDefault))
+			res.provisionerImage = ProvisionerImageDefault
+		}
+	} else {
+		res.provisionerImage = os.Getenv(csiProvisionerImageEnvVarName)
+		if res.provisionerImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiProvisionerImageEnvVarName, CsiProvisionerImageDefault))
+			res.provisionerImage = CsiProvisionerImageDefault
+		}
+
+		res.externalHealthMonitorControllerImage = os.Getenv(externalHealthMonitorControllerImageEnvVarName)
+		if res.externalHealthMonitorControllerImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", externalHealthMonitorControllerImageEnvVarName, CsiExternalHealthMonitorControllerImageDefault))
+			res.externalHealthMonitorControllerImage = CsiExternalHealthMonitorControllerImageDefault
+		}
+
+		res.nodeDriverRegistrarImage = os.Getenv(nodeDriverRegistrarImageEnvVarName)
+		if res.nodeDriverRegistrarImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", nodeDriverRegistrarImageEnvVarName, CsiNodeDriverRegistrationImageDefault))
+			res.nodeDriverRegistrarImage = CsiNodeDriverRegistrationImageDefault
+		}
+
+		res.livenessProbeImage = os.Getenv(livenessProbeImageEnvVarName)
+		if res.livenessProbeImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", livenessProbeImageEnvVarName, LivenessProbeImageDefault))
+			res.livenessProbeImage = LivenessProbeImageDefault
+		}
+
+		res.csiProvisionerImage = os.Getenv(csiSigStorageProvisionerImageEnvVarName)
+		if res.csiProvisionerImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiSigStorageProvisionerImageEnvVarName, CsiSigStorageProvisionerImageDefault))
+			res.csiProvisionerImage = CsiSigStorageProvisionerImageDefault
+		}
+	}
+	res.namespace = namespace
+	verbosity := os.Getenv(verbosityEnvVarName)
+	if verbosity != "" {
+		if v, err := strconv.Atoi(verbosity); err == nil {
+			res.verbosity = v
+		}
+	} else {
+		res.verbosity = 3
+	}
+	return res
+}
+
 func (r *ReconcileHostPathProvisioner) deleteDaemonSet(name, namespace string) error {
 	// Check if this DaemonSet already exists
 	ds := &appsv1.DaemonSet{
@@ -133,6 +205,15 @@ func (r *ReconcileHostPathProvisioner) deleteDaemonSet(name, namespace string) e
 	return nil
 }
 
+func copyIgnoredFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
+	desired = copyStatusFields(desired, current)
+	desired.Spec.Template.Spec.DeprecatedServiceAccount = current.Spec.Template.Spec.DeprecatedServiceAccount
+	desired.Spec.Template.Spec.SchedulerName = current.Spec.Template.Spec.SchedulerName
+	// Leave out spec.selector updates; this section is a minimal set that is needed to know which pods are under our governance, and is immutable
+	desired.Spec.Selector = current.Spec.Selector.DeepCopy()
+	return desired
+}
+
 func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 	desired.Status = *current.Status.DeepCopy()
 	return desired
@@ -140,7 +221,7 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 
 // createDaemonSetObject returns a new DaemonSet in the same namespace as the cr
 func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, provisionerImage, namespace string) *appsv1.DaemonSet {
-	reqLogger.Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
+	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
 	volumeType := corev1.HostPathDirectoryOrCreate
 	labels := getRecommendedLabels()
 	return &appsv1.DaemonSet{
@@ -162,7 +243,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: ControllerServiceAccountName,
+					ServiceAccountName: ProvisionerServiceAccountName,
 					Containers: []corev1.Container{
 						{
 							Name:            MultiPurposeHostPathProvisionerName,
@@ -238,6 +319,271 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 						Type:   intstr.String,
 						StrVal: "10%",
 					},
+				},
+			},
+		},
+	}
+}
+
+func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
+	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
+	directoryOrCreate := corev1.HostPathDirectoryOrCreate
+	directory := corev1.HostPathDirectory
+	privileged := true
+	biDirectional := corev1.MountPropagationBidirectional
+	gracePeriod := int64(30)
+	revisionLimit := int32(10)
+	labels := getRecommendedLabels()
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "DaemonSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: args.namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "10%",
+					},
+				},
+			},
+			RevisionHistoryLimit: &revisionLimit,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: ProvisionerServiceAccountName,
+					RestartPolicy:      corev1.RestartPolicyAlways,
+					Containers: []corev1.Container{
+						{
+							Name:            MultiPurposeHostPathProvisionerName,
+							Image:           args.provisionerImage,
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "CSI_ENDPOINT",
+									Value: fmt.Sprintf("unix://%s", csiSocket),
+								},
+								{
+									Name: "NODE_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "spec.nodeName",
+										},
+									},
+								},
+								{
+									Name:  "PV_DIR",
+									Value: cr.Spec.PathConfig.Path,
+								},
+								{
+									Name:  "VERSION",
+									Value: cr.Status.TargetVersion,
+								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &privileged,
+							},
+							Args: []string{
+								fmt.Sprintf("--drivername=%s", driverName),
+								fmt.Sprintf("--v=%d", args.verbosity),
+								"--endpoint=$(CSI_ENDPOINT)",
+								"--nodeid=$(NODE_NAME)",
+								"--version=$(VERSION)",
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 9898,
+									Name:          "healthz",
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								FailureThreshold:    5,
+								InitialDelaySeconds: 10,
+								TimeoutSeconds:      3,
+								PeriodSeconds:       2,
+								SuccessThreshold:    1,
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/healthz",
+										Port: intstr.IntOrString{
+											IntVal: 9898,
+										},
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								dataDirVolumeMount,
+								{
+									Name:             "plugins-dir",
+									MountPath:        "/var/lib/kubelet/plugins",
+									MountPropagation: &biDirectional,
+								},
+								{
+									Name:             "mountpoint-dir",
+									MountPath:        "/var/lib/kubelet/pods",
+									MountPropagation: &biDirectional,
+								},
+								socketDirVolumeMount,
+							},
+							TerminationMessagePath:   "/dev/termination-log",
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+						},
+						{
+							Name:            "csi-external-health-monitor-controller",
+							Image:           args.externalHealthMonitorControllerImage,
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Args: []string{
+								fmt.Sprintf("--v=%d", args.verbosity),
+								"--csi-address=$(ADDRESS)",
+								"--leader-election",
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								socketDirVolumeMount,
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ADDRESS",
+									Value: csiSocket,
+								},
+							},
+							TerminationMessagePath:   "/dev/termination-log",
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+						},
+						{
+							Name:            "node-driver-registrar",
+							Image:           args.nodeDriverRegistrarImage,
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Args: []string{
+								fmt.Sprintf("--v=%d", args.verbosity),
+								fmt.Sprintf("--csi-address=%s", csiSocket),
+								"--kubelet-registration-path=/var/lib/kubelet/plugins/csi-hostpath/csi.sock",
+							},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &privileged,
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "KUBE_NODE_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "spec.nodeName",
+										},
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								socketDirVolumeMount,
+								{
+									Name:      "registration-dir",
+									MountPath: "/registration",
+								},
+								dataDirVolumeMount,
+							},
+							TerminationMessagePath:   "/dev/termination-log",
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+						},
+						{
+							Name:            "liveness-probe",
+							Image:           args.livenessProbeImage,
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Args: []string{
+								fmt.Sprintf("--csi-address=%s", csiSocket),
+								"--health-port=9898",
+							},
+							TerminationMessagePath:   "/dev/termination-log",
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							VolumeMounts: []corev1.VolumeMount{
+								socketDirVolumeMount,
+							},
+						},
+						{
+							Name:            "csi-provisioner",
+							Image:           args.csiProvisionerImage,
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Args: []string{
+								fmt.Sprintf("--v=%d", args.verbosity),
+								fmt.Sprintf("--csi-address=%s", csiSocket),
+								"--feature-gates=Topology=true",
+							},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &privileged,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								socketDirVolumeMount,
+							},
+							TerminationMessagePath:   "/dev/termination-log",
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+						},
+					},
+					SecurityContext:               &corev1.PodSecurityContext{},
+					DNSPolicy:                     corev1.DNSClusterFirst,
+					TerminationGracePeriodSeconds: &gracePeriod,
+					Volumes: []corev1.Volume{
+						{
+							Name: "csi-data-dir", // Has to match VolumeMounts in containers
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: cr.Spec.PathConfig.Path,
+									Type: &directoryOrCreate,
+								},
+							},
+						},
+						{
+							Name: "socket-dir",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/plugins/csi-hostpath",
+									Type: &directoryOrCreate,
+								},
+							},
+						},
+						{
+							Name: "mountpoint-dir",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/pods",
+									Type: &directoryOrCreate,
+								},
+							},
+						},
+						{
+							Name: "registration-dir",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/plugins_registry",
+									Type: &directory,
+								},
+							},
+						},
+						{
+							Name: "plugins-dir",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/plugins",
+									Type: &directory,
+								},
+							},
+						},
+					},
+					NodeSelector: cr.Spec.Workloads.NodeSelector,
+					Tolerations:  cr.Spec.Workloads.Tolerations,
+					Affinity:     cr.Spec.Workloads.Affinity,
 				},
 			},
 		},
