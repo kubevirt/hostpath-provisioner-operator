@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -228,6 +229,15 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 					NodeSelector: cr.Spec.Workloads.NodeSelector,
 					Tolerations:  cr.Spec.Workloads.Tolerations,
 					Affinity:     cr.Spec.Workloads.Affinity,
+				},
+			},
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "10%",
+					},
 				},
 			},
 		},
