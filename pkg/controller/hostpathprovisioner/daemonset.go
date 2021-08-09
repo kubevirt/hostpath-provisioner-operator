@@ -352,7 +352,8 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
 					MaxUnavailable: &intstr.IntOrString{
-						IntVal: 1,
+						Type:   intstr.String,
+						StrVal: "10%",
 					},
 				},
 			},
