@@ -221,7 +221,7 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 
 // createDaemonSetObject returns a new DaemonSet in the same namespace as the cr
 func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, provisionerImage, namespace string) *appsv1.DaemonSet {
-	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
+	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	volumeType := corev1.HostPathDirectoryOrCreate
 	labels := getRecommendedLabels()
 	return &appsv1.DaemonSet{
@@ -307,9 +307,9 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 							},
 						},
 					},
-					NodeSelector: cr.Spec.Workloads.NodeSelector,
-					Tolerations:  cr.Spec.Workloads.Tolerations,
-					Affinity:     cr.Spec.Workloads.Affinity,
+					NodeSelector: cr.Spec.Workload.NodeSelector,
+					Tolerations:  cr.Spec.Workload.Tolerations,
+					Affinity:     cr.Spec.Workload.Affinity,
 				},
 			},
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
@@ -326,7 +326,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 }
 
 func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
-	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workloads)
+	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
 	privileged := true
@@ -581,9 +581,9 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 							},
 						},
 					},
-					NodeSelector: cr.Spec.Workloads.NodeSelector,
-					Tolerations:  cr.Spec.Workloads.Tolerations,
-					Affinity:     cr.Spec.Workloads.Affinity,
+					NodeSelector: cr.Spec.Workload.NodeSelector,
+					Tolerations:  cr.Spec.Workload.Tolerations,
+					Affinity:     cr.Spec.Workload.Affinity,
 				},
 			},
 		},
