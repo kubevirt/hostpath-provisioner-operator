@@ -39,7 +39,7 @@ const (
 
 func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	if cr.Spec.DisableCsi {
-		if err := r.deleteCSIDriver(MultiPurposeHostPathProvisionerName); err != nil {
+		if err := r.deleteCSIDriver(); err != nil {
 			return reconcile.Result{}, err
 		}
 		// Skip if CSI is not in use
@@ -99,11 +99,11 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHostPathProvisioner) deleteCSIDriver(name string) error {
-	// Check if this SecurityContextConstraints already exists
+func (r *ReconcileHostPathProvisioner) deleteCSIDriver() error {
+	// Check if this CSIDriver already exists
 	csiDriver := &storagev1.CSIDriver{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: driverName,
 		},
 	}
 

@@ -237,7 +237,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 			return res, err
 		}
 		reqLogger.Info("Deleting CSIDriver", "CSIDriver", MultiPurposeHostPathProvisionerName)
-		if err := r.deleteCSIDriver(driverName); err != nil {
+		if err := r.deleteCSIDriver(); err != nil {
 			reqLogger.Error(err, "Unable to delete CSIDriver")
 			return reconcile.Result{}, err
 		}
