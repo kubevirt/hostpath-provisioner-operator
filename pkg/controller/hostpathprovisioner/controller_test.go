@@ -593,7 +593,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		cr = &hppv1.HostPathProvisioner{}
 		err = cl.Get(context.TODO(), req.NamespacedName, cr)
 		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.Workloads = hppv1.NodePlacement{
+		cr.Spec.Workload = hppv1.NodePlacement{
 			NodeSelector: nodeSelectorTestValue,
 			Affinity:     affinityTestValue,
 			Tolerations:  tolerationsTestValue,
@@ -629,7 +629,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		nodeSelectorTestValue := map[string]string{"kubernetes.io/arch": "ppc64le"}
 		tolerationsTestValue := []corev1.Toleration{{Key: "test", Value: "123"}}
-		cr.Spec.Workloads = hppv1.NodePlacement{
+		cr.Spec.Workload = hppv1.NodePlacement{
 			NodeSelector: nodeSelectorTestValue,
 			Affinity:     affinityTestValue,
 			Tolerations:  tolerationsTestValue,
@@ -656,7 +656,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		cr = &hppv1.HostPathProvisioner{}
 		err = cl.Get(context.TODO(), req.NamespacedName, cr)
 		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.Workloads = hppv1.NodePlacement{}
+		cr.Spec.Workload = hppv1.NodePlacement{}
 		err = cl.Update(context.TODO(), cr)
 		Expect(err).NotTo(HaveOccurred())
 		res, err := r.Reconcile(req)

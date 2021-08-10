@@ -30,7 +30,7 @@ type HostPathProvisionerSpec struct {
 	// PathConfig describes the location and layout of PV storage on nodes
 	PathConfig PathConfig `json:"pathConfig" valid:"required"`
 	// Restrict on which nodes HPP workload pods will be scheduled
-	Workloads NodePlacement `json:"workload,omitempty"`
+	Workload NodePlacement `json:"workload,omitempty"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
