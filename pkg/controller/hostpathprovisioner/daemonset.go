@@ -72,12 +72,12 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 		}
 	}
 
-	args := getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, cr.Spec.DisableCSI)
+	args := getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, cr.Spec.DisableCsi)
 	args.version = cr.Status.TargetVersion
 	// Define a new DaemonSet object
 	var desired *appsv1.DaemonSet
 
-	if cr.Spec.DisableCSI {
+	if cr.Spec.DisableCsi {
 		desired = createDaemonSetObject(cr, reqLogger, args.provisionerImage, namespace)
 	} else {
 		desired = createCSIDaemonSetObject(cr, reqLogger, args)
@@ -137,10 +137,10 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	return reconcile.Result{}, nil
 }
 
-func getDaemonSetArgs(reqLogger logr.Logger, namespace string, disableCSI bool) *daemonSetArgs {
+func getDaemonSetArgs(reqLogger logr.Logger, namespace string, disableCsi bool) *daemonSetArgs {
 	res := &daemonSetArgs{}
 
-	if disableCSI {
+	if disableCsi {
 		res.provisionerImage = os.Getenv(provisionerImageEnvVarName)
 		if res.provisionerImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", provisionerImageEnvVarName, ProvisionerImageDefault))

@@ -38,7 +38,7 @@ const (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCSI {
+	if cr.Spec.DisableCsi {
 		if err := r.deleteCSIDriver(MultiPurposeHostPathProvisionerName); err != nil {
 			return reconcile.Result{}, err
 		}
