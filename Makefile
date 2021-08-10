@@ -34,6 +34,9 @@ push: image
 generate:
 	./hack/update-codegen.sh
 
+generate-crd:
+	controller-gen crd:crdVersions=v1 output:dir=./deploy/ paths=./pkg/apis/hostpathprovisioner/...
+
 clean:
 	GO111MODULE=on; \
 	go mod tidy; \
