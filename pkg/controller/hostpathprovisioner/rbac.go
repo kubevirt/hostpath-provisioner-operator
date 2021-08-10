@@ -34,17 +34,23 @@ import (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+	var result reconcile.Result
+	var err error
 	// Define a new ClusterRoleBinding object
-	result, err := r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(ProvisionerServiceAccountName, namespace), cr, namespace, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if !cr.Spec.DisableCSI {
+	if !cr.Spec.DisableCsi {
+		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(ProvisionerServiceAccountName, namespace), cr, namespace, recorder)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createClusterRoleBindingObject(healthCheckName, namespace), cr, namespace, recorder)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
+		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(MultiPurposeHostPathProvisionerName, namespace), cr, namespace, recorder)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		// Make sure to delete CSI specific cluster role bindings
 		if err := r.deleteClusterRoleBindingObject(healthCheckName); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
@@ -144,11 +150,11 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(name strin
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
-	result, err := r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectProvisioner(cr.Spec.DisableCSI), cr, recorder)
+	result, err := r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectProvisioner(cr.Spec.DisableCsi), cr, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if !cr.Spec.DisableCSI {
+	if !cr.Spec.DisableCsi {
 		result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectHealthCheck(), cr, recorder)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -217,9 +223,9 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleForSa(reqLogger logr.
 	return reconcile.Result{}, nil
 }
 
-func createClusterRoleObjectProvisioner(disableCSI bool) *rbacv1.ClusterRole {
+func createClusterRoleObjectProvisioner(DisableCsi bool) *rbacv1.ClusterRole {
 	labels := getRecommendedLabels()
-	if disableCSI {
+	if DisableCsi {
 		return &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   MultiPurposeHostPathProvisionerName,
@@ -509,7 +515,7 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(name string) erro
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCSI {
+	if cr.Spec.DisableCsi {
 		// Make sure to delete CSI specific role bindings
 		for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
 			if err := r.deleteRoleBindingObject(name, namespace); err != nil {
@@ -608,7 +614,7 @@ func createRoleBindingObject(name, namespace string) *rbacv1.RoleBinding {
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCSI {
+	if cr.Spec.DisableCsi {
 		// Make sure to delete CSI specific roles
 		for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
 			if err := r.deleteRoleObject(name, namespace); err != nil {
