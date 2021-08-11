@@ -254,8 +254,8 @@ var _ = Describe("Controller reconcile loop", func() {
 		table.Entry("Enable CSI", false),
 	)
 
-	table.DescribeTable("Should fix a changed SecurityContextConstraints", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed SecurityContextConstraints", func(disableCsi bool) {
+		cr.Spec.DisableCsi = disableCsi
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -286,7 +286,12 @@ var _ = Describe("Controller reconcile loop", func() {
 		scc = &secv1.SecurityContextConstraints{}
 		err = cl.Get(context.TODO(), sccNN, scc)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(scc.AllowPrivilegedContainer).To(BeFalse())
+		Expect(scc.AllowPrivilegedContainer).To(Equal(!disableCsi))
+		if !disableCsi {
+			Expect(scc.Volumes).To(BeEmpty())
+		} else {
+			Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
+		}
 	},
 		table.Entry("Disable CSI", true),
 		table.Entry("Enable CSI", false),
@@ -730,7 +735,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 		verifyCreateCSIRoleBinding(r.client)
 		verifyCreateCSIDriver(r.client)
 	}
-	verifyCreateSCC(r.client)
+	verifyCreateSCC(r.client, cr.Spec.DisableCsi)
 
 	// Now make the daemonSet available, and reconcile again.
 	ds := &appsv1.DaemonSet{}
@@ -1197,7 +1202,7 @@ func verifyCreateCSIRoleBinding(cl client.Client) {
 	Expect(rb.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
-func verifyCreateSCC(cl client.Client) {
+func verifyCreateSCC(cl client.Client, disableCsi bool) {
 	scc := &secv1.SecurityContextConstraints{}
 	nn := types.NamespacedName{
 		Name: MultiPurposeHostPathProvisionerName,
@@ -1212,7 +1217,7 @@ func verifyCreateSCC(cl client.Client) {
 		},
 		// Meta data is dynamic, copy it so we can compare.
 		ObjectMeta:               *scc.ObjectMeta.DeepCopy(),
-		AllowPrivilegedContainer: false,
+		AllowPrivilegedContainer: !disableCsi,
 		RequiredDropCapabilities: []corev1.Capability{
 			"KILL",
 			"MKNOD",
@@ -1235,11 +1240,13 @@ func verifyCreateSCC(cl client.Client) {
 		Users: []string{
 			fmt.Sprintf("system:serviceaccount:test-namespace:%s", ProvisionerServiceAccountName),
 		},
-		Volumes: []secv1.FSType{
+	}
+	if disableCsi {
+		expected.Volumes = []secv1.FSType{
 			secv1.FSTypeHostPath,
 			secv1.FSTypeSecret,
 			secv1.FSProjected,
-		},
+		}
 	}
 	Expect(scc).To(Equal(expected))
 	Expect(scc.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
