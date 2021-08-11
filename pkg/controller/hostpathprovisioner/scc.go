@@ -40,7 +40,7 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	}
 
 	// Define a new SecurityContextConstraints object
-	desired := createSecurityContextConstraintsObject(namespace)
+	desired := createSecurityContextConstraintsObject(cr, namespace)
 	setLastAppliedConfiguration(desired)
 
 	// Check if this SecurityContextConstraints already exists
@@ -110,10 +110,10 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(name string) error {
 	return nil
 }
 
-func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityContextConstraints {
+func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
 	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ProvisionerServiceAccountName)
 	labels := getRecommendedLabels()
-	return &secv1.SecurityContextConstraints{
+	res := &secv1.SecurityContextConstraints{
 		Groups: []string{},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "security.openshift.io/v1",
@@ -123,7 +123,7 @@ func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityCon
 			Name:   MultiPurposeHostPathProvisionerName,
 			Labels: labels,
 		},
-		AllowPrivilegedContainer: false,
+		AllowPrivilegedContainer: !cr.Spec.DisableCsi,
 		RequiredDropCapabilities: []corev1.Capability{
 			"KILL",
 			"MKNOD",
@@ -146,12 +146,15 @@ func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityCon
 		Users: []string{
 			saName,
 		},
-		Volumes: []secv1.FSType{
+	}
+	if cr.Spec.DisableCsi {
+		res.Volumes = []secv1.FSType{
 			secv1.FSTypeHostPath,
 			secv1.FSTypeSecret,
 			secv1.FSProjected,
-		},
+		}
 	}
+	return res
 }
 
 func (r *ReconcileHostPathProvisioner) checkSCCUsed() (bool, error) {
