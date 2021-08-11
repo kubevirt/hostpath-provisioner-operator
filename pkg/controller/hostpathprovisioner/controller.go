@@ -84,8 +84,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// mapFn will be used to map reconcile requests to the HPP for resources that don't have an ownerRef
-	mapFn := handler.ToRequestsFunc(func(o handler.MapObject) []reconcile.Request {
-		if val, ok := o.Meta.GetLabels()["k8s-app"]; ok && val == MultiPurposeHostPathProvisionerName {
+	mapFn := handler.MapFunc(func(o client.Object) []reconcile.Request {
+		if val, ok := o.GetLabels()["k8s-app"]; ok && val == MultiPurposeHostPathProvisionerName {
 			hppList, err := getHppList(mgr.GetClient())
 			if err != nil {
 				log.Error(err, "Error getting HPPs")
@@ -125,25 +125,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}}, &handler.EnqueueRequestsFromMapFunc{
-		ToRequests: mapFn,
-	})
-	if err != nil {
+	if err := c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}}, &handler.EnqueueRequestsFromMapFunc{
-		ToRequests: mapFn,
-	})
-	if err != nil {
+	if err := c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
 	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used || isErrCacheNotStarted(err) {
-		err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestsFromMapFunc{
-			ToRequests: mapFn,
-		})
-		if err != nil {
+		if err := c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching SecurityContextConstraints")
 				return nil
@@ -172,7 +163,7 @@ type ReconcileHostPathProvisioner struct {
 // and what is in the HostPathProvisioner.Spec
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(3).Info("Reconciling HostPathProvisioner")
 
@@ -195,7 +186,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 
 	// Fetch the HostPathProvisioner instance
 	cr := &hostpathprovisionerv1.HostPathProvisioner{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, cr)
+	err = r.client.Get(context, request.NamespacedName, cr)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -216,7 +207,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 	if err != nil {
 		MarkCrFailed(cr, watchNameSpace, err.Error())
 		r.recorder.Event(cr, corev1.EventTypeWarning, watchNameSpace, err.Error())
-		err2 := r.client.Update(context.TODO(), cr)
+		err2 := r.client.Update(context, cr)
 		if err2 != nil {
 			reqLogger.Error(err2, "Unable to update CR to failed state")
 		}
@@ -245,7 +236,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		cr.SetFinalizers(nil)
 
 		// Update CR
-		err = r.client.Update(context.TODO(), cr)
+		err = r.client.Update(context, cr)
 		if err != nil {
 			reqLogger.Error(err, "Unable to remove finalizer from CR")
 			return reconcile.Result{}, err
@@ -269,7 +260,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		//New install, mark deploying.
 		MarkCrDeploying(cr, deployStarted, deployStartedMessage)
 		r.recorder.Event(cr, corev1.EventTypeNormal, deployStarted, deployStartedMessage)
-		err = r.client.Update(context.TODO(), cr)
+		err = r.client.Update(context, cr)
 		if err != nil {
 			reqLogger.Info("Marked deploying failed", "Error", err.Error())
 			// Error updating the object - requeue the request.
@@ -282,7 +273,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		MarkCrUpgradeHealingDegraded(cr, upgradeStarted, fmt.Sprintf("Started upgrade to version %s", cr.Status.TargetVersion))
 		r.recorder.Event(cr, corev1.EventTypeWarning, upgradeStarted, fmt.Sprintf("Started upgrade to version %s", cr.Status.TargetVersion))
 		// Mark Observed version to blank, so we get to the reconcile upgrade section.
-		err = r.client.Update(context.TODO(), cr)
+		err = r.client.Update(context, cr)
 		if err != nil {
 			// Error updating the object - requeue the request.
 			return reconcile.Result{}, err
@@ -299,7 +290,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		}
 		if !degraded && cr.Status.ObservedVersion != versionString {
 			cr.Status.ObservedVersion = versionString
-			err = r.client.Update(context.TODO(), cr)
+			err = r.client.Update(context, cr)
 			if err != nil {
 				// Error updating the object - requeue the request.
 				return reconcile.Result{}, err

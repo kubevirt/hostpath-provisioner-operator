@@ -118,6 +118,7 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 	labels := getRecommendedLabels()
 	podInfoOnMount := true
 	attachRequired := false
+	storageCapacity := true
 	return &storagev1.CSIDriver{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "storage.k8s.io/v1",
@@ -132,7 +133,8 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 			VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
 				storagev1.VolumeLifecyclePersistent,
 			},
-			PodInfoOnMount: &podInfoOnMount,
+			PodInfoOnMount:  &podInfoOnMount,
+			StorageCapacity: &storageCapacity,
 		},
 	}
 }

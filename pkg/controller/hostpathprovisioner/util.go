@@ -25,9 +25,9 @@ import (
 	jsondiff "github.com/appscode/jsonpatch"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 )
@@ -58,8 +58,7 @@ func mergeLabelsAndAnnotations(src, dest metav1.Object) {
 	}
 }
 
-func mergeObject(desiredObj, currentObj runtime.Object) (runtime.Object, error) {
-	desiredObj = desiredObj.DeepCopyObject()
+func mergeObject(desiredObj, currentObj client.Object) (client.Object, error) {
 	desiredMetaObj := desiredObj.(metav1.Object)
 	currentMetaObj := currentObj.(metav1.Object)
 
@@ -115,9 +114,9 @@ func logJSONDiff(logger logr.Logger, objA, objB interface{}) {
 	logger.Info("DIFF", "obj", objA, "patch", string(pBytes))
 }
 
-func newDefaultInstance(obj runtime.Object) runtime.Object {
+func newDefaultInstance(obj client.Object) client.Object {
 	typ := reflect.ValueOf(obj).Elem().Type()
-	return reflect.New(typ).Interface().(runtime.Object)
+	return reflect.New(typ).Interface().(client.Object)
 }
 
 func setLastAppliedConfiguration(obj metav1.Object) error {
