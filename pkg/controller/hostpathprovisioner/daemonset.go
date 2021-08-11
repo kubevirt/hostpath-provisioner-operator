@@ -520,6 +520,23 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								fmt.Sprintf("--v=%d", args.verbosity),
 								fmt.Sprintf("--csi-address=%s", csiSocket),
 								"--feature-gates=Topology=true",
+								"--enable-capacity=true",
+								"--extra-create-metadata",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "NAMESPACE",
+									Value: args.namespace,
+								},
+								{
+									Name: "POD_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "metadata.name",
+										},
+									},
+								},
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
