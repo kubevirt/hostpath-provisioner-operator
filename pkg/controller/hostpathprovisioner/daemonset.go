@@ -521,6 +521,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								fmt.Sprintf("--csi-address=%s", csiSocket),
 								"--feature-gates=Topology=true",
 								"--enable-capacity=true",
+								"--capacity-for-immediate-binding=true",
 								"--extra-create-metadata=true",
 								"--leader-election=true",
 							},
