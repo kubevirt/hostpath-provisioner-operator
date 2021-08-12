@@ -86,7 +86,8 @@ github.com/mailru/easyjson/jwriter
 ## explicit
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mgechev/revive v1.0.9
+## explicit
+# github.com/mgechev/revive v1.1.0
 ## explicit
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent

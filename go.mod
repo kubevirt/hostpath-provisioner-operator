@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mgechev/revive v1.0.9 // indirect
+	github.com/mgechev/revive v1.1.0 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.14.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
