@@ -19,14 +19,17 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/zapr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(logf.ZapLoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zapr.NewLogger(zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), zapcore.AddSync(GinkgoWriter), zap.DebugLevel))))
 	os.Setenv(PartOfLabelEnvVarName, "testing")
 	os.Setenv(VersionLabelEnvVarName, "v0.0.0-tests")
 })

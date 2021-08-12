@@ -111,7 +111,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("invalid"))
 
 		// Run the reconcile loop
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		// Check the daemonSet value, make sure it changed back.
@@ -154,7 +154,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("invalid"))
 		// Run the reconcile loop
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		// Verify the label has been changed back.
@@ -199,7 +199,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(len(crole.Rules[1].Verbs)).To(Equal(5))
 		Expect(crole.Rules[1].Verbs[4]).To(Equal("delete"))
 		// Run the reconcile loop
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		// Verify its gone now
@@ -241,7 +241,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(crb.Subjects[0].Name).To(Equal("invalid"))
 		// Run the reconcile loop
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		// Verify the name is correct again.
@@ -279,7 +279,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(scc.AllowPrivilegedContainer).To(BeTrue())
 		// Run the reconcile loop
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		// Verify allowPrivileged is false
@@ -325,7 +325,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				Namespace: "test-namespace",
 			},
 		}
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).To(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 	})
@@ -357,7 +357,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				Namespace: "test-namespace",
 			},
 		}
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 	})
@@ -373,7 +373,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				Namespace: "test-namespace",
 			},
 		}
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).To(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		Expect(strings.Contains(err.Error(), "downgraded")).To(BeTrue())
@@ -390,7 +390,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		version.VersionStringFunc = func() (string, error) {
 			return "1.0.2", nil
 		}
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
@@ -421,7 +421,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		err = cl.Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
 
-		res, err = r.Reconcile(req)
+		res, err = r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
@@ -445,7 +445,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		err = cl.Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
 
-		res, err = r.Reconcile(req)
+		res, err = r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
@@ -482,7 +482,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		version.VersionStringFunc = func() (string, error) {
 			return "1.0.2", nil
 		}
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
@@ -542,7 +542,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				Namespace: "test-namespace",
 			},
 		}
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).To(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		Expect(err.Error()).To(Equal("there should be a single hostpath provisioner, 2 items found"))
@@ -558,7 +558,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		cr, r, cl = createDeployedCr(cr)
 		err := cl.Delete(context.TODO(), cr)
 		Expect(err).NotTo(HaveOccurred())
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 	})
@@ -609,7 +609,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		err = cl.Update(context.TODO(), cr)
 		Expect(err).NotTo(HaveOccurred())
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
@@ -668,7 +668,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		cr.Spec.Workload = hppv1.NodePlacement{}
 		err = cl.Update(context.TODO(), cr)
 		Expect(err).NotTo(HaveOccurred())
-		res, err := r.Reconcile(req)
+		res, err := r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 
@@ -710,7 +710,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 			Namespace: "test-namespace",
 		},
 	}
-	res, err := r.Reconcile(req)
+	res, err := r.Reconcile(context.TODO(), req)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(res.Requeue).To(BeFalse())
 	updatedCr := &hppv1.HostPathProvisioner{}
@@ -751,7 +751,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	Expect(err).NotTo(HaveOccurred())
 
 	// daemonSet is ready, now reconcile again. We should have condition changes and observed version should be set.
-	res, err = r.Reconcile(req)
+	res, err = r.Reconcile(context.TODO(), req)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(res.Requeue).To(BeFalse())
 	updatedCr = &hppv1.HostPathProvisioner{}
