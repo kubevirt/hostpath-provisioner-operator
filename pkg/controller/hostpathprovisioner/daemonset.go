@@ -523,7 +523,9 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								"--enable-capacity=true",
 								"--capacity-for-immediate-binding=true",
 								"--extra-create-metadata=true",
-								"--leader-election=true",
+								"--immediate-topology=false",
+								"--strict-topology=true",
+								"--node-deployment=true",
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -536,6 +538,15 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 										FieldRef: &corev1.ObjectFieldSelector{
 											APIVersion: "v1",
 											FieldPath:  "metadata.name",
+										},
+									},
+								},
+								{
+									Name: "NODE_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "spec.nodeName",
 										},
 									},
 								},

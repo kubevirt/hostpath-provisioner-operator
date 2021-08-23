@@ -1236,7 +1236,7 @@ func verifyCreateSCC(cl client.Client, disableCsi bool) {
 		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
 			Type: secv1.SupplementalGroupsStrategyRunAsAny,
 		},
-		AllowHostDirVolumePlugin: true,
+		AllowHostDirVolumePlugin: disableCsi,
 		Users: []string{
 			fmt.Sprintf("system:serviceaccount:test-namespace:%s", ProvisionerServiceAccountName),
 		},
