@@ -3,6 +3,7 @@ kind: HostPathProvisioner
 metadata:
   name: hostpath-provisioner
 spec:
+  disableCsi: true
   imagePullPolicy: IfNotPresent
   pathConfig:
     path: "/var/hpvolumes"
