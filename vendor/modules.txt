@@ -206,7 +206,8 @@ golang.org/x/net/idna
 ## explicit
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
+## explicit
+# golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf
 ## explicit
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
