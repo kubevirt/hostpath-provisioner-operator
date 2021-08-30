@@ -11,6 +11,7 @@ services:
 
 install:
 - go get -u github.com/mgechev/revive
+- go mod vendor
 before_script:
 - make test
 before_deploy:
