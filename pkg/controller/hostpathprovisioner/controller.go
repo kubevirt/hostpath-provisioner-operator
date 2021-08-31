@@ -198,7 +198,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		return reconcile.Result{}, err
 	}
 	if !cr.Spec.DisableCsi {
-		reqLogger.Info("Reconciling CSI plugin")
+		reqLogger.Info("Reconciling CSI and legacy controller plugin")
 	} else {
 		reqLogger.Info("Reconciling legacy controller, this controller is deprecated")
 	}
@@ -304,7 +304,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 }
 
 func (r *ReconcileHostPathProvisioner) deleteAllRbac(reqLogger logr.Logger, namespace string) (reconcile.Result, error) {
-	for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
+	for _, name := range []string{ProvisionerServiceAccountName, ProvisionerServiceAccountNameCsi, healthCheckName, MultiPurposeHostPathProvisionerName} {
 		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", name)
 		if err := r.deleteClusterRoleBindingObject(name); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")

@@ -147,12 +147,10 @@ func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathPr
 			saName,
 		},
 	}
-	if cr.Spec.DisableCsi {
-		res.Volumes = []secv1.FSType{
-			secv1.FSTypeHostPath,
-			secv1.FSTypeSecret,
-			secv1.FSProjected,
-		}
+	res.Volumes = []secv1.FSType{
+		secv1.FSTypeHostPath,
+		secv1.FSTypeSecret,
+		secv1.FSProjected,
 	}
 	return res
 }

@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,6 +55,7 @@ type daemonSetArgs struct {
 	livenessProbeImage                   string
 	csiProvisionerImage                  string
 	namespace                            string
+	name                                 string
 	verbosity                            int
 	version                              string
 }
@@ -71,17 +73,20 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 			return reconcile.Result{}, err
 		}
 	}
-
-	args := getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, cr.Spec.DisableCsi)
+	// provisioner
+	args := getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, true)
 	args.version = cr.Status.TargetVersion
-	// Define a new DaemonSet object
-	var desired *appsv1.DaemonSet
-
-	if cr.Spec.DisableCsi {
-		desired = createDaemonSetObject(cr, reqLogger, args.provisionerImage, namespace)
-	} else {
-		desired = createCSIDaemonSetObject(cr, reqLogger, args)
+	if res, err := r.reconcileDaemonSetForSa(reqLogger, createDaemonSetObject(cr, reqLogger, args), cr, namespace, recorder); err != nil {
+		return res, err
 	}
+	// csi driver
+	args = getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, false)
+	args.version = cr.Status.TargetVersion
+	return r.reconcileDaemonSetForSa(reqLogger, createCSIDaemonSetObject(cr, reqLogger, args), cr, namespace, recorder)
+}
+
+func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Logger, desired *appsv1.DaemonSet, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+	// Define a new DaemonSet object
 	setLastAppliedConfiguration(desired)
 
 	// Set HostPathProvisioner instance as the owner and controller
@@ -91,7 +96,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 
 	// Check if this DaemonSet already exists
 	found := &appsv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new DaemonSet", "DaemonSet.Namespace", desired.Namespace, "Daemonset.Name", desired.Name)
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
@@ -141,12 +146,14 @@ func getDaemonSetArgs(reqLogger logr.Logger, namespace string, disableCsi bool) 
 	res := &daemonSetArgs{}
 
 	if disableCsi {
+		res.name = MultiPurposeHostPathProvisionerName
 		res.provisionerImage = os.Getenv(provisionerImageEnvVarName)
 		if res.provisionerImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", provisionerImageEnvVarName, ProvisionerImageDefault))
 			res.provisionerImage = ProvisionerImageDefault
 		}
 	} else {
+		res.name = fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)
 		res.provisionerImage = os.Getenv(csiProvisionerImageEnvVarName)
 		if res.provisionerImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiProvisionerImageEnvVarName, CsiProvisionerImageDefault))
@@ -220,7 +227,7 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 }
 
 // createDaemonSetObject returns a new DaemonSet in the same namespace as the cr
-func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, provisionerImage, namespace string) *appsv1.DaemonSet {
+func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	volumeType := corev1.HostPathDirectoryOrCreate
 	labels := getRecommendedLabels()
@@ -230,8 +237,8 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      MultiPurposeHostPathProvisionerName,
-			Namespace: namespace,
+			Name:      args.name,
+			Namespace: args.namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DaemonSetSpec{
@@ -243,11 +250,15 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: ProvisionerServiceAccountName,
+					ServiceAccountName:            ProvisionerServiceAccountName,
+					RestartPolicy:                 corev1.RestartPolicyAlways,
+					DNSPolicy:                     corev1.DNSClusterFirst,
+					TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
+					SecurityContext:               &corev1.PodSecurityContext{},
 					Containers: []corev1.Container{
 						{
 							Name:            MultiPurposeHostPathProvisionerName,
-							Image:           provisionerImage,
+							Image:           args.provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
 							Env: []corev1.EnvVar{
 								{
@@ -312,6 +323,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 					Affinity:     cr.Spec.Workload.Affinity,
 				},
 			},
+			RevisionHistoryLimit: pointer.Int32Ptr(10),
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
@@ -319,6 +331,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 						Type:   intstr.String,
 						StrVal: "10%",
 					},
+					MaxSurge: &intstr.IntOrString{},
 				},
 			},
 		},
@@ -329,10 +342,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
-	privileged := true
 	biDirectional := corev1.MountPropagationBidirectional
-	gracePeriod := int64(30)
-	revisionLimit := int32(10)
 	labels := getRecommendedLabels()
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -340,7 +350,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      MultiPurposeHostPathProvisionerName,
+			Name:      args.name,
 			Namespace: args.namespace,
 			Labels:    labels,
 		},
@@ -355,15 +365,16 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 						Type:   intstr.String,
 						StrVal: "10%",
 					},
+					MaxSurge: &intstr.IntOrString{},
 				},
 			},
-			RevisionHistoryLimit: &revisionLimit,
+			RevisionHistoryLimit: pointer.Int32Ptr(10),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: ProvisionerServiceAccountName,
+					ServiceAccountName: ProvisionerServiceAccountNameCsi,
 					RestartPolicy:      corev1.RestartPolicyAlways,
 					Containers: []corev1.Container{
 						{
@@ -394,7 +405,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: &privileged,
+								Privileged: pointer.BoolPtr(true),
 							},
 							Args: []string{
 								fmt.Sprintf("--drivername=%s", driverName),
@@ -474,7 +485,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								"--kubelet-registration-path=/var/lib/kubelet/plugins/csi-hostpath/csi.sock",
 							},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: &privileged,
+								Privileged: pointer.BoolPtr(true),
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -552,7 +563,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: &privileged,
+								Privileged: pointer.BoolPtr(true),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								socketDirVolumeMount,
@@ -563,7 +574,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 					},
 					SecurityContext:               &corev1.PodSecurityContext{},
 					DNSPolicy:                     corev1.DNSClusterFirst,
-					TerminationGracePeriodSeconds: &gracePeriod,
+					TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
 					Volumes: []corev1.Volume{
 						{
 							Name: "csi-data-dir", // Has to match VolumeMounts in containers
@@ -636,7 +647,7 @@ func (r *ReconcileHostPathProvisioner) getDuplicateDaemonSet(customCrName, names
 	}
 
 	for _, ds := range dsList.Items {
-		if ds.Name != MultiPurposeHostPathProvisionerName {
+		if ds.Name != MultiPurposeHostPathProvisionerName && ds.Name != fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName) {
 			for _, ownerRef := range ds.OwnerReferences {
 				if ownerRef.Kind == "HostPathProvisioner" && ownerRef.Name == customCrName {
 					dups = append(dups, ds)

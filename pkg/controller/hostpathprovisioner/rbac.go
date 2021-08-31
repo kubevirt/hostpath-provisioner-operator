@@ -37,25 +37,17 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger log
 	var result reconcile.Result
 	var err error
 	// Define a new ClusterRoleBinding object
-	if !cr.Spec.DisableCsi {
-		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(ProvisionerServiceAccountName, namespace), cr, namespace, recorder)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createClusterRoleBindingObject(healthCheckName, namespace), cr, namespace, recorder)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else {
-		result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(MultiPurposeHostPathProvisionerName, namespace), cr, namespace, recorder)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		// Make sure to delete CSI specific cluster role bindings
-		if err := r.deleteClusterRoleBindingObject(healthCheckName); err != nil {
-			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
-			return reconcile.Result{}, err
-		}
+	result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createClusterRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(MultiPurposeHostPathProvisionerName, namespace, ProvisionerServiceAccountName), cr, namespace, recorder)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 	return result, nil
 }
@@ -113,7 +105,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBindingForSa(reqLogge
 	return reconcile.Result{}, nil
 }
 
-func createClusterRoleBindingObject(name, namespace string) *rbacv1.ClusterRoleBinding {
+func createClusterRoleBindingObject(name, namespace, saName string) *rbacv1.ClusterRoleBinding {
 	labels := getRecommendedLabels()
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -123,7 +115,7 @@ func createClusterRoleBindingObject(name, namespace string) *rbacv1.ClusterRoleB
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      ProvisionerServiceAccountName,
+				Name:      saName,
 				Namespace: namespace,
 			},
 		},
@@ -150,21 +142,17 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(name strin
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
-	result, err := r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectProvisioner(cr.Spec.DisableCsi), cr, recorder)
+	result, err := r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectProvisioner(), cr, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if !cr.Spec.DisableCsi {
-		result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectHealthCheck(), cr, recorder)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else {
-		// Make sure to delete CSI specific cluster roles
-		if err := r.deleteClusterRoleObject(healthCheckName); err != nil {
-			reqLogger.Error(err, "Unable to delete ClusterRole")
-			return reconcile.Result{}, err
-		}
+	result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createCsiClusterRoleObjectProvisioner(), cr, recorder)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectHealthCheck(), cr, recorder)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 	return result, nil
 }
@@ -223,90 +211,90 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleForSa(reqLogger logr.
 	return reconcile.Result{}, nil
 }
 
-func createClusterRoleObjectProvisioner(DisableCsi bool) *rbacv1.ClusterRole {
-	labels := getRecommendedLabels()
-	if DisableCsi {
-		return &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   MultiPurposeHostPathProvisionerName,
-				Labels: labels,
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					APIGroups: []string{
-						"",
-					},
-					Resources: []string{
-						"persistentvolumes",
-					},
-					Verbs: []string{
-						"get",
-						"list",
-						"watch",
-						"create",
-						"delete",
-					},
-				},
-				{
-					APIGroups: []string{
-						"",
-					},
-					Resources: []string{
-						"persistentvolumeclaims",
-					},
-					Verbs: []string{
-						"get",
-						"list",
-						"watch",
-						"update",
-					},
-				},
-				{
-					APIGroups: []string{
-						"storage.k8s.io",
-					},
-					Resources: []string{
-						"storageclasses",
-					},
-					Verbs: []string{
-						"get",
-						"list",
-						"watch",
-					},
-				},
-				{
-					APIGroups: []string{
-						"",
-					},
-					Resources: []string{
-						"events",
-					},
-					Verbs: []string{
-						"list",
-						"watch",
-						"create",
-						"patch",
-						"update",
-					},
-				},
-				{
-					APIGroups: []string{
-						"",
-					},
-					Resources: []string{
-						"nodes",
-					},
-					Verbs: []string{
-						"get",
-					},
-				},
-			},
-		}
-	}
+func createClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ProvisionerServiceAccountName,
-			Labels: labels,
+			Name:   MultiPurposeHostPathProvisionerName,
+			Labels: getRecommendedLabels(),
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"persistentvolumes",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"persistentvolumeclaims",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					"storage.k8s.io",
+				},
+				Resources: []string{
+					"storageclasses",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"events",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+					"create",
+					"patch",
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"nodes",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
+		},
+	}
+}
+
+func createCsiClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   ProvisionerServiceAccountNameCsi,
+			Labels: getRecommendedLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -422,11 +410,10 @@ func createClusterRoleObjectProvisioner(DisableCsi bool) *rbacv1.ClusterRole {
 }
 
 func createClusterRoleObjectHealthCheck() *rbacv1.ClusterRole {
-	labels := getRecommendedLabels()
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   healthCheckName,
-			Labels: labels,
+			Labels: getRecommendedLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -515,22 +502,11 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(name string) erro
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCsi {
-		// Make sure to delete CSI specific role bindings
-		for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
-			if err := r.deleteRoleBindingObject(name, namespace); err != nil {
-				reqLogger.Error(err, "Unable to delete RoleBinding")
-				return reconcile.Result{}, err
-			}
-		}
-		// Skip creating role binding if csi is disabled
-		return reconcile.Result{}, nil
-	}
-	result, err := r.reconcileRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createRoleBindingObject(ProvisionerServiceAccountName, namespace), cr, namespace, recorder)
+	result, err := r.reconcileRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	result, err = r.reconcileRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createRoleBindingObject(healthCheckName, namespace), cr, namespace, recorder)
+	result, err = r.reconcileRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -590,7 +566,7 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleBindingForSa(reqLogger logr.
 	return reconcile.Result{}, nil
 }
 
-func createRoleBindingObject(name, namespace string) *rbacv1.RoleBinding {
+func createRoleBindingObject(name, namespace, saName string) *rbacv1.RoleBinding {
 	labels := getRecommendedLabels()
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -601,7 +577,7 @@ func createRoleBindingObject(name, namespace string) *rbacv1.RoleBinding {
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      ProvisionerServiceAccountName,
+				Name:      saName,
 				Namespace: namespace,
 			},
 		},
@@ -614,18 +590,6 @@ func createRoleBindingObject(name, namespace string) *rbacv1.RoleBinding {
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCsi {
-		// Make sure to delete CSI specific roles
-		for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
-			if err := r.deleteRoleObject(name, namespace); err != nil {
-				reqLogger.Error(err, "Unable to delete RoleBinding")
-				return reconcile.Result{}, err
-			}
-		}
-		// Skip creating role if csi is disabled
-		return reconcile.Result{}, nil
-	}
-
 	result, err := r.reconcileRoleForSa(reqLogger.WithName("provisioner RBAC"), createRoleObjectProvisioner(namespace), cr, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -695,7 +659,7 @@ func createRoleObjectProvisioner(namespace string) *rbacv1.Role {
 	labels := getRecommendedLabels()
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ProvisionerServiceAccountName,
+			Name:      ProvisionerServiceAccountNameCsi,
 			Namespace: namespace,
 			Labels:    labels,
 		},

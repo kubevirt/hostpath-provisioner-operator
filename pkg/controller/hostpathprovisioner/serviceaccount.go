@@ -42,68 +42,73 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 		return reconcile.Result{}, err
 	}
 	for _, dup := range dups {
+		reqLogger.Info("Deleting extra service account", "namespace", namespace, "name", dup.Name)
 		if err := r.deleteServiceAccount(dup.Name, namespace); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	// Define a new Service Account object
-	desired := createServiceAccountObject(namespace)
-	setLastAppliedConfiguration(desired)
+	accounts := make([]*corev1.ServiceAccount, 0)
+	accounts = append(accounts, createServiceAccountObject(namespace))
+	accounts = append(accounts, createCsiServiceAccountObject(namespace))
+	for _, desired := range accounts {
+		// Define a new Service Account object
+		setLastAppliedConfiguration(desired)
 
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this ServiceAccount already exists
-	found := &corev1.ServiceAccount{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Service Account", "ServiceAccount.Namespace", desired.Namespace, "ServiceAccount.Name", desired.Name)
-		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+		// Set HostPathProvisioner instance as the owner and controller
+		if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Service Account created successfully - don't requeue
-		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
+		// Check if this ServiceAccount already exists
+		found := &corev1.ServiceAccount{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating a new Service Account", "ServiceAccount.Namespace", desired.Namespace, "ServiceAccount.Name", desired.Name)
+			r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
+			err = r.client.Create(context.TODO(), desired)
+			if err != nil {
+				r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+				return reconcile.Result{}, err
+			}
 
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged ServiceAccount from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// ServiceAccount already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(log, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating Service Account", "ServiceAccount.Name", desired.Name)
-		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+			// Service Account created successfully - don't requeue
+			r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+			continue
+		} else if err != nil {
 			return reconcile.Result{}, err
 		}
-		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
 
-	// Service Account already exists and matches desired - don't requeue
-	reqLogger.V(3).Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
+		// Keep a copy of the original for comparison later.
+		currentRuntimeObjCopy := found.DeepCopyObject()
+
+		// allow users to add new annotations (but not change ours)
+		mergeLabelsAndAnnotations(desired, found)
+
+		// create merged ServiceAccount from found and desired.
+		merged, err := mergeObject(desired, found)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// ServiceAccount already exists, check if we need to update.
+		if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
+			logJSONDiff(log, currentRuntimeObjCopy, merged)
+			// Current is different from desired, update.
+			reqLogger.Info("Updating Service Account", "ServiceAccount.Name", desired.Name)
+			r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
+			err = r.client.Update(context.TODO(), merged)
+			if err != nil {
+				r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+				return reconcile.Result{}, err
+			}
+			r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
+			continue
+		}
+
+		// Service Account already exists and matches desired - don't requeue
+		reqLogger.V(3).Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
+	}
 	return reconcile.Result{}, nil
 }
 
@@ -127,6 +132,12 @@ func (r *ReconcileHostPathProvisioner) deleteServiceAccount(name, namespace stri
 func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
 	labels := getRecommendedLabels()
 	return createServiceAccount(ProvisionerServiceAccountName, namespace, labels)
+}
+
+// createServiceAccount returns a new Service Account object in the same namespace as the cr.
+func createCsiServiceAccountObject(namespace string) *corev1.ServiceAccount {
+	labels := getRecommendedLabels()
+	return createServiceAccount(ProvisionerServiceAccountNameCsi, namespace, labels)
 }
 
 func createServiceAccount(name, namespace string, labels map[string]string) *corev1.ServiceAccount {
@@ -155,7 +166,7 @@ func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, 
 	}
 
 	for _, sa := range saList.Items {
-		if sa.Name != ProvisionerServiceAccountName && (DisableCsi || sa.Name != healthCheckName) {
+		if sa.Name != ProvisionerServiceAccountName && sa.Name != healthCheckName && sa.Name != ProvisionerServiceAccountNameCsi {
 			for _, ownerRef := range sa.OwnerReferences {
 				if ownerRef.Kind == "HostPathProvisioner" && ownerRef.Name == customCrName {
 					dups = append(dups, sa)
