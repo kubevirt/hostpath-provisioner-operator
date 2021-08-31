@@ -245,7 +245,6 @@ var _ = Describe("Controller reconcile loop", func() {
 	)
 
 	table.DescribeTable("Should fix a changed SecurityContextConstraints", func(disableCsi bool) {
-		cr.Spec.DisableCsi = disableCsi
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -276,7 +275,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		scc = &secv1.SecurityContextConstraints{}
 		err = cl.Get(context.TODO(), sccNN, scc)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(scc.AllowPrivilegedContainer).To(Equal(!disableCsi))
+		Expect(scc.AllowPrivilegedContainer).To(BeFalse())
 		Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
 	},
 		table.Entry("Disable CSI", true),
@@ -712,16 +711,13 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	verifyCreateDaemonSet(r.client)
 	verifyCreateDaemonSetCsi(r.client)
 	verifyCreateServiceAccount(r.client)
-	if cr.Spec.DisableCsi {
-		verifyCreateClusterRole(r.client)
-		verifyCreateClusterRoleBinding(r.client)
-	} else {
-		verifyCreateCSIClusterRole(r.client)
-		verifyCreateCSIClusterRoleBinding(r.client)
-		verifyCreateCSIRole(r.client)
-		verifyCreateCSIRoleBinding(r.client)
-		verifyCreateCSIDriver(r.client)
-	}
+	verifyCreateClusterRole(r.client)
+	verifyCreateClusterRoleBinding(r.client)
+	verifyCreateCSIClusterRole(r.client)
+	verifyCreateCSIClusterRoleBinding(r.client)
+	verifyCreateCSIRole(r.client)
+	verifyCreateCSIRoleBinding(r.client)
+	verifyCreateCSIDriver(r.client)
 	verifyCreateSCC(r.client, cr.Spec.DisableCsi)
 
 	// Now make the daemonSet available, and reconcile again.
@@ -1204,7 +1200,7 @@ func verifyCreateCSIRoleBinding(cl client.Client) {
 func verifyCreateSCC(cl client.Client, disableCsi bool) {
 	scc := &secv1.SecurityContextConstraints{}
 	nn := types.NamespacedName{
-		Name: MultiPurposeHostPathProvisionerName,
+		Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
 	}
 	err := cl.Get(context.TODO(), nn, scc)
 	Expect(err).NotTo(HaveOccurred())
@@ -1216,7 +1212,7 @@ func verifyCreateSCC(cl client.Client, disableCsi bool) {
 		},
 		// Meta data is dynamic, copy it so we can compare.
 		ObjectMeta:               *scc.ObjectMeta.DeepCopy(),
-		AllowPrivilegedContainer: !disableCsi,
+		AllowPrivilegedContainer: true,
 		RequiredDropCapabilities: []corev1.Capability{
 			"KILL",
 			"MKNOD",
@@ -1235,15 +1231,10 @@ func verifyCreateSCC(cl client.Client, disableCsi bool) {
 		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
 			Type: secv1.SupplementalGroupsStrategyRunAsAny,
 		},
-		AllowHostDirVolumePlugin: disableCsi,
+		AllowHostDirVolumePlugin: false,
 		Users: []string{
-			fmt.Sprintf("system:serviceaccount:test-namespace:%s", ProvisionerServiceAccountName),
+			fmt.Sprintf("system:serviceaccount:test-namespace:%s-csi", ProvisionerServiceAccountName),
 		},
-	}
-	expected.Volumes = []secv1.FSType{
-		secv1.FSTypeHostPath,
-		secv1.FSTypeSecret,
-		secv1.FSProjected,
 	}
 	Expect(scc).To(Equal(expected))
 	Expect(scc.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))

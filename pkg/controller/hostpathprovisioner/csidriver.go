@@ -38,14 +38,6 @@ const (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCsi {
-		if err := r.deleteCSIDriver(); err != nil {
-			return reconcile.Result{}, err
-		}
-		// Skip if CSI is not in use
-		return reconcile.Result{}, nil
-	}
-
 	// Define a new SecurityContextConstraints object
 	desired := createCSIDriverObject(namespace)
 	setLastAppliedConfiguration(desired)
