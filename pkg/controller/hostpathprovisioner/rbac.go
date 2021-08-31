@@ -59,7 +59,6 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBindingForSa(reqLogge
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -90,7 +89,6 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBindingForSa(reqLogge
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
@@ -165,7 +163,6 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleForSa(reqLogger logr.
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new ClusterRole", "ClusterRole.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -196,7 +193,6 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleForSa(reqLogger logr.
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating ClusterRole", "ClusterRole.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
@@ -520,7 +516,6 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleBindingForSa(reqLogger logr.
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new RoleBinding", "RoleBinding.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -551,7 +546,6 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleBindingForSa(reqLogger logr.
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating RoleBinding", "RoleBinding.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
@@ -609,7 +603,6 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleForSa(reqLogger logr.Logger,
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Role", "Role.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -640,7 +633,6 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleForSa(reqLogger logr.Logger,
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating Role", "Role.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))

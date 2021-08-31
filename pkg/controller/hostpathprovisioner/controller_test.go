@@ -405,6 +405,18 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds.Status.DesiredNumberScheduled = 2
 		err = cl.Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
+		// Now make the csi daemonSet available, and reconcile again.
+		dsCsi := &appsv1.DaemonSet{}
+		dsNNCsi := types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: "test-namespace",
+		}
+		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		dsCsi.Status.NumberReady = 1
+		dsCsi.Status.DesiredNumberScheduled = 2
+		err = cl.Update(context.TODO(), dsCsi)
+		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
@@ -428,6 +440,17 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds.Status.NumberReady = 2
 		ds.Status.DesiredNumberScheduled = 2
 		err = cl.Update(context.TODO(), ds)
+		Expect(err).NotTo(HaveOccurred())
+		dsCsi = &appsv1.DaemonSet{}
+		dsNNCsi = types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: "test-namespace",
+		}
+		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		dsCsi.Status.NumberReady = 2
+		dsCsi.Status.DesiredNumberScheduled = 2
+		err = cl.Update(context.TODO(), dsCsi)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -731,6 +754,19 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	ds.Status.NumberReady = 2
 	ds.Status.DesiredNumberScheduled = 2
 	err = cl.Update(context.TODO(), ds)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Now make the csi daemonSet available, and reconcile again.
+	dsCsi := &appsv1.DaemonSet{}
+	dsNNCsi := types.NamespacedName{
+		Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+		Namespace: "test-namespace",
+	}
+	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+	Expect(err).NotTo(HaveOccurred())
+	dsCsi.Status.NumberReady = 2
+	dsCsi.Status.DesiredNumberScheduled = 2
+	err = cl.Update(context.TODO(), dsCsi)
 	Expect(err).NotTo(HaveOccurred())
 
 	// daemonSet is ready, now reconcile again. We should have condition changes and observed version should be set.

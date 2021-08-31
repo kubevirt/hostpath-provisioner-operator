@@ -53,7 +53,6 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesire
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -83,7 +82,6 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesire
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))

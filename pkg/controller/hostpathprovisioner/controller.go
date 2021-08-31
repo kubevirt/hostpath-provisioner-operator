@@ -402,7 +402,12 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if checkApplicationAvailable(daemonSet) {
+	daemonSetCsi := &appsv1.DaemonSet{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if checkApplicationAvailable(daemonSet) && checkApplicationAvailable(daemonSetCsi) {
 		if !IsCrHealthy(cr) {
 			r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 		}
@@ -419,8 +424,13 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 	if err != nil {
 		return true, err
 	}
+	daemonSetCsi := &appsv1.DaemonSet{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSet)
+	if err != nil {
+		return true, err
+	}
 
-	if !checkDaemonSetReady(daemonSet) {
+	if !checkDaemonSetReady(daemonSet) || checkDaemonSetReady(daemonSetCsi) {
 		degraded = true
 	}
 

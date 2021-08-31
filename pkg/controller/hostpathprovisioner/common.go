@@ -64,19 +64,15 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
-	createResourceStart   = "CreateResourceStart"
 	createResourceFailed  = "CreateResourceFailed"
 	createResourceSuccess = "CreateResourceSuccess"
 
-	updateResourceStart   = "UpdateResourceStart"
 	updateResourceFailed  = "UpdateResourceFailed"
 	updateResourceSuccess = "UpdateResourceSuccess"
 
-	createMessageStart     = "Started creation of resource %T %s"
 	createMessageFailed    = "Failed to create resource %s, %v"
 	createMessageSucceeded = "Successfully created resource %T %s"
 
-	updateMessageStart     = "Started update of resource %T %s"
 	updateMessageFailed    = "Failed to update resource %s, %v"
 	updateMessageSucceeded = "Successfully updated resource %T %s"
 

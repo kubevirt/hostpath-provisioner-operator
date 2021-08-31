@@ -99,7 +99,6 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Lo
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new DaemonSet", "DaemonSet.Namespace", desired.Namespace, "Daemonset.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -127,7 +126,6 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Lo
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, found)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating DaemonSet", "DaemonSet.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), found)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))

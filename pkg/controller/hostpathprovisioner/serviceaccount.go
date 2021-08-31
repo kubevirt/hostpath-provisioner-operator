@@ -65,7 +65,6 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating a new Service Account", "ServiceAccount.Namespace", desired.Namespace, "ServiceAccount.Name", desired.Name)
-			r.recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 			err = r.client.Create(context.TODO(), desired)
 			if err != nil {
 				r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -96,7 +95,6 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 			logJSONDiff(log, currentRuntimeObjCopy, merged)
 			// Current is different from desired, update.
 			reqLogger.Info("Updating Service Account", "ServiceAccount.Name", desired.Name)
-			r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 			err = r.client.Update(context.TODO(), merged)
 			if err != nil {
 				r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
