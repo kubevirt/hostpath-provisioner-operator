@@ -351,6 +351,7 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 			},
 			ResourceNames: [] string{
 				"hostpath-provisioner",
+				"hostpath-provisioner-csi",
 			},
 			Verbs: []string{
 				"delete",
@@ -403,6 +404,7 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 			},
 			ResourceNames: []string{
 				"hostpath-provisioner-admin",
+				"hostpath-provisioner-admin-csi",
 			},
 			Verbs: []string{
 				"update",
@@ -453,7 +455,9 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 				"rolebindings",
 			},
 			ResourceNames: []string{
+				"hostpath-provisioner",
 				"hostpath-provisioner-admin",
+				"hostpath-provisioner-admin-csi",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
@@ -483,7 +487,9 @@ func getOperatorRules() *[]rbacv1.PolicyRule {
 				"roles",
 			},
 			ResourceNames: []string{
+				"hostpath-provisioner",
 				"hostpath-provisioner-admin",
+				"hostpath-provisioner-admin-csi",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
@@ -548,6 +554,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			ResourceNames: []string{
 				"hostpath-provisioner",
 				"hostpath-provisioner-admin",
+				"hostpath-provisioner-admin-csi",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
@@ -579,6 +586,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			ResourceNames: []string{
 				"hostpath-provisioner",
 				"hostpath-provisioner-admin",
+				"hostpath-provisioner-admin-csi",
 				"hostpath-provisioner-health-check",
 			},
 			Verbs: []string{
