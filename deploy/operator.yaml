@@ -1763,6 +1763,10 @@ spec:
           command:
           - hostpath-provisioner-operator
           imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 10m
+              memory: 150Mi
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
