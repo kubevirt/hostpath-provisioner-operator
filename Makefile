@@ -47,4 +47,5 @@ build: clean operator csv-generator
 
 test:
 	hack/run-lint-checks.sh
+	hack/language.sh
 	go test -v ./pkg/... ./tools/... ./version/...
