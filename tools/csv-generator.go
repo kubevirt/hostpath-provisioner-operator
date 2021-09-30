@@ -214,7 +214,7 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 			Links: []csvv1.AppLink{
 				{
 					Name: "Hostpath Provisioner",
-					URL:  "https://github.com/kubevirt/hostpath-provisioner/blob/master/README.md",
+					URL:  "https://github.com/kubevirt/hostpath-provisioner/blob/main/README.md",
 				},
 				{
 					Name: "Source Code",

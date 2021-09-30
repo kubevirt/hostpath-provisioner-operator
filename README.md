@@ -5,11 +5,11 @@ Leverages the [operator-sdk](https://github.com/operator-framework/operator-sdk/
 ## How to deploy
 Before deploying the operator, you need to create the hostpath provisioner namespace:
 ```bash
-$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/master/deploy/namespace.yaml
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/namespace.yaml
 ```
 And then you can create the operator:
 ```bash
-$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/master/deploy/operator.yaml -n hostpath-provisioner
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/operator.yaml -n hostpath-provisioner
 ```
 
 If you want to change the namespace in which you create the provisioner, make sure to update the ClusterRoleBinding and RoleBinding namespaces in the operator.yaml to match your namespace. Also change the namespace by changing the -n argument
@@ -32,7 +32,7 @@ spec:
 
 To create the CustomResource
 ```bash
-$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/master/deploy/hostpathprovisioner_cr.yaml -n hostpath-provisioner
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/hostpathprovisioner_cr.yaml -n hostpath-provisioner
 ```
 Once the CustomResource has been created, the operator will deploy the provisioner as a DaemonSet on each node.
 
