@@ -19,14 +19,14 @@ DOCKER_REPO?=quay.io/kubevirt
 all: test build
 
 operator:
-	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/hostpath-provisioner-operator cmd/manager/main.go
+	GOLANG_VER=${GOLANG_VER} ./hack/build-operator.sh
 
 csv-generator:
-	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/csv-generator tools/csv-generator.go
+	GOLANG_VER=${GOLANG_VER} ./hack/build-csv-generator.sh
 
 image: operator csv-generator
 	hack/version.sh _out; \
-		docker build -t $(DOCKER_REPO)/$(IMAGE):$(TAG) -f Dockerfile .
+	docker build -t $(DOCKER_REPO)/$(IMAGE):$(TAG) -f Dockerfile .
 
 push: image
 	docker push $(DOCKER_REPO)/$(IMAGE):$(TAG)
