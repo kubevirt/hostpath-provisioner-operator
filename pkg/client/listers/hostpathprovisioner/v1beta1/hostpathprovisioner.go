@@ -26,10 +26,13 @@ import (
 )
 
 // HostPathProvisionerLister helps list HostPathProvisioners.
+// All objects returned here must be treated as read-only.
 type HostPathProvisionerLister interface {
 	// List lists all HostPathProvisioners in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1beta1.HostPathProvisioner, err error)
 	// Get retrieves the HostPathProvisioner from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1beta1.HostPathProvisioner, error)
 	HostPathProvisionerListerExpansion
 }

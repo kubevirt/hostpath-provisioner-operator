@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 #Copyright 2021 The hostpath provisioner operator Authors.
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,17 +11,12 @@
 #WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #See the License for the specific language governing permissions and
 #limitations under the License.
-set -e
 
-script_dir="$(cd "$(dirname "$0")" && pwd -P)"
-source "${script_dir}"/common.sh
-setGoInProw $GOLANG_VER
+GOLANG_VER=${GOLANG_VER:-1.16.8}
 
-# Install dependencies for the test run
-if [[ -v PROW_JOB_ID ]] ; then
-  cd /home/prow/go/src/github.com/kubevirt/hostpath-provisioner-operator
-  go get -u github.com/mgechev/revive
-  go mod vendor
-fi
-# Run test
-make test
+function setGoInProw() {
+  if [[ -v PROW_JOB_ID ]] ; then
+    eval $(gimme ${1})
+    cp -R ~/.gimme/versions/go${1}.linux.amd64 /usr/local/go
+  fi
+}
