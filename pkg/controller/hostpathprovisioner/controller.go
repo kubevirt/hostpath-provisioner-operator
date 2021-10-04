@@ -425,12 +425,12 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 		return true, err
 	}
 	daemonSetCsi := &appsv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSet)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
 	if err != nil {
 		return true, err
 	}
 
-	if !checkDaemonSetReady(daemonSet) || checkDaemonSetReady(daemonSetCsi) {
+	if !(checkDaemonSetReady(daemonSet) && checkDaemonSetReady(daemonSetCsi)) {
 		degraded = true
 	}
 

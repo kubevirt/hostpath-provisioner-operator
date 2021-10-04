@@ -37,7 +37,7 @@ import (
 func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
 	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
-	dups, err := r.getDuplicateServiceAccount(cr.Name, namespace, cr.Spec.DisableCsi)
+	dups, err := r.getDuplicateServiceAccount(cr.Name, namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -150,7 +150,7 @@ func createServiceAccount(name, namespace string, labels map[string]string) *cor
 
 // getDuplicateServiceAccount will give us duplicate ServiceAccounts from a previous version if they exist.
 // This is possible from a previous HPP version where the resources (DaemonSet, RBAC) were named depending on the CR, whereas now, we have fixed names for those.
-func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, namespace string, DisableCsi bool) ([]corev1.ServiceAccount, error) {
+func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, namespace string) ([]corev1.ServiceAccount, error) {
 	saList := &corev1.ServiceAccountList{}
 	dups := make([]corev1.ServiceAccount, 0)
 
