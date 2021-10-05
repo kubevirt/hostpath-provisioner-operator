@@ -140,10 +140,10 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Lo
 	return reconcile.Result{}, nil
 }
 
-func getDaemonSetArgs(reqLogger logr.Logger, namespace string, disableCsi bool) *daemonSetArgs {
+func getDaemonSetArgs(reqLogger logr.Logger, namespace string, legacyProvisioner bool) *daemonSetArgs {
 	res := &daemonSetArgs{}
 
-	if disableCsi {
+	if legacyProvisioner {
 		res.name = MultiPurposeHostPathProvisionerName
 		res.provisionerImage = os.Getenv(provisionerImageEnvVarName)
 		if res.provisionerImage == "" {

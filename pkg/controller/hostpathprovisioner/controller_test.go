@@ -77,16 +77,13 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 	})
 
-	table.DescribeTable("Should create new everything if nothing exist", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should create new everything if nothing exist", func() {
 		createDeployedCr(cr)
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed daemonSet", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed daemonSet", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -120,12 +117,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("pv-volume"))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed service account", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed service account", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -159,12 +154,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed ClusterRole", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed ClusterRole", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -200,12 +193,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed ClusterRoleBinding", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed ClusterRoleBinding", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -240,11 +231,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed SecurityContextConstraints", func(disableCsi bool) {
+	table.DescribeTable("Should fix a changed SecurityContextConstraints", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -278,8 +268,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(scc.AllowPrivilegedContainer).To(BeFalse())
 		Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
 	It("Should requeue if watch namespaces returns error", func() {
@@ -741,7 +730,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	verifyCreateCSIRole(r.client)
 	verifyCreateCSIRoleBinding(r.client)
 	verifyCreateCSIDriver(r.client)
-	verifyCreateSCC(r.client, cr.Spec.DisableCsi)
+	verifyCreateSCC(r.client)
 
 	// Now make the daemonSet available, and reconcile again.
 	ds := &appsv1.DaemonSet{}
@@ -1233,7 +1222,7 @@ func verifyCreateCSIRoleBinding(cl client.Client) {
 	Expect(rb.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
-func verifyCreateSCC(cl client.Client, disableCsi bool) {
+func verifyCreateSCC(cl client.Client) {
 	scc := &secv1.SecurityContextConstraints{}
 	nn := types.NamespacedName{
 		Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),

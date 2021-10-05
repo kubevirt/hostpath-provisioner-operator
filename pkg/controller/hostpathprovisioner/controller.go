@@ -197,11 +197,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	if !cr.Spec.DisableCsi {
-		reqLogger.Info("Reconciling CSI and legacy controller plugin")
-	} else {
-		reqLogger.Info("Reconciling legacy controller, this controller is deprecated")
-	}
+	reqLogger.Info("Reconciling CSI and legacy controller plugin")
 
 	namespace, err := watchNamespaceFunc()
 	if err != nil {
