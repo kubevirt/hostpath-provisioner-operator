@@ -25,7 +25,7 @@ csv-generator:
 	GOLANG_VER=${GOLANG_VER} ./hack/build-csv-generator.sh
 
 image: operator csv-generator
-	hack/version.sh _out; \
+	TAG=$(TAG) ./hack/version.sh ./_out; \
 	docker build -t $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG) -f Dockerfile .
 
 push: image
