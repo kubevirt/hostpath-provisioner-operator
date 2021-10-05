@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-IMAGE?=hostpath-provisioner-operator
+OPERATOR_IMAGE?=hostpath-provisioner-operator
 TAG?=latest
 DOCKER_REPO?=quay.io/kubevirt
 
@@ -26,10 +26,10 @@ csv-generator:
 
 image: operator csv-generator
 	hack/version.sh _out; \
-	docker build -t $(DOCKER_REPO)/$(IMAGE):$(TAG) -f Dockerfile .
+	docker build -t $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG) -f Dockerfile .
 
 push: image
-	docker push $(DOCKER_REPO)/$(IMAGE):$(TAG)
+	docker push $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
 
 generate:
 	./hack/update-codegen.sh
