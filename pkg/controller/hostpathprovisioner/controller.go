@@ -197,11 +197,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	if !cr.Spec.DisableCsi {
-		reqLogger.Info("Reconciling CSI plugin")
-	} else {
-		reqLogger.Info("Reconciling legacy controller, this controller is deprecated")
-	}
+	reqLogger.Info("Reconciling CSI and legacy controller plugin")
 
 	namespace, err := watchNamespaceFunc()
 	if err != nil {
@@ -304,7 +300,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 }
 
 func (r *ReconcileHostPathProvisioner) deleteAllRbac(reqLogger logr.Logger, namespace string) (reconcile.Result, error) {
-	for _, name := range []string{ProvisionerServiceAccountName, healthCheckName} {
+	for _, name := range []string{ProvisionerServiceAccountName, ProvisionerServiceAccountNameCsi, healthCheckName, MultiPurposeHostPathProvisionerName} {
 		reqLogger.Info("Deleting ClusterRoleBinding", "ClusterRoleBinding", name)
 		if err := r.deleteClusterRoleBindingObject(name); err != nil {
 			reqLogger.Error(err, "Unable to delete ClusterRoleBinding")
@@ -402,7 +398,12 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if checkApplicationAvailable(daemonSet) {
+	daemonSetCsi := &appsv1.DaemonSet{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if checkApplicationAvailable(daemonSet) && checkApplicationAvailable(daemonSetCsi) {
 		if !IsCrHealthy(cr) {
 			r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 		}
@@ -419,8 +420,13 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 	if err != nil {
 		return true, err
 	}
+	daemonSetCsi := &appsv1.DaemonSet{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
+	if err != nil {
+		return true, err
+	}
 
-	if !checkDaemonSetReady(daemonSet) {
+	if !(checkDaemonSetReady(daemonSet) && checkDaemonSetReady(daemonSetCsi)) {
 		degraded = true
 	}
 

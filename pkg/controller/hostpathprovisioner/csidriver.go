@@ -38,14 +38,6 @@ const (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if cr.Spec.DisableCsi {
-		if err := r.deleteCSIDriver(); err != nil {
-			return reconcile.Result{}, err
-		}
-		// Skip if CSI is not in use
-		return reconcile.Result{}, nil
-	}
-
 	// Define a new SecurityContextConstraints object
 	desired := createCSIDriverObject(namespace)
 	setLastAppliedConfiguration(desired)
@@ -55,7 +47,6 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: driverName}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new CSI Driver", "CSIDriver.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -85,7 +76,6 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating CSIDriver", "CSIDriver.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))

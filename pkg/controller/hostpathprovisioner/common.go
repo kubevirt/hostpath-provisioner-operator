@@ -44,7 +44,10 @@ const (
 	OperatorServiceAccountName = "hostpath-provisioner-operator"
 	// ProvisionerServiceAccountName is the name of Service Account used to run the controller.
 	ProvisionerServiceAccountName = "hostpath-provisioner-admin"
-	healthCheckName               = "hostpath-provisioner-health-check"
+	// ProvisionerServiceAccountNameCsi is the name of Service Account used to run the csi driver.
+	ProvisionerServiceAccountNameCsi = "hostpath-provisioner-admin-csi"
+
+	healthCheckName = "hostpath-provisioner-health-check"
 	// MultiPurposeHostPathProvisionerName is the name used for the DaemonSet, ClusterRole/Binding, SCC and k8s-app label value.
 	MultiPurposeHostPathProvisionerName = "hostpath-provisioner"
 	// PartOfLabelEnvVarName is the environment variable name for the part-of label value
@@ -61,19 +64,15 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
-	createResourceStart   = "CreateResourceStart"
 	createResourceFailed  = "CreateResourceFailed"
 	createResourceSuccess = "CreateResourceSuccess"
 
-	updateResourceStart   = "UpdateResourceStart"
 	updateResourceFailed  = "UpdateResourceFailed"
 	updateResourceSuccess = "UpdateResourceSuccess"
 
-	createMessageStart     = "Started creation of resource %T %s"
 	createMessageFailed    = "Failed to create resource %s, %v"
 	createMessageSucceeded = "Successfully created resource %T %s"
 
-	updateMessageStart     = "Started update of resource %T %s"
 	updateMessageFailed    = "Failed to update resource %s, %v"
 	updateMessageSucceeded = "Successfully updated resource %T %s"
 

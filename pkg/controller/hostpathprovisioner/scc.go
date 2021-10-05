@@ -38,17 +38,21 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 	if used, err := r.checkSCCUsed(); used == false {
 		return reconcile.Result{}, err
 	}
+	if res, err := r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createSecurityContextConstraintsObject(cr, namespace), namespace, recorder); err != nil {
+		return res, err
+	}
+	return r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createCsiSecurityContextConstraintsObject(cr, namespace), namespace, recorder)
+}
 
+func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *secv1.SecurityContextConstraints, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new SecurityContextConstraints object
-	desired := createSecurityContextConstraintsObject(cr, namespace)
 	setLastAppliedConfiguration(desired)
 
 	// Check if this SecurityContextConstraints already exists
 	found := &secv1.SecurityContextConstraints{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceStart, fmt.Sprintf(createMessageStart, desired, desired.Name))
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
@@ -78,7 +82,6 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceStart, fmt.Sprintf(updateMessageStart, desired, desired.Name))
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
@@ -112,7 +115,6 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(name string) error {
 
 func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
 	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ProvisionerServiceAccountName)
-	labels := getRecommendedLabels()
 	res := &secv1.SecurityContextConstraints{
 		Groups: []string{},
 		TypeMeta: metav1.TypeMeta{
@@ -121,9 +123,9 @@ func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathPr
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MultiPurposeHostPathProvisionerName,
-			Labels: labels,
+			Labels: getRecommendedLabels(),
 		},
-		AllowPrivilegedContainer: !cr.Spec.DisableCsi,
+		AllowPrivilegedContainer: false,
 		RequiredDropCapabilities: []corev1.Capability{
 			"KILL",
 			"MKNOD",
@@ -142,19 +144,55 @@ func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathPr
 		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
 			Type: secv1.SupplementalGroupsStrategyRunAsAny,
 		},
-		AllowHostDirVolumePlugin: cr.Spec.DisableCsi,
+		AllowHostDirVolumePlugin: true,
 		Users: []string{
 			saName,
 		},
 	}
-	if cr.Spec.DisableCsi {
-		res.Volumes = []secv1.FSType{
-			secv1.FSTypeHostPath,
-			secv1.FSTypeSecret,
-			secv1.FSProjected,
-		}
+	res.Volumes = []secv1.FSType{
+		secv1.FSTypeHostPath,
+		secv1.FSTypeSecret,
+		secv1.FSProjected,
 	}
 	return res
+}
+
+func createCsiSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
+	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ProvisionerServiceAccountNameCsi)
+	return &secv1.SecurityContextConstraints{
+		Groups: []string{},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "security.openshift.io/v1",
+			Kind:       "SecurityContextConstraints",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Labels: getRecommendedLabels(),
+		},
+		AllowPrivilegedContainer: true,
+		RequiredDropCapabilities: []corev1.Capability{
+			"KILL",
+			"MKNOD",
+			"SETUID",
+			"SETGID",
+		},
+		RunAsUser: secv1.RunAsUserStrategyOptions{
+			Type: secv1.RunAsUserStrategyRunAsAny,
+		},
+		SELinuxContext: secv1.SELinuxContextStrategyOptions{
+			Type: secv1.SELinuxStrategyRunAsAny,
+		},
+		FSGroup: secv1.FSGroupStrategyOptions{
+			Type: secv1.FSGroupStrategyRunAsAny,
+		},
+		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
+			Type: secv1.SupplementalGroupsStrategyRunAsAny,
+		},
+		AllowHostDirVolumePlugin: false,
+		Users: []string{
+			saName,
+		},
+	}
 }
 
 func (r *ReconcileHostPathProvisioner) checkSCCUsed() (bool, error) {

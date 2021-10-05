@@ -77,16 +77,13 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 	})
 
-	table.DescribeTable("Should create new everything if nothing exist", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should create new everything if nothing exist", func() {
 		createDeployedCr(cr)
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed daemonSet", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed daemonSet", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -118,18 +115,12 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds = &appsv1.DaemonSet{}
 		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
-		if DisableCsi {
-			Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("pv-volume"))
-		} else {
-			Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("csi-data-dir"))
-		}
+		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("pv-volume"))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed service account", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed service account", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -163,22 +154,17 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed ClusterRole", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed ClusterRole", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
 				Namespace: "test-namespace",
 			},
 		}
-		name := MultiPurposeHostPathProvisionerName
-		if !DisableCsi {
-			name = ProvisionerServiceAccountName
-		}
+		name := ProvisionerServiceAccountNameCsi
 		croleNN := types.NamespacedName{
 			Name: name,
 		}
@@ -207,22 +193,17 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed ClusterRoleBinding", func(DisableCsi bool) {
-		cr.Spec.DisableCsi = DisableCsi
+	table.DescribeTable("Should fix a changed ClusterRoleBinding", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
 				Namespace: "test-namespace",
 			},
 		}
-		name := ProvisionerServiceAccountName
-		if cr.Spec.DisableCsi {
-			name = MultiPurposeHostPathProvisionerName
-		}
+		name := ProvisionerServiceAccountNameCsi
 		crbNN := types.NamespacedName{
 			Name: name,
 		}
@@ -248,14 +229,12 @@ var _ = Describe("Controller reconcile loop", func() {
 		crb = &rbacv1.ClusterRoleBinding{}
 		err = cl.Get(context.TODO(), crbNN, crb)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountName))
+		Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
-	table.DescribeTable("Should fix a changed SecurityContextConstraints", func(disableCsi bool) {
-		cr.Spec.DisableCsi = disableCsi
+	table.DescribeTable("Should fix a changed SecurityContextConstraints", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
@@ -286,15 +265,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		scc = &secv1.SecurityContextConstraints{}
 		err = cl.Get(context.TODO(), sccNN, scc)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(scc.AllowPrivilegedContainer).To(Equal(!disableCsi))
-		if !disableCsi {
-			Expect(scc.Volumes).To(BeEmpty())
-		} else {
-			Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
-		}
+		Expect(scc.AllowPrivilegedContainer).To(BeFalse())
+		Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
 	},
-		table.Entry("Disable CSI", true),
-		table.Entry("Enable CSI", false),
+		table.Entry("Enable CSI"),
 	)
 
 	It("Should requeue if watch namespaces returns error", func() {
@@ -420,6 +394,18 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds.Status.DesiredNumberScheduled = 2
 		err = cl.Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
+		// Now make the csi daemonSet available, and reconcile again.
+		dsCsi := &appsv1.DaemonSet{}
+		dsNNCsi := types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: "test-namespace",
+		}
+		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		dsCsi.Status.NumberReady = 1
+		dsCsi.Status.DesiredNumberScheduled = 2
+		err = cl.Update(context.TODO(), dsCsi)
+		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
@@ -443,6 +429,17 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds.Status.NumberReady = 2
 		ds.Status.DesiredNumberScheduled = 2
 		err = cl.Update(context.TODO(), ds)
+		Expect(err).NotTo(HaveOccurred())
+		dsCsi = &appsv1.DaemonSet{}
+		dsNNCsi = types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: "test-namespace",
+		}
+		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		dsCsi.Status.NumberReady = 2
+		dsCsi.Status.DesiredNumberScheduled = 2
+		err = cl.Update(context.TODO(), dsCsi)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -476,8 +473,8 @@ var _ = Describe("Controller reconcile loop", func() {
 		saList := &corev1.ServiceAccountList{}
 		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: "test-namespace"})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(saList.Items)).To(Equal(2))
-		Expect(saList.Items[1].Name).To(Equal("test-name-admin"))
+		Expect(len(saList.Items)).To(Equal(3))
+		Expect(saList.Items[1].Name).To(Equal(ProvisionerServiceAccountNameCsi))
 
 		version.VersionStringFunc = func() (string, error) {
 			return "1.0.2", nil
@@ -500,7 +497,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		saList = &corev1.ServiceAccountList{}
 		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: "test-namespace"})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(saList.Items)).To(Equal(1))
+		Expect(len(saList.Items)).To(Equal(2))
 		Expect(saList.Items[0].Name).To(Equal(ProvisionerServiceAccountName))
 	})
 
@@ -723,19 +720,17 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeTrue())
 	Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
 	// Verify all the different objects are created.
-	verifyCreateDaemonSet(r.client, cr.Spec.DisableCsi)
+	verifyCreateDaemonSet(r.client)
+	verifyCreateDaemonSetCsi(r.client)
 	verifyCreateServiceAccount(r.client)
-	if cr.Spec.DisableCsi {
-		verifyCreateClusterRole(r.client)
-		verifyCreateClusterRoleBinding(r.client)
-	} else {
-		verifyCreateCSIClusterRole(r.client)
-		verifyCreateCSIClusterRoleBinding(r.client)
-		verifyCreateCSIRole(r.client)
-		verifyCreateCSIRoleBinding(r.client)
-		verifyCreateCSIDriver(r.client)
-	}
-	verifyCreateSCC(r.client, cr.Spec.DisableCsi)
+	verifyCreateClusterRole(r.client)
+	verifyCreateClusterRoleBinding(r.client)
+	verifyCreateCSIClusterRole(r.client)
+	verifyCreateCSIClusterRoleBinding(r.client)
+	verifyCreateCSIRole(r.client)
+	verifyCreateCSIRoleBinding(r.client)
+	verifyCreateCSIDriver(r.client)
+	verifyCreateSCC(r.client)
 
 	// Now make the daemonSet available, and reconcile again.
 	ds := &appsv1.DaemonSet{}
@@ -748,6 +743,19 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	ds.Status.NumberReady = 2
 	ds.Status.DesiredNumberScheduled = 2
 	err = cl.Update(context.TODO(), ds)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Now make the csi daemonSet available, and reconcile again.
+	dsCsi := &appsv1.DaemonSet{}
+	dsNNCsi := types.NamespacedName{
+		Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+		Namespace: "test-namespace",
+	}
+	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+	Expect(err).NotTo(HaveOccurred())
+	dsCsi.Status.NumberReady = 2
+	dsCsi.Status.DesiredNumberScheduled = 2
+	err = cl.Update(context.TODO(), dsCsi)
 	Expect(err).NotTo(HaveOccurred())
 
 	// daemonSet is ready, now reconcile again. We should have condition changes and observed version should be set.
@@ -767,7 +775,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 }
 
 // Verify all the proper values are set when creating the daemonset
-func verifyCreateDaemonSet(cl client.Client, DisableCsi bool) {
+func verifyCreateDaemonSet(cl client.Client) {
 	ds := &appsv1.DaemonSet{}
 	nn := types.NamespacedName{
 		Name:      MultiPurposeHostPathProvisionerName,
@@ -779,15 +787,27 @@ func verifyCreateDaemonSet(cl client.Client, DisableCsi bool) {
 	Expect(ds.Spec.Template.Spec.ServiceAccountName).To(Equal(ProvisionerServiceAccountName))
 	// Check k8s recommended labels
 	Expect(ds.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
-	if DisableCsi {
-		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(ProvisionerImageDefault))
-		// Check use naming prefix
-		Expect(ds.Spec.Template.Spec.Containers[0].Env[0].Value).To(Equal("false"))
-		// Check directory
-		Expect(ds.Spec.Template.Spec.Containers[0].Env[2].Value).To(Equal("/tmp/test"))
-	} else {
-		Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(CsiProvisionerImageDefault))
+	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(ProvisionerImageDefault))
+	// Check use naming prefix
+	Expect(ds.Spec.Template.Spec.Containers[0].Env[0].Value).To(Equal("false"))
+	// Check directory
+	Expect(ds.Spec.Template.Spec.Containers[0].Env[2].Value).To(Equal("/tmp/test"))
+}
+
+// Verify all the proper values are set when creating the daemonset
+func verifyCreateDaemonSetCsi(cl client.Client) {
+	ds := &appsv1.DaemonSet{}
+	nn := types.NamespacedName{
+		Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+		Namespace: "test-namespace",
 	}
+	err := cl.Get(context.TODO(), nn, ds)
+	Expect(err).NotTo(HaveOccurred())
+	// Check Service Account
+	Expect(ds.Spec.Template.Spec.ServiceAccountName).To(Equal(ProvisionerServiceAccountNameCsi))
+	// Check k8s recommended labels
+	Expect(ds.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(CsiProvisionerImageDefault))
 }
 
 func verifyCreateServiceAccount(cl client.Client) {
@@ -805,7 +825,7 @@ func verifyCreateServiceAccount(cl client.Client) {
 func verifyCreateCSIClusterRole(cl client.Client) {
 	crole := &rbacv1.ClusterRole{}
 	nn := types.NamespacedName{
-		Name: ProvisionerServiceAccountName,
+		Name: ProvisionerServiceAccountNameCsi,
 	}
 	err := cl.Get(context.TODO(), nn, crole)
 	Expect(err).NotTo(HaveOccurred())
@@ -1085,7 +1105,7 @@ func verifyCreateClusterRole(cl client.Client) {
 func verifyCreateCSIRole(cl client.Client) {
 	role := &rbacv1.Role{}
 	nn := types.NamespacedName{
-		Name:      ProvisionerServiceAccountName,
+		Name:      ProvisionerServiceAccountNameCsi,
 		Namespace: "test-namespace",
 	}
 	err := cl.Get(context.TODO(), nn, role)
@@ -1181,31 +1201,31 @@ func verifyCreateClusterRoleBinding(cl client.Client) {
 func verifyCreateCSIClusterRoleBinding(cl client.Client) {
 	crb := &rbacv1.ClusterRoleBinding{}
 	nn := types.NamespacedName{
-		Name: ProvisionerServiceAccountName,
+		Name: ProvisionerServiceAccountNameCsi,
 	}
 	err := cl.Get(context.TODO(), nn, crb)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountName))
+	Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
 	Expect(crb.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateCSIRoleBinding(cl client.Client) {
 	rb := &rbacv1.RoleBinding{}
 	nn := types.NamespacedName{
-		Name:      ProvisionerServiceAccountName,
+		Name:      ProvisionerServiceAccountNameCsi,
 		Namespace: "test-namespace",
 	}
 	err := cl.Get(context.TODO(), nn, rb)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(rb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountName))
+	Expect(rb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
 	Expect(rb.Subjects[0].Namespace).To(Equal("test-namespace"))
 	Expect(rb.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
-func verifyCreateSCC(cl client.Client, disableCsi bool) {
+func verifyCreateSCC(cl client.Client) {
 	scc := &secv1.SecurityContextConstraints{}
 	nn := types.NamespacedName{
-		Name: MultiPurposeHostPathProvisionerName,
+		Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
 	}
 	err := cl.Get(context.TODO(), nn, scc)
 	Expect(err).NotTo(HaveOccurred())
@@ -1217,7 +1237,7 @@ func verifyCreateSCC(cl client.Client, disableCsi bool) {
 		},
 		// Meta data is dynamic, copy it so we can compare.
 		ObjectMeta:               *scc.ObjectMeta.DeepCopy(),
-		AllowPrivilegedContainer: !disableCsi,
+		AllowPrivilegedContainer: true,
 		RequiredDropCapabilities: []corev1.Capability{
 			"KILL",
 			"MKNOD",
@@ -1236,17 +1256,10 @@ func verifyCreateSCC(cl client.Client, disableCsi bool) {
 		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
 			Type: secv1.SupplementalGroupsStrategyRunAsAny,
 		},
-		AllowHostDirVolumePlugin: disableCsi,
+		AllowHostDirVolumePlugin: false,
 		Users: []string{
-			fmt.Sprintf("system:serviceaccount:test-namespace:%s", ProvisionerServiceAccountName),
+			fmt.Sprintf("system:serviceaccount:test-namespace:%s-csi", ProvisionerServiceAccountName),
 		},
-	}
-	if disableCsi {
-		expected.Volumes = []secv1.FSType{
-			secv1.FSTypeHostPath,
-			secv1.FSTypeSecret,
-			secv1.FSProjected,
-		}
 	}
 	Expect(scc).To(Equal(expected))
 	Expect(scc.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
