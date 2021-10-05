@@ -15,5 +15,5 @@
 #limitations under the License.
 
 VERSION=${TAG:-"v0.0.1"}
-
+echo "Setting version to $VERSION"
 echo "$VERSION" > $1/version.txt
