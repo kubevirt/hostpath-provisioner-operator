@@ -56,6 +56,9 @@ func CreateOperatorDeploymentSpec(name, namespace, matchKey, matchValue, service
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: WithOperatorLabels(matchMap),
 			},
+			Spec: corev1.PodSpec{
+				PriorityClassName: "openshift-user-critical",
+			},
 		},
 	}
 
