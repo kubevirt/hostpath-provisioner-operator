@@ -538,8 +538,13 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  "NAMESPACE",
-									Value: args.namespace,
+									Name: "NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "metadata.namespace",
+										},
+									},
 								},
 								{
 									Name: "POD_NAME",
