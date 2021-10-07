@@ -109,6 +109,8 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 	podInfoOnMount := true
 	attachRequired := false
 	storageCapacity := true
+	fsGroupPolicy := storagev1.NoneFSGroupPolicy
+
 	return &storagev1.CSIDriver{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "storage.k8s.io/v1",
@@ -120,6 +122,7 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 		},
 		Spec: storagev1.CSIDriverSpec{
 			AttachRequired: &attachRequired,
+			FSGroupPolicy:  &fsGroupPolicy,
 			VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
 				storagev1.VolumeLifecyclePersistent,
 			},
