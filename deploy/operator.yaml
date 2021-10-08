@@ -2373,7 +2373,7 @@ spec:
       containers:
         - name: hostpath-provisioner-operator
           # Replace this with the built image name
-          image: quay.io/kubevirt/hostpath-provisioner-operator:latest
+          image: quay.io/kubevirt/hostpath-provisioner-operator:v0.10.1
           command:
           - hostpath-provisioner-operator
           imagePullPolicy: Always
@@ -2393,9 +2393,9 @@ spec:
             - name: OPERATOR_NAME
               value: "hostpath-provisioner-operator"
             - name: PROVISIONER_IMAGE
-              value: "quay.io/kubevirt/hostpath-provisioner:latest"
+              value: "quay.io/kubevirt/hostpath-provisioner:v0.10.0"
             - name: CSI_PROVISIONER_IMAGE
-              value: "quay.io/kubevirt/hostpath-csi-driver:latest"
+              value: "quay.io/kubevirt/hostpath-csi-driver:v0.10.0"
             - name: EXTERNAL_HEALTH_MON_IMAGE
               value: "k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0"
             - name: NODE_DRIVER_REG_IMAGE
