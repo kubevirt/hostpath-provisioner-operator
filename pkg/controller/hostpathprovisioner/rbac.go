@@ -401,6 +401,59 @@ func createCsiClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
 					"patch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshotclasses",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshots",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshotcontents",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"list",
+					"watch",
+					"update",
+					"delete",
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshotcontents/status",
+				},
+				Verbs: []string{
+					"update",
+					"patch",
+				},
+			},
 		},
 	}
 }

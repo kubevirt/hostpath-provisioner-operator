@@ -29,6 +29,8 @@ const (
 	CsiNodeDriverRegistrationImageDefault = "k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0"
 	// LivenessProbeImageDefault is the default value of the liveness probe side car container image name.
 	LivenessProbeImageDefault = "k8s.gcr.io/sig-storage/livenessprobe:v2.3.0"
+	// SnapshotterImageDefault is the default value of the csi snapshotter side car container image name.
+	SnapshotterImageDefault = "k8s.gcr.io/sig-storage/csi-snapshotter:v4.2.1"
 	// CsiSigStorageProvisionerImageDefault is the default value of the sig storage csi provisioner side car container image name.
 	CsiSigStorageProvisionerImageDefault = "k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1"
 
@@ -36,7 +38,8 @@ const (
 	csiProvisionerImageEnvVarName                  = "CSI_PROVISIONER_IMAGE"
 	externalHealthMonitorControllerImageEnvVarName = "EXTERNAL_HEALTH_MON_IMAGE"
 	nodeDriverRegistrarImageEnvVarName             = "NODE_DRIVER_REG_IMAGE"
-	livenessProbeImageEnvVarName                   = "LIVENESS_PROVE_IMAGE"
+	livenessProbeImageEnvVarName                   = "LIVENESS_PROBE_IMAGE"
+	snapshotterImageEnvVarName                     = "CSI_SNAPSHOT_IMAGE"
 	csiSigStorageProvisionerImageEnvVarName        = "CSI_SIG_STORAGE_PROVISIONER_IMAGE"
 	verbosityEnvVarName                            = "VERBOSITY"
 

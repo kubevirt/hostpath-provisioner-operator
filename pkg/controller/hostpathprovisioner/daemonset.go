@@ -53,6 +53,7 @@ type daemonSetArgs struct {
 	externalHealthMonitorControllerImage string
 	nodeDriverRegistrarImage             string
 	livenessProbeImage                   string
+	snapshotterImage                     string
 	csiProvisionerImage                  string
 	namespace                            string
 	name                                 string
@@ -173,6 +174,11 @@ func getDaemonSetArgs(reqLogger logr.Logger, namespace string, legacyProvisioner
 		res.livenessProbeImage = os.Getenv(livenessProbeImageEnvVarName)
 		if res.livenessProbeImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", livenessProbeImageEnvVarName, LivenessProbeImageDefault))
+			res.livenessProbeImage = LivenessProbeImageDefault
+		}
+		res.snapshotterImage = os.Getenv(snapshotterImageEnvVarName)
+		if res.snapshotterImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", snapshotterImageEnvVarName, SnapshotterImageDefault))
 			res.livenessProbeImage = LivenessProbeImageDefault
 		}
 
@@ -517,6 +523,21 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 							},
 							TerminationMessagePath:   "/dev/termination-log",
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							VolumeMounts: []corev1.VolumeMount{
+								socketDirVolumeMount,
+							},
+						},
+						{
+							Name:            "csi-snapshotter",
+							Image:           args.snapshotterImage,
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Args: []string{
+								fmt.Sprintf("--v=%d", args.verbosity),
+								fmt.Sprintf("--csi-address=%s", csiSocket),
+							},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: pointer.BoolPtr(true),
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								socketDirVolumeMount,
 							},
