@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 
@@ -395,7 +396,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								},
 								{
 									Name:  "PV_DIR",
-									Value: cr.Spec.PathConfig.Path,
+									Value: filepath.Join(cr.Spec.PathConfig.Path, "csi"),
 								},
 								{
 									Name:  "VERSION",
