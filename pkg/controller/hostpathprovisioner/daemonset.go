@@ -180,7 +180,7 @@ func getDaemonSetArgs(reqLogger logr.Logger, namespace string, legacyProvisioner
 		res.snapshotterImage = os.Getenv(snapshotterImageEnvVarName)
 		if res.snapshotterImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", snapshotterImageEnvVarName, SnapshotterImageDefault))
-			res.livenessProbeImage = LivenessProbeImageDefault
+			res.snapshotterImage = SnapshotterImageDefault
 		}
 
 		res.csiProvisionerImage = os.Getenv(csiSigStorageProvisionerImageEnvVarName)
@@ -535,6 +535,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 							Args: []string{
 								fmt.Sprintf("--v=%d", args.verbosity),
 								fmt.Sprintf("--csi-address=%s", csiSocket),
+								"--leader-election",
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: pointer.BoolPtr(true),
@@ -557,6 +558,7 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								"--immediate-topology=false",
 								"--strict-topology=true",
 								"--node-deployment=true",
+								"--leader-election",
 							},
 							Env: []corev1.EnvVar{
 								{
