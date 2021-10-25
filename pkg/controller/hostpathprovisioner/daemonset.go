@@ -558,7 +558,6 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 								"--immediate-topology=false",
 								"--strict-topology=true",
 								"--node-deployment=true",
-								"--leader-election",
 							},
 							Env: []corev1.EnvVar{
 								{
