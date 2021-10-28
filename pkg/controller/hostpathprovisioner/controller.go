@@ -472,6 +472,15 @@ func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *h
 	return nil
 }
 
+func (r *ReconcileHostPathProvisioner) isFeatureGateEnabled(feature string, cr *hostpathprovisionerv1.HostPathProvisioner) bool {
+	for _, featuregate := range cr.Spec.FeatureGates {
+		if featuregate == feature {
+			return true
+		}
+	}
+	return false
+}
+
 // This function returns the list of HPP instances in the cluster and an error otherwise
 func getHppList(c client.Client) (*hostpathprovisionerv1.HostPathProvisionerList, error) {
 	hppList := &hostpathprovisionerv1.HostPathProvisionerList{}

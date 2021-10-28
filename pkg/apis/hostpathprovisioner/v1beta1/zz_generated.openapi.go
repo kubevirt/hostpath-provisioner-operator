@@ -112,6 +112,21 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerSpec(ref com
 							Ref:         ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement"),
 						},
 					},
+					"featureGates": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FeatureGates are a list of specific enabled feature gates",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"pathConfig"},
 			},

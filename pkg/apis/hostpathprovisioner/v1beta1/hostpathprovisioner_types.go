@@ -31,6 +31,8 @@ type HostPathProvisionerSpec struct {
 	PathConfig PathConfig `json:"pathConfig" valid:"required"`
 	// Restrict on which nodes HPP workload pods will be scheduled
 	Workload NodePlacement `json:"workload,omitempty"`
+	// FeatureGates are a list of specific enabled feature gates
+	FeatureGates []string `json:"featureGates,omitempty"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
