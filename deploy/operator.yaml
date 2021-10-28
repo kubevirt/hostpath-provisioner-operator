@@ -2418,6 +2418,10 @@ spec:
       serviceAccountName: hostpath-provisioner-operator
       containers:
         - name: hostpath-provisioner-operator
+          ports:
+            - containerPort: 8080
+              name: "metrics"
+              protocol: "TCP"
           # Replace this with the built image name
           image: quay.io/kubevirt/hostpath-provisioner-operator:latest
           command:
@@ -2462,3 +2466,5 @@ spec:
               value: "k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1"
             - name: VERBOSITY
               value: "3"
+            - name: MONITORING_NAMESPACE
+              value: ""

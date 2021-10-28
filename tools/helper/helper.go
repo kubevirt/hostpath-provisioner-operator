@@ -26,18 +26,18 @@ import (
 )
 
 type OperatorArgs struct {
-	Namespace          string
-	ImagePullPolicy    string
-	Verbosity          string
+	Namespace       string
+	ImagePullPolicy string
+	Verbosity       string
 
-	OperatorImage    string
-	ProvisionerImage string
-	CsiDriverImage string
+	OperatorImage                 string
+	ProvisionerImage              string
+	CsiDriverImage                string
 	CsiExternalHealthMonitorImage string
-	CsiNodeDriverRegistrarImage string
-	CsiLivenessProbeImage string
-	CsiExternalProvisionerImage string
-	CsiSnapshotterImage string
+	CsiNodeDriverRegistrarImage   string
+	CsiLivenessProbeImage         string
+	CsiExternalProvisionerImage   string
+	CsiSnapshotterImage           string
 }
 
 const (
@@ -54,7 +54,7 @@ func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
 	deployment.Spec.Template.Spec.Containers[0].Image = args.OperatorImage
 	deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(args.ImagePullPolicy)
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
-		Name: "PRIORITY_CLASS",
+		Name:  "PRIORITY_CLASS",
 		Value: openshiftPriorityClassName,
 	})
 	setEnvVariable("VERBOSITY", args.Verbosity, deployment.Spec.Template.Spec.Containers[0].Env)
