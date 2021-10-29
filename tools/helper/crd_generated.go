@@ -6,7 +6,7 @@ var hppCRD string =
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
 spec:
@@ -1015,6 +1015,7 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-type: set
               observedVersion:
                 description: ObservedVersion The observed version of the HostPathProvisioner
                   deployment
@@ -1052,6 +1053,11 @@ spec:
           spec:
             description: HostPathProvisionerSpec defines the desired state of HostPathProvisioner
             properties:
+              featureGates:
+                description: FeatureGates are a list of specific enabled feature gates
+                items:
+                  type: string
+                type: array
               imagePullPolicy:
                 description: ImagePullPolicy is the container pull policy for the
                   host path provisioner containers
@@ -2028,6 +2034,7 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-type: set
               observedVersion:
                 description: ObservedVersion The observed version of the HostPathProvisioner
                   deployment
