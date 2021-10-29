@@ -1396,6 +1396,11 @@ spec:
           spec:
             description: HostPathProvisionerSpec defines the desired state of HostPathProvisioner
             properties:
+              featureGates:
+                description: FeatureGates are a list of specific enabled feature gates
+                items:
+                  type: string
+                type: array
               imagePullPolicy:
                 description: ImagePullPolicy is the container pull policy for the
                   host path provisioner containers

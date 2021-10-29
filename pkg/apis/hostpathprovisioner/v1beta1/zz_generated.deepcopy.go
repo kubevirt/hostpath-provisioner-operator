@@ -92,6 +92,11 @@ func (in *HostPathProvisionerSpec) DeepCopyInto(out *HostPathProvisionerSpec) {
 	*out = *in
 	out.PathConfig = in.PathConfig
 	in.Workload.DeepCopyInto(&out.Workload)
+	if in.FeatureGates != nil {
+		in, out := &in.FeatureGates, &out.FeatureGates
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
