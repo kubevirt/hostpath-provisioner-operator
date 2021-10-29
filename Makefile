@@ -21,8 +21,12 @@ all: test build
 operator:
 	GOLANG_VER=${GOLANG_VER} ./hack/build-operator.sh
 
-csv-generator:
+csv-generator: crd-generator
 	GOLANG_VER=${GOLANG_VER} ./hack/build-csv-generator.sh
+
+crd-generator: generate-crd
+	GOLANG_VER=${GOLANG_VER} ./hack/build-crd-generator.sh
+	_out/crd-generator --sourcefile=./deploy/operator.yaml --outputDir=./tools/helper
 
 image: operator csv-generator
 	TAG=$(TAG) ./hack/version.sh ./_out; \
@@ -35,7 +39,7 @@ generate:
 	./hack/update-codegen.sh
 
 generate-crd:
-	controller-gen crd:crdVersions=v1 output:dir=./deploy/ paths=./pkg/apis/hostpathprovisioner/...
+	./hack/generate-crd.sh
 
 clean:
 	GO111MODULE=on; \
@@ -43,7 +47,7 @@ clean:
 	go mod vendor; \
 	rm -rf _out
 
-build: clean operator csv-generator
+build: clean operator crd-generator csv-generator
 
 test:
 	hack/run-lint-checks.sh

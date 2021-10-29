@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"os"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +30,7 @@ import (
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller/hostpathprovisioner"
 	"kubevirt.io/hostpath-provisioner-operator/tools/helper"
 	"kubevirt.io/hostpath-provisioner-operator/tools/util"
@@ -70,8 +72,7 @@ func main() {
 	util.MarshallObject(csv, os.Stdout)
 
 	if *dumpCRDs {
-		cidCrd := helper.CreateCRDDef()
-		util.MarshallObject(cidCrd, os.Stdout)
+		util.MarshallObject(helper.CreateCRDDef(), os.Stdout)
 	}
 }
 
@@ -202,7 +203,7 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 			Description: description,
 			Keywords:    []string{"Hostpath Provisioner", "Storage"},
 			Version:     version.OperatorVersion{Version: *csvVersion},
-			Maturity:    "alpha",
+			Maturity:    "beta",
 			Replaces:    data.ReplacesCsvVersion,
 			Maintainers: []csvv1.Maintainer{{
 				Name:  "KubeVirt project",
@@ -326,447 +327,20 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 	}, nil
 }
 
-func getOperatorRules() *[]rbacv1.PolicyRule {
-	return &[]rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				"apps",
-			},
-			Resources: []string{
-				"daemonsets",
-			},
-			Verbs: []string{
-				"list",
-				"get",
-				"watch",
-				"create",
-			},
-		},
-		{
-			APIGroups: []string{
-				"apps",
-			},
-			Resources: []string{
-				"daemonsets",
-			},
-			ResourceNames: [] string{
-				"hostpath-provisioner",
-				"hostpath-provisioner-csi",
-			},
-			Verbs: []string{
-				"delete",
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"pods",
-			},
-			Verbs: []string{
-				"get",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"configmaps",
-			},
-			Verbs: []string{
-				"get",
-				"create",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"serviceaccounts",
-			},
-			Verbs: []string{
-				"list",
-				"get",
-				"create",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"serviceaccounts",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner-admin",
-				"hostpath-provisioner-admin-csi",
-			},
-			Verbs: []string{
-				"update",
-				"delete",
-			},
-		},
-		{
-			APIGroups: []string{
-				"coordination.k8s.io",
-			},
-			Resources: []string{
-				"leases",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"csistoragecapacities",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"rolebindings",
-			},
-			Verbs: []string{
-				"list",
-				"create",
-				"get",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"rolebindings",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner",
-				"hostpath-provisioner-admin",
-				"hostpath-provisioner-admin-csi",
-				"hostpath-provisioner-health-check",
-			},
-			Verbs: []string{
-				"update",
-				"delete",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"roles",
-			},
-			Verbs: []string{
-				"list",
-				"create",
-				"get",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"roles",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner",
-				"hostpath-provisioner-admin",
-				"hostpath-provisioner-admin-csi",
-				"hostpath-provisioner-health-check",
-			},
-			Verbs: []string{
-				"update",
-				"delete",
-			},
-		},
+func getOperatorClusterRules() *[]rbacv1.PolicyRule {
+	clusterRole := rbacv1.ClusterRole{}
+	err := k8syaml.NewYAMLToJSONDecoder(strings.NewReader(helper.HppOperatorClusterRole)).Decode(&clusterRole)
+	if err != nil {
+		panic(err)
 	}
+	return &clusterRole.Rules
 }
 
-func getOperatorClusterRules() *[]rbacv1.PolicyRule {
-	return &[]rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"persistentvolumes",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"persistentvolumeclaims",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"events",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"patch",
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"clusterrolebindings",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner",
-				"hostpath-provisioner-admin",
-				"hostpath-provisioner-admin-csi",
-				"hostpath-provisioner-health-check",
-			},
-			Verbs: []string{
-				"update",
-				"delete",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"clusterrolebindings",
-			},
-			Verbs: []string{
-				"list",
-				"get",
-				"watch",
-				"create", //Need watch and create here or it cannot create the specific hostpath-provisioner cluster roles, cannot put watch and create on the specific resourceName
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"clusterroles",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner",
-				"hostpath-provisioner-admin",
-				"hostpath-provisioner-admin-csi",
-				"hostpath-provisioner-health-check",
-			},
-			Verbs: []string{
-				"update",
-				"delete",
-			},
-		},
-		{
-			APIGroups: []string{
-				"rbac.authorization.k8s.io",
-			},
-			Resources: []string{
-				"clusterroles",
-			},
-			Verbs: []string{
-				"list",
-				"get",
-				"watch",
-				"create",
-			},
-		},
-		{
-			APIGroups: []string{
-				"apps",
-			},
-			Resources: []string{
-				"deployments/finalizers",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner-operator",
-			},
-			Verbs: []string{
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"hostpathprovisioner.kubevirt.io",
-			},
-			Resources: []string{
-				"*",
-			},
-			Verbs: []string{
-				"*",
-			},
-		},
-		{
-			APIGroups: []string{
-				"security.openshift.io",
-			},
-			Resources: []string{
-				"securitycontextconstraints",
-			},
-			Verbs: []string{
-				"list",
-				"get",
-				"watch",
-				"create",
-			},
-		},
-		{
-			APIGroups: []string{
-				"security.openshift.io",
-			},
-			Resources: []string{
-				"securitycontextconstraints",
-			},
-			ResourceNames: []string{
-				"hostpath-provisioner",
-			},
-			Verbs: []string{
-				"delete",
-				"update",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"storageclasses",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"nodes",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"csinodes",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"csidrivers",
-			},
-			Verbs: []string{
-				"list",
-				"create",
-				"get",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"csidrivers",
-			},
-			ResourceNames: []string{
-				"kubevirt.io.hostpath-provisioner",
-			},
-			Verbs: []string{
-				"update",
-				"delete",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"volumeattachments",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"patch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"storage.k8s.io",
-			},
-			Resources: []string{
-				"volumeattachments/status",
-			},
-			Verbs: []string{
-				"patch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"pods",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
+func getOperatorRules() *[]rbacv1.PolicyRule {
+	role := rbacv1.Role{}
+	err := k8syaml.NewYAMLToJSONDecoder(strings.NewReader(helper.HppOperatorRole)).Decode(&role)
+	if err != nil {
+		panic(err)
 	}
+	return &role.Rules
 }

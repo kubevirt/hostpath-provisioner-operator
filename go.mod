@@ -8,7 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0
-	github.com/go-openapi/spec v0.19.5
+	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mgechev/revive v1.1.1 // indirect
@@ -23,14 +23,16 @@ require (
 	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602 // indirect
 	golang.org/x/sys v0.0.0-20210921065528-437939a70204 // indirect
 	golang.org/x/tools v0.1.6 // indirect
-	k8s.io/api v0.21.3
-	k8s.io/apiextensions-apiserver v0.21.3
-	k8s.io/apimachinery v0.21.3
+	k8s.io/api v0.22.2
+	k8s.io/apiextensions-apiserver v0.22.2
+	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.21.2
-	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
+	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7 // indirect
+	k8s.io/utils v0.0.0-20210722164352-7f3ee0f31471
 	kubevirt.io/client-go v0.24.0
 	sigs.k8s.io/controller-runtime v0.9.6
+	sigs.k8s.io/controller-tools v0.7.0 // indirect
 
 )
 
