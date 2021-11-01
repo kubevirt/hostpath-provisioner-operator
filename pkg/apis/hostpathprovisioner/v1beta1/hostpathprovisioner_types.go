@@ -39,7 +39,7 @@ type HostPathProvisionerSpec struct {
 // +k8s:openapi-gen=true
 type HostPathProvisionerStatus struct {
 	// Conditions contains the current conditions observed by the operator
-	// +listType=set
+	// +listType=atomic
 	Conditions []conditions.Condition `json:"conditions,omitempty" optional:"true"`
 	// OperatorVersion The version of the HostPathProvisioner Operator
 	OperatorVersion string `json:"operatorVersion,omitempty" optional:"true"`
