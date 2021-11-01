@@ -39,7 +39,7 @@ import (
 
 const (
 	ruleName            = "prometheus-hpp-rules"
-	rbacName            = "hpp-monitoring"
+	rbacName            = "hostpath-provisioner-monitoring"
 	monitorName         = "service-monitor-hpp"
 	defaultMonitoringNs = "monitoring"
 )
@@ -57,6 +57,9 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.L
 		return res, err
 	}
 	if res, err := r.reconcilePrometheusRoleBindingDesired(reqLogger, cr, createPrometheusRoleBinding(cr, namespace), namespace, recorder); err != nil {
+		return res, err
+	}
+	if res, err := r.reconcilePrometheusServiceDesired(reqLogger, cr, createPrometheusService(cr, namespace), namespace, recorder); err != nil {
 		return res, err
 	}
 	return r.reconcilePrometheusServiceMonitorDesired(reqLogger, cr, createPrometheusServiceMonitor(cr, namespace), namespace, recorder)
@@ -222,6 +225,46 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusServiceMonitorDesired(
 	return reconcile.Result{}, nil
 }
 
+func (r *ReconcileHostPathProvisioner) reconcilePrometheusServiceDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *corev1.Service, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+	// Define a new Service object
+	setLastAppliedConfiguration(desired)
+
+	// Check if this Service already exists
+	found := &corev1.Service{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Prometheus Service", "Service.Name", desired.Name)
+		err = r.client.Create(context.TODO(), desired)
+		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+			return reconcile.Result{}, err
+		}
+		// Service created successfully - don't requeue
+		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+		return reconcile.Result{}, nil
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Service already exists, check if we need to update.
+	if !reflect.DeepEqual(found.Spec, desired.Spec) {
+		logJSONDiff(reqLogger, found, desired)
+		// Current is different from desired, update.
+		reqLogger.Info("Updating Prometheus Service", "Service.Name", desired.Name)
+		found.Spec = desired.Spec
+		err = r.client.Update(context.TODO(), found)
+		if err != nil {
+			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+			return reconcile.Result{}, err
+		}
+		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
+		return reconcile.Result{}, nil
+	}
+	// Service already exists and matches the desired state - don't requeue
+	reqLogger.Info("Skip reconcile: Prometheus Service already exists", "Service.Name", found.Name)
+	return reconcile.Result{}, nil
+}
+
 func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace string) error {
 	if used, err := r.checkPrometheusUsed(); used == false {
 		return err
@@ -267,10 +310,23 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 		return err
 	}
 
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      PrometheusServiceName,
+			Namespace: namespace,
+		},
+	}
+	if err := r.client.Delete(context.TODO(), service); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
 	return nil
 }
 
 func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *promv1.PrometheusRule {
+	labels := getRecommendedLabels()
+	labels[PrometheusLabelKey] = PrometheusLabelValue
+
 	return &promv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: promv1.SchemeGroupVersion.String(),
@@ -279,9 +335,7 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ruleName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				PrometheusLabelKey: PrometheusLabelValue,
-			},
+			Labels:    labels,
 		},
 		Spec: promv1.PrometheusRuleSpec{
 			Groups: []promv1.RuleGroup{
@@ -311,13 +365,14 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 }
 
 func createPrometheusRole(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *rbacv1.Role {
+	labels := getRecommendedLabels()
+	labels[PrometheusLabelKey] = PrometheusLabelValue
+
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rbacName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				PrometheusLabelKey: PrometheusLabelValue,
-			},
+			Labels:    labels,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -339,14 +394,14 @@ func createPrometheusRole(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 
 func createPrometheusRoleBinding(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *rbacv1.RoleBinding {
 	monitoringNamespace := getMonitoringNamespace()
+	labels := getRecommendedLabels()
+	labels[PrometheusLabelKey] = PrometheusLabelValue
 
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rbacName,
 			Namespace: namespace,
-			Labels: map[string]string{
-				PrometheusLabelKey: PrometheusLabelValue,
-			},
+			Labels:    labels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -364,6 +419,10 @@ func createPrometheusRoleBinding(cr *hostpathprovisionerv1.HostPathProvisioner, 
 }
 
 func createPrometheusServiceMonitor(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *promv1.ServiceMonitor {
+	labels := getRecommendedLabels()
+	labels[PrometheusLabelKey] = PrometheusLabelValue
+	labels["openshift.io/cluster-monitoring"] = ""
+
 	return &promv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: promv1.SchemeGroupVersion.String(),
@@ -372,10 +431,7 @@ func createPrometheusServiceMonitor(cr *hostpathprovisionerv1.HostPathProvisione
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      monitorName,
-			Labels: map[string]string{
-				"openshift.io/cluster-monitoring": "",
-				PrometheusLabelKey:                PrometheusLabelValue,
-			},
+			Labels:    labels,
 		},
 		Spec: promv1.ServiceMonitorSpec{
 			Selector: metav1.LabelSelector{
@@ -393,6 +449,33 @@ func createPrometheusServiceMonitor(cr *hostpathprovisionerv1.HostPathProvisione
 					TLSConfig: &promv1.TLSConfig{
 						InsecureSkipVerify: true,
 					},
+				},
+			},
+		},
+	}
+}
+
+func createPrometheusService(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *corev1.Service {
+	labels := getRecommendedLabels()
+	labels[PrometheusLabelKey] = PrometheusLabelValue
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      PrometheusServiceName,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{PrometheusLabelKey: PrometheusLabelValue},
+			Ports: []corev1.ServicePort{
+				{
+					Name: "metrics",
+					Port: 8080,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.String,
+						StrVal: "metrics",
+					},
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
 		},

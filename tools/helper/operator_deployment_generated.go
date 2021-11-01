@@ -6,6 +6,8 @@ var HppOperatorDeployment string =
 kind: Deployment
 metadata:
   creationTimestamp: null
+  labels:
+    prometheus.hostpathprovisioner.kubevirt.io: "true"
   name: hostpath-provisioner-operator
 spec:
   replicas: 1
@@ -18,6 +20,7 @@ spec:
       creationTimestamp: null
       labels:
         name: hostpath-provisioner-operator
+        prometheus.hostpathprovisioner.kubevirt.io: "true"
     spec:
       containers:
       - command:
@@ -57,9 +60,14 @@ spec:
           value: k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1
         - name: VERBOSITY
           value: "3"
+        - name: MONITORING_NAMESPACE
         image: quay.io/kubevirt/hostpath-provisioner-operator:latest
         imagePullPolicy: Always
         name: hostpath-provisioner-operator
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
         resources:
           requests:
             cpu: 10m

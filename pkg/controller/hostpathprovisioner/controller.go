@@ -172,6 +172,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err := c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			return err
 		}
+		if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+			return err
+		}
 	}
 
 	return nil
