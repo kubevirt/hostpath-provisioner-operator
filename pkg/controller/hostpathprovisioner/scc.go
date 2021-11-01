@@ -35,8 +35,10 @@ import (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if used, err := r.checkSCCUsed(); used == false {
+	if used, err := r.checkSCCUsed(); err != nil {
 		return reconcile.Result{}, err
+	} else if used == false {
+		return reconcile.Result{}, nil
 	}
 	if res, err := r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createSecurityContextConstraintsObject(cr, namespace), namespace, recorder); err != nil {
 		return res, err

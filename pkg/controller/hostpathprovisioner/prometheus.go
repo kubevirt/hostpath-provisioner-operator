@@ -45,8 +45,10 @@ const (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	if used, err := r.checkPrometheusUsed(); used == false {
+	if used, err := r.checkPrometheusUsed(); err != nil {
 		return reconcile.Result{}, err
+	} else if used == false {
+		return reconcile.Result{}, nil
 	}
 	if res, err := r.reconcilePrometheusRuleDesired(reqLogger, cr, createPrometheusRule(cr, namespace), namespace, recorder); err != nil {
 		return res, err
