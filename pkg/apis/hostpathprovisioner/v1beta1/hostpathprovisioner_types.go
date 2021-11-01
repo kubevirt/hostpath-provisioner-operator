@@ -27,12 +27,16 @@ import (
 type HostPathProvisionerSpec struct {
 	// ImagePullPolicy is the container pull policy for the host path provisioner containers
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
-	// PathConfig describes the location and layout of PV storage on nodes
-	PathConfig PathConfig `json:"pathConfig" valid:"required"`
+	// PathConfig describes the location and layout of PV storage on nodes. Deprecated
+	PathConfig *PathConfig `json:"pathConfig,omitempty" optional:"true"`
 	// Restrict on which nodes HPP workload pods will be scheduled
 	Workload NodePlacement `json:"workload,omitempty"`
 	// FeatureGates are a list of specific enabled feature gates
+	// +listType=set
 	FeatureGates []string `json:"featureGates,omitempty"`
+	// VolumeSources are a list of volume sources
+	// +listType=atomic
+	VolumeSources []VolumeSource `json:"volumeSources,omitempty" optional:"true"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
@@ -47,6 +51,26 @@ type HostPathProvisionerStatus struct {
 	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
 	// ObservedVersion The observed version of the HostPathProvisioner deployment
 	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
+}
+
+// VolumeSource defines a volume with a kind and a source
+// +k8s:openapi-gen=true
+type VolumeSource struct {
+	// Kind specifies an identifier that is used in the storage class arguments to identify the source to use.
+	Kind string `json:"kind" valid:"required"`
+	// SourceStorageClass specifies which storage class to use to create PersistVolumeClaims against and the template of the claim
+	SourceStorageClass *SourceStorageClass `json:"sourceStorageClass,omitempty" optional:"true"`
+	// PVC specifies the persistent volume claim to use. This is useful when you want one PVC to be shared among all nodes
+	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc,omitempty" optional:"true"`
+	// path the path to use on the host, this is a required field
+	Path string `json:"path" valid:"required"`
+}
+
+// SourceStorageClass defines the storage class and PVC template to use when preparing storage.
+// +k8s:openapi-gen=true
+type SourceStorageClass struct {
+	Name        string                            `json:"name" valid:"required"`
+	PVCTemplate *corev1.PersistentVolumeClaimSpec `json:"pvcTemplate" valid:"required"`
 }
 
 // this has to be here otherwise informer-gen doesn't recognize it
@@ -76,7 +100,7 @@ type HostPathProvisionerList struct {
 	Items           []HostPathProvisioner `json:"items"`
 }
 
-// PathConfig contains the information needed to build the path where the PVs will be created.
+// PathConfig contains the information needed to build the path where the PVs will be created. Deprecated
 // +k8s:openapi-gen=true
 type PathConfig struct {
 	// Path The path the directories for the PVs are created under

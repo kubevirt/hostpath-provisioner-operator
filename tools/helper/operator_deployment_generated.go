@@ -45,9 +45,9 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner:latest
+          value: registry:5000/hostpath-provisioner:latest
         - name: CSI_PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-csi-driver:latest
+          value: registry:5000/hostpath-csi-driver:latest
         - name: EXTERNAL_HEALTH_MON_IMAGE
           value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
         - name: NODE_DRIVER_REG_IMAGE
@@ -63,15 +63,44 @@ spec:
         - name: MONITORING_NAMESPACE
         image: quay.io/kubevirt/hostpath-provisioner-operator:latest
         imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /livez
+            port: 6060
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
         name: hostpath-provisioner-operator
         ports:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /readyz
+            port: 6060
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
         resources:
           requests:
             cpu: 10m
             memory: 150Mi
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: apiservice-cert
       serviceAccountName: hostpath-provisioner-operator
+      volumes:
+      - name: apiservice-cert
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          secretName: hostpath-provisioner-operator-webhook-service-cert
 status: {}
 `

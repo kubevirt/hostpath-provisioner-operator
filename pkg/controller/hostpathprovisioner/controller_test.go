@@ -73,7 +73,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 			Spec: hppv1.HostPathProvisionerSpec{
 				ImagePullPolicy: corev1.PullAlways,
-				PathConfig: hppv1.PathConfig{
+				PathConfig: &hppv1.PathConfig{
 					Path:            "/tmp/test",
 					UseNamingPrefix: false,
 				},
@@ -124,6 +124,89 @@ var _ = Describe("Controller reconcile loop", func() {
 		table.Entry("Enable CSI"),
 	)
 
+	It("Should properly generate the datadir for legacy CR", func() {
+		dsNN := types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: "test-namespace",
+		}
+		cr, r, cl = createDeployedCr(cr)
+		// Now modify the daemonSet to something not desired.
+		ds := &appsv1.DaemonSet{}
+		err := cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		foundMount := false
+		for _, container := range ds.Spec.Template.Spec.Containers {
+			if container.Name == MultiPurposeHostPathProvisionerName {
+				for _, mount := range container.VolumeMounts {
+					if mount.MountPath == "/csi-data-dir" {
+						Expect(mount.Name).To(Equal("csi-data-dir"))
+						foundMount = true
+					}
+				}
+			}
+		}
+		Expect(foundMount).To(BeTrue(), "did not find expected volume mount named csi-data-dir")
+		foundVolume := false
+		for _, volume := range ds.Spec.Template.Spec.Volumes {
+			log.Info("Volume", "name", volume.Name)
+			if volume.Name == "csi-data-dir" {
+				Expect(volume.HostPath).NotTo(BeNil())
+				Expect(volume.HostPath.Path).To(Equal("/tmp/test"))
+				foundVolume = true
+			}
+		}
+		Expect(foundVolume).To(BeTrue(), "did not find expected volume named csi-data-dir")
+	})
+
+	It("Should properly generate the datadir for volumesource CR", func() {
+		dsNN := types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: "test-namespace",
+		}
+		cr = &hppv1.HostPathProvisioner{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+			Spec: hppv1.HostPathProvisionerSpec{
+				ImagePullPolicy: corev1.PullAlways,
+				VolumeSources: []hppv1.VolumeSource{
+					{
+						Kind: "test",
+						Path: "/tmp/test",
+					},
+				},
+			},
+		}
+		cr, r, cl = createDeployedCr(cr)
+		// Now modify the daemonSet to something not desired.
+		ds := &appsv1.DaemonSet{}
+		err := cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		foundMount := false
+		for _, container := range ds.Spec.Template.Spec.Containers {
+			if container.Name == MultiPurposeHostPathProvisionerName {
+				for _, mount := range container.VolumeMounts {
+					if mount.MountPath == "/test-data-dir" {
+						Expect(mount.Name).To(Equal("test-data-dir"))
+						foundMount = true
+					}
+				}
+			}
+		}
+		Expect(foundMount).To(BeTrue(), "did not find expected volume mount named csi-data-dir")
+		foundVolume := false
+		for _, volume := range ds.Spec.Template.Spec.Volumes {
+			log.Info("Volume", "name", volume.Name)
+			if volume.Name == "test-data-dir" {
+				Expect(volume.HostPath).NotTo(BeNil())
+				Expect(volume.HostPath.Path).To(Equal("/tmp/test"))
+				foundVolume = true
+			}
+		}
+		Expect(foundVolume).To(BeTrue(), "did not find expected volume named csi-data-dir")
+	})
+
 	table.DescribeTable("Should respect snapshot feature gate", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -148,7 +231,13 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiExternalHealthMonitorControllerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault))
 		// Ensure the snapshot sidecar is not there.
 		Expect(sidecarImages).ToNot(ContainElement(SnapshotterImageDefault))
-		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(csiVolume))
+		found := false
+		for _, volume := range ds.Spec.Template.Spec.Volumes {
+			if volume.Name == csiVolume {
+				found = true
+			}
+		}
+		Expect(found).To(BeTrue())
 
 		cr = &hppv1.HostPathProvisioner{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, cr)
@@ -178,7 +267,13 @@ var _ = Describe("Controller reconcile loop", func() {
 			sidecarImages = append(sidecarImages, container.Image)
 		}
 		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiExternalHealthMonitorControllerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault, SnapshotterImageDefault))
-		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(csiVolume))
+		found = false
+		for _, volume := range ds.Spec.Template.Spec.Volumes {
+			if volume.Name == csiVolume {
+				found = true
+			}
+		}
+		Expect(found).To(BeTrue())
 	},
 		table.Entry("Enable CSI"),
 	)
@@ -601,7 +696,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 			Spec: hppv1.HostPathProvisionerSpec{
 				ImagePullPolicy: corev1.PullAlways,
-				PathConfig: hppv1.PathConfig{
+				PathConfig: &hppv1.PathConfig{
 					Path:            "/tmp/test",
 					UseNamingPrefix: false,
 				},

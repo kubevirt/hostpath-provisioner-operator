@@ -27,6 +27,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
+	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -36,6 +37,7 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -95,8 +97,11 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:      namespace,
-		MapperProvider: restmapper.NewDynamicRESTMapper,
+		Namespace:              namespace,
+		MapperProvider:         restmapper.NewDynamicRESTMapper,
+		HealthProbeBindAddress: "0.0.0.0:6060",
+		ReadinessEndpointName:  "/readyz",
+		LivenessEndpointName:   "/livez",
 	})
 	if err != nil {
 		log.Error(err, "")
@@ -126,6 +131,19 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
+	if err := (&hppv1.HostPathProvisioner{}).SetupWebhookWithManager(mgr); err != nil {
+		log.Error(err, "unable to create webhook", "webhook", "Hostpathprovisioner")
+		os.Exit(1)
+	}
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		log.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
 	log.Info("Starting the Cmd.")
 
 	// Start the Cmd
