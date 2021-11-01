@@ -131,7 +131,7 @@ func schema_pkg_apis_hostpathprovisioner_v1alpha1_HostPathProvisionerStatus(ref 
 					"conditions": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
