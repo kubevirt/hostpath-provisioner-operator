@@ -22,137 +22,57 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
-var operatorLabels = map[string]string{
-	"operator.hostpath-provisioner.kubevirt.io": "",
+type OperatorArgs struct {
+	Namespace          string
+	ImagePullPolicy    string
+	Verbosity          string
+
+	OperatorImage    string
+	ProvisionerImage string
+	CsiDriverImage string
+	CsiExternalHealthMonitorImage string
+	CsiNodeDriverRegistrarImage string
+	CsiLivenessProbeImage string
+	CsiExternalProvisionerImage string
+	CsiSnapshotterImage string
 }
 
-//WithOperatorLabels aggregates common lables
-func WithOperatorLabels(labels map[string]string) map[string]string {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
+const (
+	openshiftPriorityClassName = "openshift-user-critical"
+)
 
-	for k, v := range operatorLabels {
-		_, ok := labels[k]
-		if !ok {
-			labels[k] = v
+func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
+	deployment := appsv1.Deployment{}
+	_ = k8syaml.NewYAMLToJSONDecoder(strings.NewReader(HppOperatorDeployment)).Decode(&deployment)
+	deployment.SetNamespace(args.Namespace)
+	deployment.Spec.Selector.MatchLabels["operator.hostpath-provisioner.kubevirt.io"] = ""
+	deployment.Spec.Template.Labels["operator.hostpath-provisioner.kubevirt.io"] = ""
+	deployment.Spec.Template.Spec.PriorityClassName = "openshift-user-critical"
+	deployment.Spec.Template.Spec.Containers[0].Image = args.OperatorImage
+	deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(args.ImagePullPolicy)
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name: "PRIORITY_CLASS",
+		Value: openshiftPriorityClassName,
+	})
+	setEnvVariable("VERBOSITY", args.Verbosity, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("PROVISIONER_IMAGE", args.ProvisionerImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("CSI_PROVISIONER_IMAGE", args.CsiDriverImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("EXTERNAL_HEALTH_MON_IMAGE", args.CsiExternalHealthMonitorImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("NODE_DRIVER_REG_IMAGE", args.CsiNodeDriverRegistrarImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("LIVENESS_PROBE_IMAGE", args.CsiLivenessProbeImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("CSI_SIG_STORAGE_PROVISIONER_IMAGE", args.CsiExternalProvisionerImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("CSI_SNAPSHOT_IMAGE", args.CsiSnapshotterImage, deployment.Spec.Template.Spec.Containers[0].Env)
+	return &deployment
+}
+
+func setEnvVariable(key, value string, env []corev1.EnvVar) {
+	for _, envValue := range env {
+		if envValue.Name == key {
+			envValue.Value = value
 		}
-	}
-
-	return labels
-}
-
-//CreateOperatorDeploymentSpec creates deployment
-func CreateOperatorDeploymentSpec(name, namespace, matchKey, matchValue, serviceAccount string, numReplicas int32) *appsv1.DeploymentSpec {
-	matchMap := map[string]string{matchKey: matchValue}
-	spec := &appsv1.DeploymentSpec{
-		Replicas: &numReplicas,
-		Selector: &metav1.LabelSelector{
-			MatchLabels: WithOperatorLabels(matchMap),
-		},
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: WithOperatorLabels(matchMap),
-			},
-			Spec: corev1.PodSpec{
-				PriorityClassName: "openshift-user-critical",
-			},
-		},
-	}
-
-	if serviceAccount != "" {
-		spec.Template.Spec.ServiceAccountName = serviceAccount
-	}
-
-	return spec
-}
-
-//CreateOperatorDeployment creates deployment
-func CreateOperatorDeployment(name, namespace, matchKey, matchValue, serviceAccount string, numReplicas int32) *appsv1.Deployment {
-	deployment := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
-			Kind:       "Deployment",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: *CreateOperatorDeploymentSpec(name, namespace, matchKey, matchValue, serviceAccount, numReplicas),
-	}
-	if serviceAccount != "" {
-		deployment.Spec.Template.Spec.ServiceAccountName = serviceAccount
-	}
-	return deployment
-}
-
-//CreateOperatorContainer creates container spec for the operator pod.
-func CreateOperatorContainer(name, image, verbosity string, pullPolicy corev1.PullPolicy) corev1.Container {
-	return corev1.Container{
-		Name:            name,
-		Image:           image,
-		ImagePullPolicy: pullPolicy,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-				corev1.ResourceMemory: resource.MustParse("150Mi"),
-			},
-		},
-	}
-}
-
-// CreateOperatorEnvVar creates the operator container environment variables based on the passed in parameters
-func CreateOperatorEnvVar(repo, deployClusterResources, operatorImage, provisionerImage, pullPolicy string) *[]corev1.EnvVar {
-	return &[]corev1.EnvVar{
-		{
-			Name: "WATCH_NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
-				},
-			},
-		},
-		{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		},
-		{
-			Name:  "OPERATOR_NAME",
-			Value: "hostpath-provisioner-operator",
-		},
-		{
-			Name:  "PROVISIONER_IMAGE",
-			Value: provisionerImage,
-		},
-		{
-			Name:  "PULL_POLICY",
-			Value: pullPolicy,
-		},
-		{
-			Name: "INSTALLER_PART_OF_LABEL",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.labels['app.kubernetes.io/part-of']",
-				},
-			},
-		},
-		{
-			Name: "INSTALLER_VERSION_LABEL",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.labels['app.kubernetes.io/version']",
-				},
-			},
-		},
 	}
 }
 

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"github.com/blang/semver"
@@ -47,6 +46,13 @@ var (
 
 	operatorImage    = flag.String("operator-image-name", hostpathprovisioner.OperatorImageDefault, "optional")
 	provisionerImage = flag.String("provisioner-image-name", hostpathprovisioner.ProvisionerImageDefault, "optional")
+	csiDriverImage   = flag.String("csi-driver-image-name", hostpathprovisioner.CsiProvisionerImageDefault, "optional")
+	csiExternalHealthMonitorImage   = flag.String("csi-external-health-monitor-image-name", hostpathprovisioner.CsiExternalHealthMonitorControllerImageDefault, "optional")
+	csiNodeDriverRegistrarImage   = flag.String("csi-node-driver-image-name", hostpathprovisioner.CsiNodeDriverRegistrationImageDefault, "optional")
+	csiLivenessProbeImage   = flag.String("csi-liveness-probe-image-name", hostpathprovisioner.LivenessProbeImageDefault, "optional")
+	csiExternalProvisionerImage   = flag.String("csi-external-provisioner-image-name", hostpathprovisioner.CsiSigStorageProvisionerImageDefault, "optional")
+	csiSnapshotterImage   = flag.String("csi-snapshotter-image-name", hostpathprovisioner.SnapshotterImageDefault, "optional")
+	
 	dumpCRDs         = flag.Bool("dump-crds", false, "optional - dumps operator related crd manifests to stdout")
 )
 
@@ -56,13 +62,21 @@ func main() {
 	data := NewClusterServiceVersionData{
 		CsvVersion:         *csvVersion,
 		ReplacesCsvVersion: *replacesCsvVersion,
+		IconBase64:         *logoBase64,
+	}
+	data.OperatorArgs = helper.OperatorArgs {
 		Namespace:          *namespace,
 		ImagePullPolicy:    *pullPolicy,
-		IconBase64:         *logoBase64,
 		Verbosity:          *verbosity,
 
 		OperatorImage:    *operatorImage,
 		ProvisionerImage: *provisionerImage,
+		CsiDriverImage: *csiDriverImage,
+		CsiExternalHealthMonitorImage: *csiExternalHealthMonitorImage,
+		CsiNodeDriverRegistrarImage: *csiNodeDriverRegistrarImage,
+		CsiLivenessProbeImage: *csiLivenessProbeImage,
+		CsiExternalProvisionerImage: *csiExternalProvisionerImage,
+		CsiSnapshotterImage: *csiSnapshotterImage,
 	}
 
 	csv, err := createClusterServiceVersion(&data)
@@ -80,16 +94,8 @@ func main() {
 type NewClusterServiceVersionData struct {
 	CsvVersion         string
 	ReplacesCsvVersion string
-	Namespace          string
-	ImagePullPolicy    string
 	IconBase64         string
-	Verbosity          string
-
-	DockerPrefix string
-	DockerTag    string
-
-	OperatorImage    string
-	ProvisionerImage string
+	OperatorArgs helper.OperatorArgs
 }
 
 type csvPermissions struct {
@@ -107,11 +113,8 @@ type csvStrategySpec struct {
 	Deployments        []csvDeployments `json:"deployments"`
 }
 
-func createOperatorDeployment(repo, namespace, deployClusterResources, operatorImage, provisionerImage, tag, verbosity, pullPolicy string) *appsv1.Deployment {
-	deployment := helper.CreateOperatorDeployment("hostpath-provisioner-operator", namespace, "name", "hostpath-provisioner-operator", hostpathprovisioner.OperatorServiceAccountName, int32(1))
-	container := helper.CreateOperatorContainer("hostpath-provisioner-operator", operatorImage, verbosity, corev1.PullPolicy(pullPolicy))
-	container.Env = *helper.CreateOperatorEnvVar(repo, deployClusterResources, operatorImage, provisionerImage, pullPolicy)
-	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
+func createOperatorDeployment(data *NewClusterServiceVersionData) *appsv1.Deployment {
+	deployment := helper.CreateOperatorDeployment(&data.OperatorArgs)
 	return deployment
 }
 
@@ -121,15 +124,7 @@ func createClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Clu
 Hostpath provisioner is a local storage provisioner that uses kubernetes hostpath support to create directories on the host that map to a PV. These PVs are dynamically created when a new PVC is requested.
 `
 
-	deployment := createOperatorDeployment(
-		data.DockerPrefix,
-		data.Namespace,
-		"true",
-		data.OperatorImage,
-		data.ProvisionerImage,
-		data.DockerTag,
-		data.Verbosity,
-		data.ImagePullPolicy)
+	deployment := createOperatorDeployment(data)
 
 	clusterRules := getOperatorClusterRules()
 	rules := getOperatorRules()
@@ -172,7 +167,7 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hostpathprovisioneroperator." + data.CsvVersion,
-			Namespace: data.Namespace,
+			Namespace: data.OperatorArgs.Namespace,
 			Annotations: map[string]string{
 
 				"capabilities": "Full Lifecycle",

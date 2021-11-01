@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
+	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -76,6 +77,11 @@ func main() {
 		if role != nil && roleName != "" && len(role.Rules) > 0 && role.Kind == "Role" {
 			fmt.Printf("Generating role %s\n", clusterRoleName)
 			generateRoleGoFile(*outputdir, role)
+		}
+		deploymentName, operatorDeployment := getOperatorDeployment(item)
+		if operatorDeployment != nil && deploymentName != "" && operatorDeployment.Kind == "Deployment" {
+			fmt.Printf("Generating operator deployment %s\n", deploymentName)
+			generateDeploymentGoFile(*outputdir, operatorDeployment)
 		}
 	}
 
@@ -153,6 +159,30 @@ func generateRoleGoFile(outputDir string, role *rbacv1.Role) {
 	file.WriteString("`\n")
 }
 
+func generateDeploymentGoFile(outputDir string, deployment *appsv1.Deployment) {
+	filepath := filepath.Join(outputDir, "operator_deployment_generated.go")
+	os.Remove(filepath)
+	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0644)
+	defer func() {
+		if err = file.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	if err != nil {
+		panic(fmt.Errorf("failed to create go file %v, %v", filepath, err))
+	}
+	fmt.Printf("output file: %s\n", file.Name())
+
+	file.WriteString("package helper\n\n")
+	file.WriteString("//HppOperatorDeployment is a string yaml of the hpp operator deployment\n")
+	file.WriteString("var HppOperatorDeployment string = \n`")
+
+	b, _ := yaml.Marshal(deployment)
+	file.WriteString(string(b))
+	file.WriteString("`\n")
+}
+
+
 func getCRD(text []byte) (string, *extv1.CustomResourceDefinition) {
 	crd := extv1.CustomResourceDefinition{}
 	err := k8syaml.NewYAMLToJSONDecoder(bytes.NewBuffer(text)).Decode(&crd)
@@ -178,4 +208,13 @@ func getRoles(text []byte) (string, *rbacv1.Role) {
 		panic(fmt.Errorf("failed to parse role from text %s, %v", string(text), err))
 	}
 	return role.Name, &role
+}
+
+func getOperatorDeployment(text []byte) (string, *appsv1.Deployment) {
+	deployment := appsv1.Deployment{}
+	err := k8syaml.NewYAMLToJSONDecoder(bytes.NewBuffer(text)).Decode(&deployment)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse deployment from text %s, %v", string(text), err))
+	}
+	return deployment.Name, &deployment
 }
