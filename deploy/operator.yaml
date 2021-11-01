@@ -2436,6 +2436,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: INSTALLER_PART_OF_LABEL
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app.kubernetes.io/part-of']
+            - name: INSTALLER_VERSION_LABEL
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app.kubernetes.io/version']
             - name: OPERATOR_NAME
               value: "hostpath-provisioner-operator"
             - name: PROVISIONER_IMAGE

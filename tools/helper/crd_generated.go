@@ -1015,7 +1015,7 @@ spec:
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-type: set
+                x-kubernetes-list-type: atomic
               observedVersion:
                 description: ObservedVersion The observed version of the HostPathProvisioner
                   deployment
@@ -2034,7 +2034,7 @@ spec:
                   - type
                   type: object
                 type: array
-                x-kubernetes-list-type: set
+                x-kubernetes-list-type: atomic
               observedVersion:
                 description: ObservedVersion The observed version of the HostPathProvisioner
                   deployment
