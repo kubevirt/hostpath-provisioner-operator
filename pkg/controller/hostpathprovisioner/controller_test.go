@@ -47,6 +47,8 @@ import (
 
 const (
 	versionString = "1.0.1"
+	csiVolume     = "csi-data-dir"
+	legacyVolume  = "pv-volume"
 )
 
 var _ = Describe("Controller reconcile loop", func() {
@@ -115,7 +117,66 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds = &appsv1.DaemonSet{}
 		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("pv-volume"))
+		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(legacyVolume))
+	},
+		table.Entry("Enable CSI"),
+	)
+
+	table.DescribeTable("Should respect snapshot feature gate", func() {
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		args := getDaemonSetArgs(logf.Log.WithName("hostpath-provisioner-operator-controller-test"), "test-namespace", false)
+		dsNN := types.NamespacedName{
+			Name:      args.name,
+			Namespace: "test-namespace",
+		}
+		cr, r, cl = createDeployedCr(cr)
+		ds := &appsv1.DaemonSet{}
+		err := cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		// Ensure the csi side cars are there.
+		sidecarImages := make([]string, 0)
+		for _, container := range ds.Spec.Template.Spec.Containers {
+			sidecarImages = append(sidecarImages, container.Image)
+		}
+		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiExternalHealthMonitorControllerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault))
+		// Ensure the snapshot sidecar is not there.
+		Expect(sidecarImages).ToNot(ContainElement(SnapshotterImageDefault))
+		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(csiVolume))
+
+		cr = &hppv1.HostPathProvisioner{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, cr)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Update the CR to enable the snapshotting feature gate.
+		cr.Spec.FeatureGates = append(cr.Spec.FeatureGates, snapshotFeatureGate)
+		err = cl.Update(context.TODO(), cr)
+		Expect(err).NotTo(HaveOccurred())
+
+		cr = &hppv1.HostPathProvisioner{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, cr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cr.Spec.FeatureGates).To(ContainElement(snapshotFeatureGate))
+
+		// Run the reconcile loop
+		res, err := r.Reconcile(context.TODO(), req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+		// Check the daemonSet value, make sure it added the snapshotter sidecar.
+		ds = &appsv1.DaemonSet{}
+		err = cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		// Ensure the csi side cars are there.
+		sidecarImages = make([]string, 0)
+		for _, container := range ds.Spec.Template.Spec.Containers {
+			sidecarImages = append(sidecarImages, container.Image)
+		}
+		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiExternalHealthMonitorControllerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault, SnapshotterImageDefault))
+		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(csiVolume))
 	},
 		table.Entry("Enable CSI"),
 	)
@@ -192,6 +253,33 @@ var _ = Describe("Controller reconcile loop", func() {
 		err = cl.Get(context.TODO(), croleNN, crole)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
+	},
+		table.Entry("Enable CSI"),
+	)
+
+	table.DescribeTable("Should modify ClusterRole if snapshot enabled", func() {
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		cr, r, cl = createDeployedCr(cr)
+
+		cr = &hppv1.HostPathProvisioner{}
+		err := r.client.Get(context.TODO(), req.NamespacedName, cr)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Update the CR to enable the snapshotting feature gate.
+		cr.Spec.FeatureGates = append(cr.Spec.FeatureGates, snapshotFeatureGate)
+		err = cl.Update(context.TODO(), cr)
+		Expect(err).NotTo(HaveOccurred())
+		// Run the reconcile loop
+		res, err := r.Reconcile(context.TODO(), req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Requeue).To(BeFalse())
+
+		verifyCreateCSIClusterRole(cl, true)
 	},
 		table.Entry("Enable CSI"),
 	)
@@ -725,7 +813,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	verifyCreateServiceAccount(r.client)
 	verifyCreateClusterRole(r.client)
 	verifyCreateClusterRoleBinding(r.client)
-	verifyCreateCSIClusterRole(r.client)
+	verifyCreateCSIClusterRole(r.client, false)
 	verifyCreateCSIClusterRoleBinding(r.client)
 	verifyCreateCSIRole(r.client)
 	verifyCreateCSIRoleBinding(r.client)
@@ -822,7 +910,7 @@ func verifyCreateServiceAccount(cl client.Client) {
 	Expect(sa.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
-func verifyCreateCSIClusterRole(cl client.Client) {
+func verifyCreateCSIClusterRole(cl client.Client, enableSnapshot bool) {
 	crole := &rbacv1.ClusterRole{}
 	nn := types.NamespacedName{
 		Name: ProvisionerServiceAccountNameCsi,
@@ -938,60 +1026,11 @@ func verifyCreateCSIClusterRole(cl client.Client) {
 				"patch",
 			},
 		},
-		{
-			APIGroups: []string{
-				"snapshot.storage.k8s.io",
-			},
-			Resources: []string{
-				"volumesnapshotclasses",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"snapshot.storage.k8s.io",
-			},
-			Resources: []string{
-				"volumesnapshots",
-			},
-			Verbs: []string{
-				"get",
-			},
-		},
-		{
-			APIGroups: []string{
-				"snapshot.storage.k8s.io",
-			},
-			Resources: []string{
-				"volumesnapshotcontents",
-			},
-			Verbs: []string{
-				"create",
-				"get",
-				"list",
-				"watch",
-				"update",
-				"delete",
-				"patch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"snapshot.storage.k8s.io",
-			},
-			Resources: []string{
-				"volumesnapshotcontents/status",
-			},
-			Verbs: []string{
-				"update",
-				"patch",
-			},
-		},
 	}
+	if enableSnapshot {
+		expectedRules = append(expectedRules, createSnapshotCsiClusterRoles()...)
+	}
+
 	Expect(crole.Rules).To(Equal(expectedRules))
 	Expect(crole.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 

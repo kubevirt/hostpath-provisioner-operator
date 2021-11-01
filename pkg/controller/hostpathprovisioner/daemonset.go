@@ -84,7 +84,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	// csi driver
 	args = getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, false)
 	args.version = cr.Status.TargetVersion
-	return r.reconcileDaemonSetForSa(reqLogger, createCSIDaemonSetObject(cr, reqLogger, args), cr, namespace, recorder)
+	return r.reconcileDaemonSetForSa(reqLogger, r.createCSIDaemonSetObject(cr, reqLogger, args), cr, namespace, recorder)
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Logger, desired *appsv1.DaemonSet, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
@@ -343,13 +343,13 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 	}
 }
 
-func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
+func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := getRecommendedLabels()
-	return &appsv1.DaemonSet{
+	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "DaemonSet",
@@ -529,22 +529,6 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 							},
 						},
 						{
-							Name:            "csi-snapshotter",
-							Image:           args.snapshotterImage,
-							ImagePullPolicy: cr.Spec.ImagePullPolicy,
-							Args: []string{
-								fmt.Sprintf("--v=%d", args.verbosity),
-								fmt.Sprintf("--csi-address=%s", csiSocket),
-								"--leader-election",
-							},
-							SecurityContext: &corev1.SecurityContext{
-								Privileged: pointer.BoolPtr(true),
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								socketDirVolumeMount,
-							},
-						},
-						{
 							Name:            "csi-provisioner",
 							Image:           args.csiProvisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -653,6 +637,30 @@ func createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, req
 					Affinity:     cr.Spec.Workload.Affinity,
 				},
 			},
+		},
+	}
+	if r.isFeatureGateEnabled(snapshotFeatureGate, cr) {
+		ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, *createSnapshotSideCarContainer(args.snapshotterImage, cr.Spec.ImagePullPolicy, args.verbosity))
+	}
+
+	return ds
+}
+
+func createSnapshotSideCarContainer(image string, pullPolicy corev1.PullPolicy, verbosity int) *corev1.Container {
+	return &corev1.Container{
+		Name:            "csi-snapshotter",
+		Image:           image,
+		ImagePullPolicy: pullPolicy,
+		Args: []string{
+			fmt.Sprintf("--v=%d", verbosity),
+			fmt.Sprintf("--csi-address=%s", csiSocket),
+			"--leader-election",
+		},
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: pointer.BoolPtr(true),
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			socketDirVolumeMount,
 		},
 	}
 }

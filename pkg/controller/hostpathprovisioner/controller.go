@@ -44,14 +44,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_hostpathprovisioner")
-var watchNamespaceFunc = k8sutil.GetWatchNamespace
+var (
+	log                = logf.Log.WithName("controller_hostpathprovisioner")
+	watchNamespaceFunc = k8sutil.GetWatchNamespace
+)
+
+const (
+	snapshotFeatureGate = "Snapshotting"
+)
 
 func isErrCacheNotStarted(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err.(*cache.ErrCacheNotStarted) != nil
+	_, ok := err.(*cache.ErrCacheNotStarted)
+	return ok
 }
 
 // Add creates a new HostPathProvisioner Controller and adds it to the Manager. The Manager will set fields on the Controller

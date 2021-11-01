@@ -144,7 +144,7 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logge
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createCsiClusterRoleObjectProvisioner(), cr, recorder)
+	result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), r.createCsiClusterRoleObjectProvisioner(cr), cr, recorder)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -286,8 +286,8 @@ func createClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
 	}
 }
 
-func createCsiClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
+func (r *ReconcileHostPathProvisioner) createCsiClusterRoleObjectProvisioner(cr *hostpathprovisionerv1.HostPathProvisioner) *rbacv1.ClusterRole {
+	res := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   ProvisionerServiceAccountNameCsi,
 			Labels: getRecommendedLabels(),
@@ -401,58 +401,67 @@ func createCsiClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
 					"patch",
 				},
 			},
-			{
-				APIGroups: []string{
-					"snapshot.storage.k8s.io",
-				},
-				Resources: []string{
-					"volumesnapshotclasses",
-				},
-				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-				},
+		},
+	}
+	if r.isFeatureGateEnabled(snapshotFeatureGate, cr) {
+		res.Rules = append(res.Rules, createSnapshotCsiClusterRoles()...)
+	}
+	return res
+}
+
+func createSnapshotCsiClusterRoles() []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{
+				"snapshot.storage.k8s.io",
 			},
-			{
-				APIGroups: []string{
-					"snapshot.storage.k8s.io",
-				},
-				Resources: []string{
-					"volumesnapshots",
-				},
-				Verbs: []string{
-					"get",
-				},
+			Resources: []string{
+				"volumesnapshotclasses",
 			},
-			{
-				APIGroups: []string{
-					"snapshot.storage.k8s.io",
-				},
-				Resources: []string{
-					"volumesnapshotcontents",
-				},
-				Verbs: []string{
-					"create",
-					"get",
-					"list",
-					"watch",
-					"update",
-					"delete",
-					"patch",
-				},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
 			},
-			{
-				APIGroups: []string{
-					"snapshot.storage.k8s.io",
-				},
-				Resources: []string{
-					"volumesnapshotcontents/status",
-				},
-				Verbs: []string{
-					"update",
-					"patch",
-				},
+		},
+		{
+			APIGroups: []string{
+				"snapshot.storage.k8s.io",
+			},
+			Resources: []string{
+				"volumesnapshots",
+			},
+			Verbs: []string{
+				"get",
+			},
+		},
+		{
+			APIGroups: []string{
+				"snapshot.storage.k8s.io",
+			},
+			Resources: []string{
+				"volumesnapshotcontents",
+			},
+			Verbs: []string{
+				"create",
+				"get",
+				"list",
+				"watch",
+				"update",
+				"delete",
+				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"snapshot.storage.k8s.io",
+			},
+			Resources: []string{
+				"volumesnapshotcontents/status",
+			},
+			Verbs: []string{
+				"update",
+				"patch",
 			},
 		},
 	}
