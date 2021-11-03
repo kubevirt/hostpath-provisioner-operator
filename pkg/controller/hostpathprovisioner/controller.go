@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
@@ -150,6 +151,32 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		}
 	}
 
+	if used, err := r.(*ReconcileHostPathProvisioner).checkPrometheusUsed(); used || isErrCacheNotStarted(err) {
+		if err := c.Watch(&source.Kind{Type: &promv1.PrometheusRule{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+			if meta.IsNoMatchError(err) {
+				log.Info("Not watching PrometheusRules")
+				return nil
+			}
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &promv1.ServiceMonitor{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+			if meta.IsNoMatchError(err) {
+				log.Info("Not watching ServiceMonitors")
+				return nil
+			}
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &rbacv1.Role{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -225,6 +252,10 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 			reqLogger.Error(err, "Unable to delete SecurityContextConstraints")
 			// TODO, should we return and in essence keep retrying, and thus never be able to delete the CR if deleting the SCC fails, or
 			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
+			return reconcile.Result{}, err
+		}
+		if err := r.deletePrometheusResources(namespace); err != nil {
+			reqLogger.Error(err, "Unable to delete Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
 			return reconcile.Result{}, err
 		}
 		if res, err := r.deleteAllRbac(reqLogger, namespace); err != nil {
@@ -398,6 +429,11 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create SecurityContextConstraints")
+		return reconcile.Result{}, err
+	}
+	res, err = r.reconcilePrometheusInfra(reqLogger, cr, namespace, r.recorder)
+	if err != nil {
+		reqLogger.Error(err, "Unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
 		return reconcile.Result{}, err
 	}
 	daemonSet := &appsv1.DaemonSet{}

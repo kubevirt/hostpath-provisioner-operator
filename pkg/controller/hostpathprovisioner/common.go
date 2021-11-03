@@ -67,6 +67,13 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
+	// PrometheusLabelKey provides the label to indicate prometheus metrics are available in the pods.
+	PrometheusLabelKey = "prometheus.hostpathprovisioner.kubevirt.io"
+	// PrometheusLabelValue provides the label value which shouldn't be empty to avoid a prometheus WIP issue.
+	PrometheusLabelValue = "true"
+	// PrometheusServiceName is the name of the prometheus service created by the operator.
+	PrometheusServiceName = "hpp-prometheus-metrics"
+
 	createResourceFailed  = "CreateResourceFailed"
 	createResourceSuccess = "CreateResourceSuccess"
 

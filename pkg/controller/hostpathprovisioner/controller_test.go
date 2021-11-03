@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 
@@ -368,6 +370,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
+		promv1.AddToScheme(s)
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
@@ -398,6 +401,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
+		promv1.AddToScheme(s)
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
@@ -608,6 +612,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		s := scheme.Scheme
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
+		promv1.AddToScheme(s)
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
@@ -774,6 +779,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	s := scheme.Scheme
 	s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
 	s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
+	promv1.AddToScheme(s)
 	secv1.Install(s)
 
 	// Create a fake client to mock API calls.
@@ -819,6 +825,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	verifyCreateCSIRoleBinding(r.client)
 	verifyCreateCSIDriver(r.client)
 	verifyCreateSCC(r.client)
+	verifyCreatePrometheusResources(r.client)
 
 	// Now make the daemonSet available, and reconcile again.
 	ds := &appsv1.DaemonSet{}
@@ -1355,6 +1362,78 @@ func verifyCreateSCC(cl client.Client) {
 	}
 	Expect(scc).To(Equal(expected))
 	Expect(scc.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+}
+
+func verifyCreatePrometheusResources(cl client.Client) {
+	// PrometheusRule
+	rule := &promv1.PrometheusRule{}
+	nn := types.NamespacedName{
+		Name:      ruleName,
+		Namespace: "test-namespace",
+	}
+	err := cl.Get(context.TODO(), nn, rule)
+	Expect(err).NotTo(HaveOccurred())
+	hppDownAlert := promv1.Rule{
+		Alert: "HppOperatorDown",
+		Expr:  intstr.FromString("hpp_num_up_operators == 0"),
+		For:   "5m",
+		Annotations: map[string]string{
+			"summary": "Hostpath Provisioner operator is down",
+		},
+		Labels: map[string]string{
+			"severity": "warning",
+		},
+	}
+	Expect(rule.Spec.Groups[0].Rules).To(ContainElement(hppDownAlert))
+	Expect(rule.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+
+	// ServiceMonitor
+	monitor := &promv1.ServiceMonitor{}
+	nn = types.NamespacedName{
+		Name:      monitorName,
+		Namespace: "test-namespace",
+	}
+	err = cl.Get(context.TODO(), nn, monitor)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(monitor.Spec.NamespaceSelector.MatchNames).To(ContainElement("test-namespace"))
+	Expect(rule.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+
+	// RBAC
+	role := &rbacv1.Role{}
+	roleBinding := &rbacv1.RoleBinding{}
+	nn = types.NamespacedName{
+		Name:      rbacName,
+		Namespace: "test-namespace",
+	}
+	err = cl.Get(context.TODO(), nn, role)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(role.Rules[0].Resources).To(ContainElement("endpoints"))
+	Expect(rule.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+	err = cl.Get(context.TODO(), nn, roleBinding)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(roleBinding.Subjects[0].Name).To(Equal("prometheus-k8s"))
+	Expect(roleBinding.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+
+	// Service
+	service := &corev1.Service{}
+	nn = types.NamespacedName{
+		Name:      PrometheusServiceName,
+		Namespace: "test-namespace",
+	}
+	err = cl.Get(context.TODO(), nn, service)
+	Expect(err).NotTo(HaveOccurred())
+	port := corev1.ServicePort{
+		Name: "metrics",
+		Port: 8080,
+		TargetPort: intstr.IntOrString{
+			Type:   intstr.String,
+			StrVal: "metrics",
+		},
+		Protocol: corev1.ProtocolTCP,
+	}
+	Expect(service.Spec.Ports).To(ContainElement(port))
+	Expect(service.Spec.Selector).To(Equal(map[string]string{PrometheusLabelKey: PrometheusLabelValue}))
+	Expect(service.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateCSIDriver(cl client.Client) {

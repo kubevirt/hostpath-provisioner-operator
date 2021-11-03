@@ -31,8 +31,29 @@ rules:
   - ""
   resources:
   - pods
+  - endpoints
   verbs:
   - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+- apiGroups:
+  - ""
+  resourceNames:
+  - hpp-prometheus-metrics
+  resources:
+  - services
+  verbs:
+  - update
+  - delete
 - apiGroups:
   - ""
   resources:
@@ -72,6 +93,19 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  - prometheusrules
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+  - delete
+  - update
+  - patch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
@@ -96,6 +130,7 @@ rules:
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
   - hostpath-provisioner-health-check
+  - hostpath-provisioner-monitoring
   resources:
   - rolebindings
   verbs:
@@ -108,6 +143,7 @@ rules:
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
   - hostpath-provisioner-health-check
+  - hostpath-provisioner-monitoring
   resources:
   - roles
   verbs:

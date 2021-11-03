@@ -23,6 +23,7 @@ import (
 	"os"
 	"runtime"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
@@ -94,9 +95,8 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          namespace,
-		MapperProvider:     restmapper.NewDynamicRESTMapper,
-		MetricsBindAddress: "0",
+		Namespace:      namespace,
+		MapperProvider: restmapper.NewDynamicRESTMapper,
 	})
 	if err != nil {
 		log.Error(err, "")
@@ -107,6 +107,11 @@ func main() {
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if err := promv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

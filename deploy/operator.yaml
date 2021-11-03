@@ -236,8 +236,29 @@ rules:
   - ""
   resources:
   - pods
+  - endpoints
   verbs:
   - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - services
+  resourceNames:
+  - hpp-prometheus-metrics
+  verbs:
+  - 'update'
+  - 'delete'
 - apiGroups:
   - ""
   resources:
@@ -277,6 +298,19 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  - prometheusrules
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+  - delete
+  - update
+  - patch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
@@ -303,6 +337,7 @@ rules:
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
   - hostpath-provisioner-health-check
+  - hostpath-provisioner-monitoring
   verbs:
   - update
   - delete
@@ -315,6 +350,7 @@ rules:
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
   - hostpath-provisioner-health-check
+  - hostpath-provisioner-monitoring
   verbs:
   - update
   - delete
@@ -2404,6 +2440,8 @@ status:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    prometheus.hostpathprovisioner.kubevirt.io: "true"
   name: hostpath-provisioner-operator
 spec:
   replicas: 1
@@ -2414,10 +2452,15 @@ spec:
     metadata:
       labels:
         name: hostpath-provisioner-operator
+        prometheus.hostpathprovisioner.kubevirt.io: "true"
     spec:
       serviceAccountName: hostpath-provisioner-operator
       containers:
         - name: hostpath-provisioner-operator
+          ports:
+            - containerPort: 8080
+              name: "metrics"
+              protocol: "TCP"
           # Replace this with the built image name
           image: quay.io/kubevirt/hostpath-provisioner-operator:latest
           command:
@@ -2462,3 +2505,5 @@ spec:
               value: "k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1"
             - name: VERBOSITY
               value: "3"
+            - name: MONITORING_NAMESPACE
+              value: ""

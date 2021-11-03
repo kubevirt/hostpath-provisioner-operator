@@ -3,15 +3,13 @@ module kubevirt.io/hostpath-provisioner-operator
 require (
 	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/evanphx/json-patch v4.11.0+incompatible
-	github.com/fatih/color v1.13.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0
 	github.com/go-openapi/spec v0.19.5
 	github.com/google/go-cmp v0.5.6 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mgechev/revive v1.1.1 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.14.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -20,6 +18,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.18.1
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602 // indirect
 	golang.org/x/sys v0.0.0-20210921065528-437939a70204 // indirect
 	golang.org/x/tools v0.1.6 // indirect
@@ -32,7 +31,6 @@ require (
 	k8s.io/utils v0.0.0-20210722164352-7f3ee0f31471
 	kubevirt.io/client-go v0.24.0
 	sigs.k8s.io/controller-runtime v0.9.6
-	sigs.k8s.io/controller-tools v0.7.0 // indirect
 
 )
 
