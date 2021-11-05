@@ -20,7 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -35,9 +34,9 @@ var (
 			PathConfig: &PathConfig{
 				Path: "test",
 			},
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
-					Kind: "test",
+					Name: "test",
 					Path: "test",
 				},
 			},
@@ -46,13 +45,13 @@ var (
 
 	multiSourceVolumeCR = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
-					Kind: "test",
+					Name: "test",
 					Path: "test",
 				},
 				{
-					Kind: "test2",
+					Name: "test2",
 					Path: "test2",
 				},
 			},
@@ -61,7 +60,7 @@ var (
 
 	blankKindCr1 = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
 					Path: "test",
 				},
@@ -70,9 +69,9 @@ var (
 	}
 	blankKindCr2 = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
-					Kind: "",
+					Name: "",
 					Path: "test",
 				},
 			},
@@ -80,31 +79,30 @@ var (
 	}
 	blankPathCr1 = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
-					Kind: "test",
+					Name: "test",
 				},
 			},
 		},
 	}
 	blankPathCr2 = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
-					Kind: "test",
+					Name: "test",
 					Path: "",
 				},
 			},
 		},
 	}
-	bothPVCandStorageClassCr = HostPathProvisioner{
+	storageClassCr = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
-			VolumeSources: []VolumeSource{
+			StoragePools: []StoragePool{
 				{
-					Kind:               "test",
-					Path:               "test",
-					SourceStorageClass: &SourceStorageClass{},
-					PVC:                &v1.PersistentVolumeClaimSpec{},
+					Name:         "test",
+					Path:         "test",
+					StorageClass: &SourceStorageClass{},
 				},
 			},
 		},
@@ -115,48 +113,42 @@ var _ = Describe("validating webhook", func() {
 	Context("admission", func() {
 		It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			Expect(hppCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("either pathConfig or volumeSources must be set")))
+			Expect(hppCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
 		})
 		It("Both legacy or volume sources cannot to be set.", func() {
-			Expect(bothLegacyAndVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathConfig and volumeSources cannot be both set")))
+			Expect(bothLegacyAndVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
 		It("Cannot have more than one volume source", func() {
-			Expect(multiSourceVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("currently only 1 volume source is supported")))
+			Expect(multiSourceVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("currently only 1 storage pool is supported")))
 		})
 		It("Cannot have blank kind in volume source", func() {
-			Expect(blankKindCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("volumesource.kind cannot be blank")))
-			Expect(blankKindCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("volumesource.kind cannot be blank")))
+			Expect(blankKindCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
+			Expect(blankKindCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
 		})
 		It("Cannot have blank path in volume source", func() {
-			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("volumesource.path cannot be blank")))
-			Expect(blankPathCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("volumesource.path cannot be blank")))
-		})
-		It("Cannot have PVC and sourceStorageClass set", func() {
-			Expect(bothPVCandStorageClassCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("both volumesource.PVC and volumesource.sourceStorageClass cannot be set")))
+			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			Expect(blankPathCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
 	})
 
 	Context("update", func() {
 		It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			Expect(hppCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("either pathConfig or volumeSources must be set")))
+			Expect(hppCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
 		})
 		It("Both legacy or volume sources cannot to be set.", func() {
-			Expect(bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("pathConfig and volumeSources cannot be both set")))
+			Expect(bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
 		It("Cannot have more than one volume source", func() {
-			Expect(multiSourceVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("currently only 1 volume source is supported")))
+			Expect(multiSourceVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("currently only 1 storage pool is supported")))
 		})
 		It("Cannot have blank kind in volume source", func() {
-			Expect(blankKindCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("volumesource.kind cannot be blank")))
-			Expect(blankKindCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("volumesource.kind cannot be blank")))
+			Expect(blankKindCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
+			Expect(blankKindCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
 		})
 		It("Cannot have blank path in volume source", func() {
-			Expect(blankPathCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("volumesource.path cannot be blank")))
-			Expect(blankPathCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("volumesource.path cannot be blank")))
-		})
-		It("Cannot have PVC and sourceStorageClass set", func() {
-			Expect(bothPVCandStorageClassCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("both volumesource.PVC and volumesource.sourceStorageClass cannot be set")))
+			Expect(blankPathCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			Expect(blankPathCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
 	})
 })

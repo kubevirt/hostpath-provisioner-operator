@@ -5,5 +5,3 @@ metadata:
 provisioner: kubevirt.io.hostpath-provisioner
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
-parameters:
-  storagePool: local

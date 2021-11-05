@@ -4,9 +4,9 @@ metadata:
   name: hostpath-provisioner
 spec:
   imagePullPolicy: Always
-  storagePools:
-    - name: "local"
-      path: "/var/hpvolumes"
+  pathConfig:
+    path: "/var/hpvolumes"
+    useNamingPrefix: false
   workload:
     nodeSelector:
       kubernetes.io/os: linux

@@ -61,7 +61,7 @@ spec:
         - name: VERBOSITY
           value: "3"
         - name: MONITORING_NAMESPACE
-        image: quay.io/kubevirt/hostpath-provisioner-operator:latest
+        image: registry:5000/hostpath-provisioner-operator:latest
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 1

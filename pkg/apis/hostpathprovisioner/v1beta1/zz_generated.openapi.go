@@ -35,7 +35,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement":             schema_pkg_apis_hostpathprovisioner_v1beta1_NodePlacement(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.PathConfig":                schema_pkg_apis_hostpathprovisioner_v1beta1_PathConfig(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass":        schema_pkg_apis_hostpathprovisioner_v1beta1_SourceStorageClass(ref),
-		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.VolumeSource":              schema_pkg_apis_hostpathprovisioner_v1beta1_VolumeSource(ref),
+		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePool":               schema_pkg_apis_hostpathprovisioner_v1beta1_StoragePool(ref),
 	}
 }
 
@@ -133,20 +133,20 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerSpec(ref com
 							},
 						},
 					},
-					"volumeSources": {
+					"storagePools": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "VolumeSources are a list of volume sources",
+							Description: "StoragePools are a list of storage pools",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.VolumeSource"),
+										Ref:     ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePool"),
 									},
 								},
 							},
@@ -156,7 +156,7 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerSpec(ref com
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.PathConfig", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.VolumeSource"},
+			"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.PathConfig", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePool"},
 	}
 }
 
@@ -321,31 +321,25 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_SourceStorageClass(ref common.R
 	}
 }
 
-func schema_pkg_apis_hostpathprovisioner_v1beta1_VolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_hostpathprovisioner_v1beta1_StoragePool(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VolumeSource defines a volume with a kind and a source",
+				Description: "StoragePool defines how and where hostpath provisioner can use storage to create volumes.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"kind": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Kind specifies an identifier that is used in the storage class arguments to identify the source to use.",
+							Description: "Name specifies an identifier that is used in the storage class arguments to identify the source to use.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"sourceStorageClass": {
+					"storageClass": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SourceStorageClass specifies which storage class to use to create PersistVolumeClaims against and the template of the claim",
+							Description: "StorageClass specifies which storage class to use to create PersistVolumeClaims that will be used to mount on the node. The volume will be mounted on the path specified in the storage pool",
 							Ref:         ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass"),
-						},
-					},
-					"pvc": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PVC specifies the persistent volume claim to use. This is useful when you want one PVC to be shared among all nodes",
-							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
 						},
 					},
 					"path": {
@@ -357,10 +351,10 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_VolumeSource(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"kind", "path"},
+				Required: []string{"name", "path"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimSpec", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass"},
+			"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass"},
 	}
 }

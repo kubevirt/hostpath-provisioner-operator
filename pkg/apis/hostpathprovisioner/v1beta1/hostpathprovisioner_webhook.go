@@ -35,12 +35,12 @@ var _ webhook.Validator = &HostPathProvisioner{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *HostPathProvisioner) ValidateCreate() error {
-	return r.validatePathConfigAndSources()
+	return r.validatePathConfigAndStoragePools()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *HostPathProvisioner) ValidateUpdate(old runtime.Object) error {
-	return r.validatePathConfigAndSources()
+	return r.validatePathConfigAndStoragePools()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -48,32 +48,29 @@ func (r *HostPathProvisioner) ValidateDelete() error {
 	return nil
 }
 
-func (r *HostPathProvisioner) validatePathConfigAndSources() error {
-	if r.Spec.PathConfig != nil && len(r.Spec.VolumeSources) > 0 {
-		return fmt.Errorf("pathConfig and volumeSources cannot be both set")
-	} else if r.Spec.PathConfig == nil && len(r.Spec.VolumeSources) == 0 {
-		return fmt.Errorf("either pathConfig or volumeSources must be set")
+func (r *HostPathProvisioner) validatePathConfigAndStoragePools() error {
+	if r.Spec.PathConfig != nil && len(r.Spec.StoragePools) > 0 {
+		return fmt.Errorf("pathConfig and storage pools cannot be both set")
+	} else if r.Spec.PathConfig == nil && len(r.Spec.StoragePools) == 0 {
+		return fmt.Errorf("either pathConfig or storage pools must be set")
 	}
-	if len(r.Spec.VolumeSources) > 1 {
-		return fmt.Errorf("currently only 1 volume source is supported")
+	if len(r.Spec.StoragePools) > 1 {
+		return fmt.Errorf("currently only 1 storage pool is supported")
 	}
-	for _, source := range r.Spec.VolumeSources {
-		if err := validateVolumeSource(source); err != nil {
+	for _, source := range r.Spec.StoragePools {
+		if err := validateStoragePool(source); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateVolumeSource(volumeSource VolumeSource) error {
-	if volumeSource.Kind == "" {
-		return fmt.Errorf("volumesource.kind cannot be blank")
+func validateStoragePool(storagePool StoragePool) error {
+	if storagePool.Name == "" {
+		return fmt.Errorf("storagePool.kind cannot be blank")
 	}
-	if volumeSource.Path == "" {
-		return fmt.Errorf("volumesource.path cannot be blank")
-	}
-	if volumeSource.PVC != nil && volumeSource.SourceStorageClass != nil {
-		return fmt.Errorf("both volumesource.PVC and volumesource.sourceStorageClass cannot be set")
+	if storagePool.Path == "" {
+		return fmt.Errorf("storagePool.path cannot be blank")
 	}
 	return nil
 }

@@ -45,17 +45,16 @@ import (
 const (
 	csiSocket               = "/csi/csi.sock"
 	nodeDriverRegistrarName = "node-driver-registrar"
-	legacyKind              = "legacy"
+	legacyStoragePoolName   = "legacy"
 )
 
 var (
 	socketDirVolumeMount = corev1.VolumeMount{Name: "socket-dir", MountPath: "/csi"}
-
-//	dataDirVolumeMount   = corev1.VolumeMount{Name: "csi-data-dir", MountPath: "/csi-data-dir"}
 )
 
-type kindPath struct {
-	Kind string `json:"kind"`
+//StoragePoolInfo contains the name and path of a hostpath storage pool.
+type StoragePoolInfo struct {
+	Name string `json:"name"`
 	Path string `json:"path"`
 }
 
@@ -365,63 +364,65 @@ func getUsePrefix(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
 func getPath(cr *hostpathprovisionerv1.HostPathProvisioner) string {
 	if cr.Spec.PathConfig != nil {
 		return cr.Spec.PathConfig.Path
-	} else if len(cr.Spec.VolumeSources) > 0 {
-		if cr.Spec.VolumeSources[0].Path != "" {
-			return cr.Spec.VolumeSources[0].Path
+	} else if len(cr.Spec.StoragePools) > 0 {
+		if cr.Spec.StoragePools[0].Path != "" {
+			return cr.Spec.StoragePools[0].Path
 		}
 	}
 	return ""
 }
 
-func getKindPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []kindPath {
-	kindpaths := make([]kindPath, 0)
+func getStoragePoolPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []StoragePoolInfo {
+	storagePoolPaths := make([]StoragePoolInfo, 0)
 	if cr.Spec.PathConfig != nil {
-		kindpaths = append(kindpaths, kindPath{
-			Kind: "",
+		storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
+			Name: "",
 			Path: cr.Spec.PathConfig.Path,
 		})
-	} else if len(cr.Spec.VolumeSources) > 0 {
-		for _, volumeSource := range cr.Spec.VolumeSources {
-			kindpaths = append(kindpaths, kindPath{
-				Kind: volumeSource.Kind,
-				Path: volumeSource.Path,
+	} else if len(cr.Spec.StoragePools) > 0 {
+		for _, storagePool := range cr.Spec.StoragePools {
+			storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
+				Name: storagePool.Name,
+				Path: storagePool.Path,
 			})
 		}
 	}
-	return kindpaths
+	return storagePoolPaths
 }
 
-func getMountNameFromKind(kind string) string {
-	if kind == "" {
-		kind = "csi"
+func getMountNameFromStoragePool(poolName string) string {
+	if poolName == "" {
+		poolName = "csi"
 	}
-	return fmt.Sprintf("%s-data-dir", kind)
+	return fmt.Sprintf("%s-data-dir", poolName)
 }
 
-func buildPathArgFromKindPath(kindpaths []kindPath) string {
-	for i, kindpath := range kindpaths {
-		if kindpath.Kind == "" {
-			kindpaths[i].Kind = legacyKind
+func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
+	for i, storagePool := range storagePools {
+		if storagePool.Name == "" {
+			storagePools[i].Name = legacyStoragePoolName
 		}
-		kindpaths[i].Path = filepath.Join(getMountNameFromKind(kindpath.Kind), "csi")
+		// We want to add /csi to the path so if we are running side by side with legacy provisioner
+		// the two paths don't mix.
+		storagePools[i].Path = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi")
 	}
-	bytes, err := json.Marshal(kindpaths)
+	bytes, err := json.Marshal(storagePools)
 	if err != nil {
-		klog.V(1).Infof("Failed to build kind/path arguments %s", err)
+		klog.V(1).Infof("Failed to build storage pool arguments %s", err)
 		return ""
 	}
 	return string(bytes)
 }
 
-func buildVolumesFromKindPath(kindpaths []kindPath) []corev1.Volume {
+func buildVolumesFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.Volume {
 	directory := corev1.HostPathDirectory
 	volumes := make([]corev1.Volume, 0)
-	for _, kindpath := range kindpaths {
+	for _, storagePool := range storagePools {
 		volumes = append(volumes, corev1.Volume{
-			Name: getMountNameFromKind(kindpath.Kind),
+			Name: getMountNameFromStoragePool(storagePool.Name),
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: kindpath.Path,
+					Path: storagePool.Path,
 					Type: &directory,
 				},
 			},
@@ -430,10 +431,10 @@ func buildVolumesFromKindPath(kindpaths []kindPath) []corev1.Volume {
 	return volumes
 }
 
-func buildVolumeMountsFromKindPath(kindpaths []kindPath) []corev1.VolumeMount {
+func buildVolumeMountsFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.VolumeMount {
 	mounts := make([]corev1.VolumeMount, 0)
-	for _, kindpath := range kindpaths {
-		mountName := getMountNameFromKind(kindpath.Kind)
+	for _, storagePool := range storagePools {
+		mountName := getMountNameFromStoragePool(storagePool.Name)
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      mountName,
 			MountPath: fmt.Sprintf("/%s", mountName),
@@ -446,9 +447,9 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
-	kindPaths := getKindPaths(cr)
-	pathVolumes := buildVolumesFromKindPath(kindPaths)
-	pathMounts := buildVolumeMountsFromKindPath(kindPaths)
+	kindPaths := getStoragePoolPaths(cr)
+	pathVolumes := buildVolumesFromStoragePoolInfo(kindPaths)
+	pathMounts := buildVolumeMountsFromStoragePoolInfo(kindPaths)
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := getRecommendedLabels()
 	ds := &appsv1.DaemonSet{
@@ -504,7 +505,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								},
 								{
 									Name:  "PV_DIR",
-									Value: buildPathArgFromKindPath(kindPaths),
+									Value: buildPathArgFromStoragePoolInfo(kindPaths),
 								},
 								{
 									Name:  "VERSION",

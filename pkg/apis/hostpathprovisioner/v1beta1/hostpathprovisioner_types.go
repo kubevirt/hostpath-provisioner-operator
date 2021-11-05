@@ -34,9 +34,9 @@ type HostPathProvisionerSpec struct {
 	// FeatureGates are a list of specific enabled feature gates
 	// +listType=set
 	FeatureGates []string `json:"featureGates,omitempty"`
-	// VolumeSources are a list of volume sources
+	// StoragePools are a list of storage pools
 	// +listType=atomic
-	VolumeSources []VolumeSource `json:"volumeSources,omitempty" optional:"true"`
+	StoragePools []StoragePool `json:"storagePools,omitempty" optional:"true"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
@@ -53,15 +53,13 @@ type HostPathProvisionerStatus struct {
 	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
 }
 
-// VolumeSource defines a volume with a kind and a source
+// StoragePool defines how and where hostpath provisioner can use storage to create volumes.
 // +k8s:openapi-gen=true
-type VolumeSource struct {
-	// Kind specifies an identifier that is used in the storage class arguments to identify the source to use.
-	Kind string `json:"kind" valid:"required"`
-	// SourceStorageClass specifies which storage class to use to create PersistVolumeClaims against and the template of the claim
-	SourceStorageClass *SourceStorageClass `json:"sourceStorageClass,omitempty" optional:"true"`
-	// PVC specifies the persistent volume claim to use. This is useful when you want one PVC to be shared among all nodes
-	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc,omitempty" optional:"true"`
+type StoragePool struct {
+	// Name specifies an identifier that is used in the storage class arguments to identify the source to use.
+	Name string `json:"name" valid:"required"`
+	// StorageClass specifies which storage class to use to create PersistVolumeClaims that will be used to mount on the node. The volume will be mounted on the path specified in the storage pool
+	StorageClass *SourceStorageClass `json:"storageClass,omitempty" optional:"true"`
 	// path the path to use on the host, this is a required field
 	Path string `json:"path" valid:"required"`
 }

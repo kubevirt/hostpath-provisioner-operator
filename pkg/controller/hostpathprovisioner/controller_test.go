@@ -170,9 +170,9 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 			Spec: hppv1.HostPathProvisionerSpec{
 				ImagePullPolicy: corev1.PullAlways,
-				VolumeSources: []hppv1.VolumeSource{
+				StoragePools: []hppv1.StoragePool{
 					{
-						Kind: "test",
+						Name: "test",
 						Path: "/tmp/test",
 					},
 				},
