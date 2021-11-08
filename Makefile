@@ -21,7 +21,7 @@ all: test build
 operator:
 	GOLANG_VER=${GOLANG_VER} ./hack/build-operator.sh
 
-csv-generator: crd-generator
+csv-generator:
 	GOLANG_VER=${GOLANG_VER} ./hack/build-csv-generator.sh
 
 crd-generator: generate-crd
