@@ -41,7 +41,7 @@ type OperatorArgs struct {
 }
 
 const (
-	openshiftPriorityClassName = "openshift-user-critical"
+	kubevirtPriorityClassName = "kubevirt-cluster-critical"
 )
 
 func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
@@ -50,12 +50,12 @@ func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
 	deployment.SetNamespace(args.Namespace)
 	deployment.Spec.Selector.MatchLabels["operator.hostpath-provisioner.kubevirt.io"] = ""
 	deployment.Spec.Template.Labels["operator.hostpath-provisioner.kubevirt.io"] = ""
-	deployment.Spec.Template.Spec.PriorityClassName = "openshift-user-critical"
+	deployment.Spec.Template.Spec.PriorityClassName = kubevirtPriorityClassName
 	deployment.Spec.Template.Spec.Containers[0].Image = args.OperatorImage
 	deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(args.ImagePullPolicy)
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
 		Name:  "PRIORITY_CLASS",
-		Value: openshiftPriorityClassName,
+		Value: kubevirtPriorityClassName,
 	})
 	setEnvVariable("VERBOSITY", args.Verbosity, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("PROVISIONER_IMAGE", args.ProvisionerImage, deployment.Spec.Template.Spec.Containers[0].Env)
