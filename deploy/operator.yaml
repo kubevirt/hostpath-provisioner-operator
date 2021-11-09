@@ -106,6 +106,7 @@ rules:
   - securitycontextconstraints
   resourceNames:
   - hostpath-provisioner
+  - hostpath-provisioner-csi
   verbs:
   - delete
   - update

@@ -1450,9 +1450,12 @@ func verifyCreateSCC(cl client.Client) {
 		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
 			Type: secv1.SupplementalGroupsStrategyRunAsAny,
 		},
-		AllowHostDirVolumePlugin: false,
+		AllowHostDirVolumePlugin: true,
 		Users: []string{
 			fmt.Sprintf("system:serviceaccount:test-namespace:%s-csi", ProvisionerServiceAccountName),
+		},
+		Volumes: []secv1.FSType{
+			secv1.FSTypeAll,
 		},
 	}
 	Expect(scc).To(Equal(expected))

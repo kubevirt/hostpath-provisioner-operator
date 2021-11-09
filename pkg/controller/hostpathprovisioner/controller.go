@@ -259,6 +259,12 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
 			return reconcile.Result{}, err
 		}
+		if err := r.deleteSCC(fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)); err != nil {
+			reqLogger.Error(err, "Unable to delete CSI SecurityContextConstraints")
+			// TODO, should we return and in essence keep retrying, and thus never be able to delete the CR if deleting the SCC fails, or
+			// should be not return and allow the CR to be deleted but without deleting the SCC if that fails.
+			return reconcile.Result{}, err
+		}
 		if err := r.deletePrometheusResources(namespace); err != nil {
 			reqLogger.Error(err, "Unable to delete Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
 			return reconcile.Result{}, err

@@ -190,9 +190,12 @@ func createCsiSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPat
 		SupplementalGroups: secv1.SupplementalGroupsStrategyOptions{
 			Type: secv1.SupplementalGroupsStrategyRunAsAny,
 		},
-		AllowHostDirVolumePlugin: false,
+		AllowHostDirVolumePlugin: true,
 		Users: []string{
 			saName,
+		},
+		Volumes: []secv1.FSType{
+			secv1.FSTypeAll,
 		},
 	}
 }
