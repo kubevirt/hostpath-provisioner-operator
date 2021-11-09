@@ -42,6 +42,7 @@ const (
 	rbacName            = "hostpath-provisioner-monitoring"
 	monitorName         = "service-monitor-hpp"
 	defaultMonitoringNs = "monitoring"
+	runbookURLBasePath  = "https://kubevirt.io/monitoring/runbooks/"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
@@ -343,15 +344,28 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 					Name: "hpp.rules",
 					Rules: []promv1.Rule{
 						generateRecordRule(
-							"hpp_num_up_operators",
+							"kubevirt_hpp_operator_up_total",
 							fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
 						),
 						generateAlertRule(
-							"HppOperatorDown",
-							"hpp_num_up_operators == 0",
+							"HPPOperatorDown",
+							"kubevirt_hpp_operator_up_total == 0",
 							"5m",
 							map[string]string{
-								"summary": "Hostpath Provisioner operator is down",
+								"summary":     "Hostpath Provisioner operator is down",
+								"runbook_url": runbookURLBasePath + "HPPOperatorDown",
+							},
+							map[string]string{
+								"severity": "warning",
+							},
+						),
+						generateAlertRule(
+							"HPPNotReady",
+							"kubevirt_hpp_cr_ready == 0",
+							"5m",
+							map[string]string{
+								"summary":     "Hostpath Provisioner is not available to use",
+								"runbook_url": runbookURLBasePath + "HPPNotReady",
 							},
 							map[string]string{
 								"severity": "warning",

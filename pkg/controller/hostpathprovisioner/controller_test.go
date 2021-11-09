@@ -1472,11 +1472,12 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	err := cl.Get(context.TODO(), nn, rule)
 	Expect(err).NotTo(HaveOccurred())
 	hppDownAlert := promv1.Rule{
-		Alert: "HppOperatorDown",
-		Expr:  intstr.FromString("hpp_num_up_operators == 0"),
+		Alert: "HPPOperatorDown",
+		Expr:  intstr.FromString("kubevirt_hpp_operator_up_total == 0"),
 		For:   "5m",
 		Annotations: map[string]string{
-			"summary": "Hostpath Provisioner operator is down",
+			"summary":     "Hostpath Provisioner operator is down",
+			"runbook_url": runbookURLBasePath + "HPPOperatorDown",
 		},
 		Labels: map[string]string{
 			"severity": "warning",
