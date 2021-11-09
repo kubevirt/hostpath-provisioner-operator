@@ -29,6 +29,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -273,6 +274,12 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 					SecurityContext:               &corev1.PodSecurityContext{},
 					Containers: []corev1.Container{
 						{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
+								},
+							},
 							Name:            MultiPurposeHostPathProvisionerName,
 							Image:           args.provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -482,10 +489,17 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+
 					ServiceAccountName: ProvisionerServiceAccountNameCsi,
 					RestartPolicy:      corev1.RestartPolicyAlways,
 					Containers: []corev1.Container{
 						{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
+								},
+							},
 							Name:            MultiPurposeHostPathProvisionerName,
 							Image:           args.provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -563,6 +577,12 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
+								},
+							},
 							Name:            "csi-external-health-monitor-controller",
 							Image:           args.externalHealthMonitorControllerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -584,7 +604,13 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
-							Name:            nodeDriverRegistrarName,
+							Name: nodeDriverRegistrarName,
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
+								},
+							},
 							Image:           args.nodeDriverRegistrarImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
 							Args: []string{
@@ -617,6 +643,12 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
+								},
+							},
 							Name:            "liveness-probe",
 							Image:           args.livenessProbeImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -631,6 +663,12 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							},
 						},
 						{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("150Mi"),
+								},
+							},
 							Name:            "csi-provisioner",
 							Image:           args.csiProvisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
