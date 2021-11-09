@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
@@ -572,6 +573,11 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logge
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileRoleBindingForSa(reqLogger logr.Logger, desired *rbacv1.RoleBinding, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+	// Set HostPathProvisioner instance as the owner and controller
+	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	setLastAppliedConfiguration(desired)
 	// Check if this RoleBinding already exists
 	found := &rbacv1.RoleBinding{}
@@ -659,6 +665,10 @@ func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *
 
 func (r *ReconcileHostPathProvisioner) reconcileRoleForSa(reqLogger logr.Logger, desired *rbacv1.Role, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
 	setLastAppliedConfiguration(desired)
+	// Set HostPathProvisioner instance as the owner and controller
+	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Check if this Role already exists
 	found := &rbacv1.Role{}
