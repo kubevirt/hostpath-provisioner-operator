@@ -27,12 +27,16 @@ import (
 type HostPathProvisionerSpec struct {
 	// ImagePullPolicy is the container pull policy for the host path provisioner containers
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
-	// PathConfig describes the location and layout of PV storage on nodes
-	PathConfig PathConfig `json:"pathConfig" valid:"required"`
+	// PathConfig describes the location and layout of PV storage on nodes. Deprecated
+	PathConfig *PathConfig `json:"pathConfig,omitempty" optional:"true"`
 	// Restrict on which nodes HPP workload pods will be scheduled
 	Workload NodePlacement `json:"workload,omitempty"`
 	// FeatureGates are a list of specific enabled feature gates
+	// +listType=set
 	FeatureGates []string `json:"featureGates,omitempty"`
+	// StoragePools are a list of storage pools
+	// +listType=atomic
+	StoragePools []StoragePool `json:"storagePools,omitempty" optional:"true"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner
@@ -47,6 +51,61 @@ type HostPathProvisionerStatus struct {
 	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
 	// ObservedVersion The observed version of the HostPathProvisioner deployment
 	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
+	// +listType=atomic
+	StoragePoolStatuses []StoragePoolStatus `json:"storagePoolStatuses,omitempty" optional:"true"`
+}
+
+// StoragePool defines how and where hostpath provisioner can use storage to create volumes.
+// +k8s:openapi-gen=true
+type StoragePool struct {
+	// Name specifies an identifier that is used in the storage class arguments to identify the source to use.
+	Name string `json:"name" valid:"required"`
+	// StorageClass specifies which storage class to use to create PersistVolumeClaims that will be used to mount on the node. The volume will be mounted on the path specified in the storage pool
+	StorageClass *SourceStorageClass `json:"storageClass,omitempty" optional:"true"`
+	// path the path to use on the host, this is a required field
+	Path string `json:"path" valid:"required"`
+}
+
+// StoragePoolStatus is the status of the named storage pool
+type StoragePoolStatus struct {
+	// Name is the name of the storage pool
+	Name string `json:"name" valid:"required"`
+	// StoragePoolPhase indicates which phase the storage pool is in.
+	Phase StoragePoolPhase `json:"phase" valid:"required"`
+	// DesiredReady is the number of desired ready replicasets.
+	DesiredReady int `json:"desiredReady,omitempty" optional:"true"`
+	// CurrentReady is the number of currently ready replicasets.
+	CurrentReady int `json:"currentReady,omitempty" optional:"true"`
+	// The status of all the claims.
+	// +listType=atomic
+	ClaimStatuses []ClaimStatus `json:"claimStatuses,omitempty" optional:"true"`
+}
+
+// ClaimStatus defines the storage claim status for each PVC in a storage pool
+type ClaimStatus struct {
+	// Name of the PersistentVolumeClaim
+	Name string `json:"name" valid:"required"`
+	// Status of the PersistentVolumeClaim
+	Status corev1.PersistentVolumeClaimStatus `json:"status" valid:"required"`
+}
+
+// StoragePoolPhase is the current phase of the storage pool.
+type StoragePoolPhase string
+
+const (
+	// StoragePoolPreparing indicates the storage pool is preparing one or more volumes for use.
+	StoragePoolPreparing StoragePoolPhase = "Preparing"
+	//StoragePoolMounting indicates one or more pool are in the process of mounting.
+	StoragePoolMounting StoragePoolPhase = "Mounting"
+	// StoragePoolReady indicates all the volumes are ready for use.
+	StoragePoolReady StoragePoolPhase = "Ready"
+)
+
+// SourceStorageClass defines the storage class and PVC template to use when preparing storage.
+// +k8s:openapi-gen=true
+type SourceStorageClass struct {
+	Name        string                            `json:"name" valid:"required"`
+	PVCTemplate *corev1.PersistentVolumeClaimSpec `json:"pvcTemplate" valid:"required"`
 }
 
 // this has to be here otherwise informer-gen doesn't recognize it
@@ -76,7 +135,7 @@ type HostPathProvisionerList struct {
 	Items           []HostPathProvisioner `json:"items"`
 }
 
-// PathConfig contains the information needed to build the path where the PVs will be created.
+// PathConfig contains the information needed to build the path where the PVs will be created. Deprecated
 // +k8s:openapi-gen=true
 type PathConfig struct {
 	// Path The path the directories for the PVs are created under

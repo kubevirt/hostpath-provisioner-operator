@@ -18,6 +18,7 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog"
 	"k8s.io/utils/pointer"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,13 +43,20 @@ import (
 )
 
 const (
-	csiSocket = "/csi/csi.sock"
+	csiSocket               = "/csi/csi.sock"
+	nodeDriverRegistrarName = "node-driver-registrar"
+	legacyStoragePoolName   = "legacy"
 )
 
 var (
 	socketDirVolumeMount = corev1.VolumeMount{Name: "socket-dir", MountPath: "/csi"}
-	dataDirVolumeMount   = corev1.VolumeMount{Name: "csi-data-dir", MountPath: "/csi-data-dir"}
 )
+
+//StoragePoolInfo contains the name and path of a hostpath storage pool.
+type StoragePoolInfo struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
 
 type daemonSetArgs struct {
 	provisionerImage                     string
@@ -235,6 +244,8 @@ func copyStatusFields(desired, current *appsv1.DaemonSet) *appsv1.DaemonSet {
 func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	volumeType := corev1.HostPathDirectoryOrCreate
+	usePrefix := getUsePrefix(cr)
+	path := getPath(cr)
 	labels := getRecommendedLabels()
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -268,7 +279,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 							Env: []corev1.EnvVar{
 								{
 									Name:  "USE_NAMING_PREFIX",
-									Value: strconv.FormatBool(cr.Spec.PathConfig.UseNamingPrefix),
+									Value: strconv.FormatBool(usePrefix),
 								},
 								{
 									Name: "NODE_NAME",
@@ -281,7 +292,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 								},
 								{
 									Name:  "PV_DIR",
-									Value: cr.Spec.PathConfig.Path,
+									Value: path,
 								},
 								{
 									Name: "INSTALLER_PART_OF_LABEL",
@@ -305,7 +316,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "pv-volume",
-									MountPath: cr.Spec.PathConfig.Path,
+									MountPath: path,
 								},
 							},
 							TerminationMessagePath:   "/dev/termination-log",
@@ -317,7 +328,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 							Name: "pv-volume", // Has to match VolumeMounts in containers
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
-									Path: cr.Spec.PathConfig.Path,
+									Path: path,
 									Type: &volumeType,
 								},
 							},
@@ -343,10 +354,102 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 	}
 }
 
+func getUsePrefix(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
+	if cr.Spec.PathConfig != nil {
+		return cr.Spec.PathConfig.UseNamingPrefix
+	}
+	return false
+}
+
+func getPath(cr *hostpathprovisionerv1.HostPathProvisioner) string {
+	if cr.Spec.PathConfig != nil {
+		return cr.Spec.PathConfig.Path
+	} else if len(cr.Spec.StoragePools) > 0 {
+		if cr.Spec.StoragePools[0].Path != "" {
+			return cr.Spec.StoragePools[0].Path
+		}
+	}
+	return ""
+}
+
+func getStoragePoolPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []StoragePoolInfo {
+	storagePoolPaths := make([]StoragePoolInfo, 0)
+	if cr.Spec.PathConfig != nil {
+		storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
+			Name: "",
+			Path: cr.Spec.PathConfig.Path,
+		})
+	} else if len(cr.Spec.StoragePools) > 0 {
+		for _, storagePool := range cr.Spec.StoragePools {
+			storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
+				Name: storagePool.Name,
+				Path: storagePool.Path,
+			})
+		}
+	}
+	return storagePoolPaths
+}
+
+func getMountNameFromStoragePool(poolName string) string {
+	if poolName == "" {
+		poolName = "csi"
+	}
+	return fmt.Sprintf("%s-data-dir", poolName)
+}
+
+func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
+	for i, storagePool := range storagePools {
+		if storagePool.Name == "" {
+			storagePools[i].Name = legacyStoragePoolName
+		}
+		// We want to add /csi to the path so if we are running side by side with legacy provisioner
+		// the two paths don't mix.
+		storagePools[i].Path = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi")
+	}
+	bytes, err := json.Marshal(storagePools)
+	if err != nil {
+		klog.V(1).Infof("Failed to build storage pool arguments %s", err)
+		return ""
+	}
+	return string(bytes)
+}
+
+func buildVolumesFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.Volume {
+	directory := corev1.HostPathDirectory
+	volumes := make([]corev1.Volume, 0)
+	for _, storagePool := range storagePools {
+		volumes = append(volumes, corev1.Volume{
+			Name: getMountNameFromStoragePool(storagePool.Name),
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: storagePool.Path,
+					Type: &directory,
+				},
+			},
+		})
+	}
+	return volumes
+}
+
+func buildVolumeMountsFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.VolumeMount {
+	mounts := make([]corev1.VolumeMount, 0)
+	for _, storagePool := range storagePools {
+		mountName := getMountNameFromStoragePool(storagePool.Name)
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      mountName,
+			MountPath: fmt.Sprintf("/%s", mountName),
+		})
+	}
+	return mounts
+}
+
 func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
+	kindPaths := getStoragePoolPaths(cr)
+	pathVolumes := buildVolumesFromStoragePoolInfo(kindPaths)
+	pathMounts := buildVolumeMountsFromStoragePoolInfo(kindPaths)
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := getRecommendedLabels()
 	ds := &appsv1.DaemonSet{
@@ -402,7 +505,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								},
 								{
 									Name:  "PV_DIR",
-									Value: filepath.Join(cr.Spec.PathConfig.Path, "csi"),
+									Value: buildPathArgFromStoragePoolInfo(kindPaths),
 								},
 								{
 									Name:  "VERSION",
@@ -418,6 +521,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								"--endpoint=$(CSI_ENDPOINT)",
 								"--nodeid=$(NODE_NAME)",
 								"--version=$(VERSION)",
+								"--datadir=$(PV_DIR)",
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -443,7 +547,6 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
-								dataDirVolumeMount,
 								{
 									Name:             "plugins-dir",
 									MountPath:        "/var/lib/kubelet/plugins",
@@ -481,7 +584,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
-							Name:            "node-driver-registrar",
+							Name:            nodeDriverRegistrarName,
 							Image:           args.nodeDriverRegistrarImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
 							Args: []string{
@@ -509,7 +612,6 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 									Name:      "registration-dir",
 									MountPath: "/registration",
 								},
-								dataDirVolumeMount,
 							},
 							TerminationMessagePath:   "/dev/termination-log",
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
@@ -587,15 +689,6 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 					TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
 					Volumes: []corev1.Volume{
 						{
-							Name: "csi-data-dir", // Has to match VolumeMounts in containers
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: cr.Spec.PathConfig.Path,
-									Type: &directoryOrCreate,
-								},
-							},
-						},
-						{
 							Name: "socket-dir",
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
@@ -639,8 +732,14 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 			},
 		},
 	}
+	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, pathVolumes...)
 	if r.isFeatureGateEnabled(snapshotFeatureGate, cr) {
 		ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, *createSnapshotSideCarContainer(args.snapshotterImage, cr.Spec.ImagePullPolicy, args.verbosity))
+	}
+	for i, container := range ds.Spec.Template.Spec.Containers {
+		if container.Name == MultiPurposeHostPathProvisionerName || container.Name == nodeDriverRegistrarName {
+			ds.Spec.Template.Spec.Containers[i].VolumeMounts = append(ds.Spec.Template.Spec.Containers[i].VolumeMounts, pathMounts...)
+		}
 	}
 
 	return ds

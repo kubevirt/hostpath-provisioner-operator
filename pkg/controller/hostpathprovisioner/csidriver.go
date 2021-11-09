@@ -40,6 +40,7 @@ const (
 func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Define a new SecurityContextConstraints object
 	desired := createCSIDriverObject(namespace)
+
 	setLastAppliedConfiguration(desired)
 
 	// Check if this SecurityContextConstraints already exists
