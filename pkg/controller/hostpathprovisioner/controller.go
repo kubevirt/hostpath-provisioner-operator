@@ -28,6 +28,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -130,6 +131,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 	})
 	if err != nil {
+		return err
+	}
+
+	if err := c.Watch(&source.Kind{Type: &storagev1.CSIDriver{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
@@ -317,24 +322,31 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 
 	res, err := r.reconcileUpdate(reqLogger, request, cr, namespace)
 	if err == nil {
-		// Check if all requested pods are available.
-		degraded, err := r.checkDegraded(reqLogger, cr, namespace)
+		return r.reconcileStatus(context, reqLogger, cr, namespace, versionString)
+	}
+	MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
+	r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
+	return res, nil
+}
+
+func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace, versionString string) (reconcile.Result, error) {
+	// Check if all requested pods are available.
+	degraded, err := r.checkDegraded(reqLogger, cr, namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if err := r.reconcileStoragePool(reqLogger, cr, namespace); err != nil {
+		return reconcile.Result{}, err
+	}
+	if !degraded && cr.Status.ObservedVersion != versionString {
+		cr.Status.ObservedVersion = versionString
+		err = r.client.Update(context, cr)
 		if err != nil {
+			// Error updating the object - requeue the request.
 			return reconcile.Result{}, err
 		}
-		if !degraded && cr.Status.ObservedVersion != versionString {
-			cr.Status.ObservedVersion = versionString
-			err = r.client.Update(context, cr)
-			if err != nil {
-				// Error updating the object - requeue the request.
-				return reconcile.Result{}, err
-			}
-		}
-	} else {
-		MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
-		r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 	}
-	return res, nil
+	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileHostPathProvisioner) deleteAllRbac(reqLogger logr.Logger, namespace string) (reconcile.Result, error) {
@@ -394,56 +406,54 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create DaemonSet")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileServiceAccount(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ServiceAccount")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileClusterRole(reqLogger, cr, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ClusterRole")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create ClusterRoleBinding")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileRole(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create Role")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create RoleBinding")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create CSIDriver")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create SecurityContextConstraints")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	res, err = r.reconcilePrometheusInfra(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
 		reqLogger.Error(err, "Unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
-		return reconcile.Result{}, err
+		return res, err
 	}
 	daemonSet := &appsv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet)
-	if err != nil {
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet); err != nil {
 		return reconcile.Result{}, err
 	}
 	daemonSetCsi := &appsv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
-	if err != nil {
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi); err != nil {
 		return reconcile.Result{}, err
 	}
 	if checkApplicationAvailable(daemonSet) && checkApplicationAvailable(daemonSetCsi) {

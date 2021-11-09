@@ -51,6 +51,8 @@ type HostPathProvisionerStatus struct {
 	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
 	// ObservedVersion The observed version of the HostPathProvisioner deployment
 	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
+	// +listType=atomic
+	StoragePoolStatuses []StoragePoolStatus `json:"storagePoolStatuses,omitempty" optional:"true"`
 }
 
 // StoragePool defines how and where hostpath provisioner can use storage to create volumes.
@@ -63,6 +65,41 @@ type StoragePool struct {
 	// path the path to use on the host, this is a required field
 	Path string `json:"path" valid:"required"`
 }
+
+// StoragePoolStatus is the status of the named storage pool
+type StoragePoolStatus struct {
+	// Name is the name of the storage pool
+	Name string `json:"name" valid:"required"`
+	// StoragePoolPhase indicates which phase the storage pool is in.
+	Phase StoragePoolPhase `json:"phase" valid:"required"`
+	// DesiredReady is the number of desired ready replicasets.
+	DesiredReady int `json:"desiredReady,omitempty" optional:"true"`
+	// CurrentReady is the number of currently ready replicasets.
+	CurrentReady int `json:"currentReady,omitempty" optional:"true"`
+	// The status of all the claims.
+	// +listType=atomic
+	ClaimStatuses []ClaimStatus `json:"claimStatuses,omitempty" optional:"true"`
+}
+
+// ClaimStatus defines the storage claim status for each PVC in a storage pool
+type ClaimStatus struct {
+	// Name of the PersistentVolumeClaim
+	Name string `json:"name" valid:"required"`
+	// Status of the PersistentVolumeClaim
+	Status corev1.PersistentVolumeClaimStatus `json:"status" valid:"required"`
+}
+
+// StoragePoolPhase is the current phase of the storage pool.
+type StoragePoolPhase string
+
+const (
+	// StoragePoolPreparing indicates the storage pool is preparing one or more volumes for use.
+	StoragePoolPreparing StoragePoolPhase = "Preparing"
+	//StoragePoolMounting indicates one or more pool are in the process of mounting.
+	StoragePoolMounting StoragePoolPhase = "Mounting"
+	// StoragePoolReady indicates all the volumes are ready for use.
+	StoragePoolReady StoragePoolPhase = "Ready"
+)
 
 // SourceStorageClass defines the storage class and PVC template to use when preparing storage.
 // +k8s:openapi-gen=true

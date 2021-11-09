@@ -207,11 +207,29 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerStatus(ref c
 							Format:      "",
 						},
 					},
+					"storagePoolStatuses": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePoolStatus"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/openshift/custom-resource-status/conditions/v1.Condition"},
+			"github.com/openshift/custom-resource-status/conditions/v1.Condition", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePoolStatus"},
 	}
 }
 
