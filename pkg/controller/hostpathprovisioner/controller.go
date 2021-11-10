@@ -134,6 +134,22 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &rbacv1.Role{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+	})
+	if err != nil {
+		return err
+	}
+
 	if err := c.Watch(&source.Kind{Type: &storagev1.CSIDriver{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
