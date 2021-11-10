@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"os"
 	"strings"
@@ -25,10 +24,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
-	"github.com/blang/semver"
-	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version"
+	semver "github.com/blang/semver/v4"
+	"github.com/operator-framework/api/pkg/lib/version"
+	csvv1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller/hostpathprovisioner"
 	"kubevirt.io/hostpath-provisioner-operator/tools/helper"
@@ -129,31 +130,9 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 	clusterRules := getOperatorClusterRules()
 	rules := getOperatorRules()
 
-	strategySpec := csvStrategySpec{
-		ClusterPermissions: []csvPermissions{
-			{
-				ServiceAccountName: hostpathprovisioner.OperatorServiceAccountName,
-				Rules:              *clusterRules,
-			},
-		},
-		Permissions: []csvPermissions{
-			{
-				ServiceAccountName: hostpathprovisioner.OperatorServiceAccountName,
-				Rules:              *rules,
-			},
-		},
-		Deployments: []csvDeployments{
-			{
-				Name: "hostpath-provisioner-operator",
-				Spec: deployment.Spec,
-			},
-		},
-	}
-
-	strategySpecJSONBytes, err := json.Marshal(strategySpec)
-	if err != nil {
-		return nil, err
-	}
+	sideEffectNone := admissionregistrationv1.SideEffectClassNone
+	webhookPath := "/validate-hostpathprovisioner-kubevirt-io-v1beta1-hostpathprovisioner"
+	failPolicy := admissionregistrationv1.Fail
 
 	csvVersion, err := semver.New(data.CsvVersion)
 	if err != nil {
@@ -194,10 +173,46 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 		},
 
 		Spec: csvv1.ClusterServiceVersionSpec{
+			WebhookDefinitions: []csvv1.WebhookDescription{
+				{
+					AdmissionReviewVersions: []string{
+						"v1beta1",
+					},
+					ContainerPort: int32(9443),
+					TargetPort: &intstr.IntOrString{
+						IntVal: int32(9443),
+					},
+					DeploymentName: deployment.Name,
+					GenerateName: "validate-hostpath-provisioner.kubevirt.io",
+					FailurePolicy: &failPolicy,
+					Type: csvv1.ValidatingAdmissionWebhook,
+					SideEffects: &sideEffectNone,
+					WebhookPath: &webhookPath,
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Delete,
+								admissionregistrationv1.Update,
+							},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups: []string{
+									"hostpathprovisioner.kubevirt.io",
+								},
+								APIVersions: []string{
+									"v1beta1",
+								},
+							},
+						},
+					},
+				},
+			},
 			DisplayName: "Hostpath Provisioner",
 			Description: description,
 			Keywords:    []string{"Hostpath Provisioner", "Storage"},
-			Version:     version.OperatorVersion{Version: *csvVersion},
+			Version:     version.OperatorVersion{
+				Version: *csvVersion,
+			},
 			Maturity:    "beta",
 			Replaces:    data.ReplacesCsvVersion,
 			Maintainers: []csvv1.Maintainer{{
@@ -251,7 +266,26 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 			},
 			InstallStrategy: csvv1.NamedInstallStrategy{
 				StrategyName:    "deployment",
-				StrategySpecRaw: json.RawMessage(strategySpecJSONBytes),
+				StrategySpec: csvv1.StrategyDetailsDeployment{
+					DeploymentSpecs: []csvv1.StrategyDeploymentSpec{
+						{
+							Name: "hostpath-provisioner-operator",
+							Spec: deployment.Spec,
+						},
+					},
+					Permissions: []csvv1.StrategyDeploymentPermissions{
+						{
+							ServiceAccountName: hostpathprovisioner.OperatorServiceAccountName,
+							Rules:              *rules,
+						},
+					},
+					ClusterPermissions: []csvv1.StrategyDeploymentPermissions{
+						{
+							ServiceAccountName: hostpathprovisioner.OperatorServiceAccountName,
+							Rules:              *clusterRules,
+						},
+					},
+				},
 			},
 			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
 
@@ -262,59 +296,6 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 						Kind:        "HostPathProvisioner",
 						DisplayName: "HostPathProvisioner deployment",
 						Description: "Represents a HostPathProvisioner deployment",
-						SpecDescriptors: []csvv1.SpecDescriptor{
-
-							{
-								Description:  "The ImageRegistry to use for the HostPathProvisioner components",
-								DisplayName:  "ImageRegistry",
-								Path:         "imageRegistry",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
-							},
-							{
-								Description:  "The ImageTag to use for the HostPathProvisioner components",
-								DisplayName:  "ImageTag",
-								Path:         "imageTag",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
-							},
-							{
-								Description:  "The ImagePullPolicy to use for the HostPathProvisioner components",
-								DisplayName:  "ImagePullPolicy",
-								Path:         "imagePullPolicy",
-								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes:imagePullPolicy"},
-							},
-							{
-								Description:  "describes the location and layout of PV storage on nodes",
-								DisplayName:  "PathConfig",
-								Path:         "pathConfig",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
-							},
-						},
-						StatusDescriptors: []csvv1.StatusDescriptor{
-							{
-								Description:  "Explanation for the current status of the HostPathProvisioner deployment.",
-								DisplayName:  "Conditions",
-								Path:         "conditions",
-								XDescriptors: []string{"urn:alm:descriptor:io.kubernetes.conditions"},
-							},
-							{
-								Description:  "The observed version of the HostPathProvisioner deployment",
-								DisplayName:  "Observed HostPathProvisioner Version",
-								Path:         "observedVersion",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
-							},
-							{
-								Description:  "The targeted version of the HostPathProvisioner deployment",
-								DisplayName:  "Target HostPathProvisioner Version",
-								Path:         "targetVersion",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
-							},
-							{
-								Description:  "The version of the HostPathProvisioner Operator",
-								DisplayName:  "HostPathProvisioner Operator Version",
-								Path:         "operatorVersion",
-								XDescriptors: []string{"urn:alm:descriptor:text"},
-							},
-						},
 					},
 				},
 			},
