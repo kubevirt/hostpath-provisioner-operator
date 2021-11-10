@@ -151,3 +151,25 @@ func MarkCrDeploying(cr *hostpathprovisionerv1.HostPathProvisioner, reason, mess
 		Status: corev1.ConditionFalse,
 	})
 }
+
+// IsHppAvailable returns whether the HPP installation is available for use
+func IsHppAvailable(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
+	for _, condition := range cr.Status.Conditions {
+		if condition.Type == conditions.ConditionAvailable && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsHppProgressing returns whether the HPP installation is still doing progress of some sort
+func IsHppProgressing(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
+	for _, condition := range cr.Status.Conditions {
+		if condition.Type == conditions.ConditionProgressing && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}

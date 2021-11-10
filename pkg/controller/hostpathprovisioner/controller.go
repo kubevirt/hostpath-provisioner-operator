@@ -25,6 +25,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -42,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -49,7 +51,19 @@ import (
 var (
 	log                = logf.Log.WithName("controller_hostpathprovisioner")
 	watchNamespaceFunc = k8sutil.GetWatchNamespace
+	readyGauge         = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "kubevirt_hpp_cr_ready",
+			Help: "HPP CR Ready",
+		})
 )
+
+func init() {
+	metrics.Registry = prometheus.NewRegistry()
+	metrics.Registry.MustRegister(readyGauge)
+	// 0 is our 'something bad is going on' value for alert to start firing, so can't default to that
+	readyGauge.Set(-1)
+}
 
 const (
 	snapshotFeatureGate = "Snapshotting"
@@ -253,6 +267,14 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Reconciling CSI and legacy controller plugin")
+
+	// Ready metric so we can alert whenever we are not ready for a while
+	if IsHppAvailable(cr) {
+		readyGauge.Set(1)
+	} else if !IsHppProgressing(cr) {
+		// Not an issue if progress is still ongoing
+		readyGauge.Set(0)
+	}
 
 	namespace, err := watchNamespaceFunc()
 	if err != nil {
