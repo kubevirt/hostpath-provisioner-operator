@@ -87,13 +87,24 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusRuleDesired(reqLogger 
 		return reconcile.Result{}, err
 	}
 
+	// Keep a copy of the original for comparison later.
+	currentRuntimeObjCopy := found.DeepCopyObject()
+
+	// allow users to add new annotations (but not change ours)
+	mergeLabelsAndAnnotations(desired, found)
+
+	// create merged PrometheusRule from found and desired.
+	merged, err := mergeObject(desired, found)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// PrometheusRule already exists, check if we need to update.
-	if !reflect.DeepEqual(found.Spec, desired.Spec) {
-		logJSONDiff(reqLogger, found, desired)
+	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
+		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating PrometheusRule", "PrometheusRule.Name", desired.Name)
-		found.Spec = desired.Spec
-		err = r.client.Update(context.TODO(), found)
+		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
@@ -127,13 +138,24 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusRoleDesired(reqLogger 
 		return reconcile.Result{}, err
 	}
 
+	// Keep a copy of the original for comparison later.
+	currentRuntimeObjCopy := found.DeepCopyObject()
+
+	// allow users to add new annotations (but not change ours)
+	mergeLabelsAndAnnotations(desired, found)
+
+	// create merged Role from found and desired.
+	merged, err := mergeObject(desired, found)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Prometheus Role already exists, check if we need to update.
-	if !reflect.DeepEqual(found.Rules, desired.Rules) {
-		logJSONDiff(reqLogger, found, desired)
+	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
+		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating Prometheus Role", "Role.Name", desired.Name)
-		found.Rules = desired.Rules
-		err = r.client.Update(context.TODO(), found)
+		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
@@ -167,13 +189,24 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusRoleBindingDesired(req
 		return reconcile.Result{}, err
 	}
 
+	// Keep a copy of the original for comparison later.
+	currentRuntimeObjCopy := found.DeepCopyObject()
+
+	// allow users to add new annotations (but not change ours)
+	mergeLabelsAndAnnotations(desired, found)
+
+	// create merged RoleBinding from found and desired.
+	merged, err := mergeObject(desired, found)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Prometheus RoleBinding already exists, check if we need to update.
-	if !reflect.DeepEqual(found.Subjects, desired.Subjects) {
-		logJSONDiff(reqLogger, found, desired)
+	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
+		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating Prometheus RoleBinding", "RoleBinding.Name", desired.Name)
-		found.Subjects = desired.Subjects
-		err = r.client.Update(context.TODO(), found)
+		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
@@ -207,13 +240,24 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusServiceMonitorDesired(
 		return reconcile.Result{}, err
 	}
 
+	// Keep a copy of the original for comparison later.
+	currentRuntimeObjCopy := found.DeepCopyObject()
+
+	// allow users to add new annotations (but not change ours)
+	mergeLabelsAndAnnotations(desired, found)
+
+	// create merged ServiceMonitor from found and desired.
+	merged, err := mergeObject(desired, found)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// ServiceMonitor already exists, check if we need to update.
-	if !reflect.DeepEqual(found.Spec, desired.Spec) {
-		logJSONDiff(reqLogger, found, desired)
+	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
+		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating Prometheus ServiceMonitor", "ServiceMonitor.Name", desired.Name)
-		found.Spec = desired.Spec
-		err = r.client.Update(context.TODO(), found)
+		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
@@ -247,13 +291,24 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusServiceDesired(reqLogg
 		return reconcile.Result{}, err
 	}
 
+	// Keep a copy of the original for comparison later.
+	currentRuntimeObjCopy := found.DeepCopyObject()
+
+	// allow users to add new annotations (but not change ours)
+	mergeLabelsAndAnnotations(desired, found)
+
+	// create merged Service from found and desired.
+	merged, err := mergeObject(desired, found)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Service already exists, check if we need to update.
-	if !reflect.DeepEqual(found.Spec, desired.Spec) {
-		logJSONDiff(reqLogger, found, desired)
+	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
+		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
 		reqLogger.Info("Updating Prometheus Service", "Service.Name", desired.Name)
-		found.Spec = desired.Spec
-		err = r.client.Update(context.TODO(), found)
+		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
