@@ -202,6 +202,9 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 								APIVersions: []string{
 									"v1beta1",
 								},
+								Resources: []string{
+									"hostpathprovisioners",
+								},
 							},
 						},
 					},
