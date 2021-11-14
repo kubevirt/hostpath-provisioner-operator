@@ -104,6 +104,7 @@ rules:
   - security.openshift.io
   resourceNames:
   - hostpath-provisioner
+  - hostpath-provisioner-csi
   resources:
   - securitycontextconstraints
   verbs:

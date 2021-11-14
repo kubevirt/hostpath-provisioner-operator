@@ -45,9 +45,9 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: PROVISIONER_IMAGE
-          value: registry:5000/hostpath-provisioner:latest
+          value: quay.io/kubevirt/hostpath-provisioner:latest
         - name: CSI_PROVISIONER_IMAGE
-          value: registry:5000/hostpath-csi-driver:latest
+          value: quay.io/kubevirt/hostpath-csi-driver:latest
         - name: EXTERNAL_HEALTH_MON_IMAGE
           value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
         - name: NODE_DRIVER_REG_IMAGE
@@ -61,7 +61,7 @@ spec:
         - name: VERBOSITY
           value: "3"
         - name: MONITORING_NAMESPACE
-        image: registry:5000/hostpath-provisioner-operator:latest
+        image: quay.io/kubevirt/hostpath-provisioner-operator:latest
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 1
