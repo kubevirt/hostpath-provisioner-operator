@@ -2204,6 +2204,109 @@ spec:
                 description: OperatorVersion The version of the HostPathProvisioner
                   Operator
                 type: string
+              storagePoolStatuses:
+                items:
+                  description: StoragePoolStatus is the status of the named storage
+                    pool
+                  properties:
+                    claimStatuses:
+                      description: The status of all the claims.
+                      items:
+                        description: ClaimStatus defines the storage claim status
+                          for each PVC in a storage pool
+                        properties:
+                          name:
+                            description: Name of the PersistentVolumeClaim
+                            type: string
+                          status:
+                            description: Status of the PersistentVolumeClaim
+                            properties:
+                              accessModes:
+                                description: 'AccessModes contains the actual access
+                                  modes the volume backing the PVC has. More info:
+                                  https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1'
+                                items:
+                                  type: string
+                                type: array
+                              capacity:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: Represents the actual resources of the
+                                  underlying volume.
+                                type: object
+                              conditions:
+                                description: Current Condition of persistent volume
+                                  claim. If underlying persistent volume is being
+                                  resized then the Condition will be set to 'ResizeStarted'.
+                                items:
+                                  description: PersistentVolumeClaimCondition contails
+                                    details about state of pvc
+                                  properties:
+                                    lastProbeTime:
+                                      description: Last time we probed the condition.
+                                      format: date-time
+                                      type: string
+                                    lastTransitionTime:
+                                      description: Last time the condition transitioned
+                                        from one status to another.
+                                      format: date-time
+                                      type: string
+                                    message:
+                                      description: Human-readable message indicating
+                                        details about last transition.
+                                      type: string
+                                    reason:
+                                      description: Unique, this should be a short,
+                                        machine understandable string that gives the
+                                        reason for condition's last transition. If
+                                        it reports "ResizeStarted" that means the
+                                        underlying persistent volume is being resized.
+                                      type: string
+                                    status:
+                                      type: string
+                                    type:
+                                      description: PersistentVolumeClaimConditionType
+                                        is a valid value of PersistentVolumeClaimCondition.Type
+                                      type: string
+                                  required:
+                                  - status
+                                  - type
+                                  type: object
+                                type: array
+                              phase:
+                                description: Phase represents the current phase of
+                                  PersistentVolumeClaim.
+                                type: string
+                            type: object
+                        required:
+                        - name
+                        - status
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    currentReady:
+                      description: CurrentReady is the number of currently ready replicasets.
+                      type: integer
+                    desiredReady:
+                      description: DesiredReady is the number of desired ready replicasets.
+                      type: integer
+                    name:
+                      description: Name is the name of the storage pool
+                      type: string
+                    phase:
+                      description: StoragePoolPhase indicates which phase the storage
+                        pool is in.
+                      type: string
+                  required:
+                  - name
+                  - phase
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               targetVersion:
                 description: TargetVersion The targeted version of the HostPathProvisioner
                   deployment
