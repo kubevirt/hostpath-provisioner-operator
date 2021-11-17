@@ -370,7 +370,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 	}
 	MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 	r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
-	return res, nil
+	return res, err
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace, versionString string) (reconcile.Result, error) {

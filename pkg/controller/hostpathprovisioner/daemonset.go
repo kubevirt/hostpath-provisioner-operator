@@ -51,6 +51,9 @@ const (
 
 var (
 	socketDirVolumeMount = corev1.VolumeMount{Name: "socket-dir", MountPath: "/csi"}
+	selectorLabels       = map[string]string{
+		"k8s-app": MultiPurposeHostPathProvisionerName,
+	}
 )
 
 //StoragePoolInfo contains the name and path of a hostpath storage pool.
@@ -122,6 +125,15 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Lo
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	// Cleanup daemonsets from previous versions where .spec.selector contains junk
+	// We will remove those and have the next loop create them
+	if !reflect.DeepEqual(found.Spec.Selector.MatchLabels, desired.Spec.Selector.MatchLabels) {
+		if err := r.deleteDaemonSet(desired.Name, desired.Namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, fmt.Errorf("DaemonSet with extra selector labels spotted, cleaning up and requeueing")
 	}
 
 	// Keep a copy of the original for comparison later.
@@ -260,7 +272,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: selectorLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -471,7 +483,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: selectorLabels,
 			},
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
