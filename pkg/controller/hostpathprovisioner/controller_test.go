@@ -865,6 +865,52 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(ds.Spec.Template.Spec.NodeSelector).To(BeEmpty())
 		Expect(ds.Spec.Template.Spec.Tolerations).To(BeEmpty())
 	})
+
+	It("Should delete daemonsets from versions with junk in .spec.selector", func() {
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: "test-namespace",
+			},
+		}
+		dsNN := types.NamespacedName{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: "test-namespace",
+		}
+		cr, r, cl = createDeployedCr(cr)
+		// Now modify the daemonSet to something not desired.
+		ds := &appsv1.DaemonSet{}
+		err := cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		ds.Spec.Selector.MatchLabels = map[string]string{
+			"k8s-app": MultiPurposeHostPathProvisionerName,
+			"not":     "desired",
+		}
+		err = cl.Update(context.TODO(), ds)
+		Expect(err).NotTo(HaveOccurred())
+		ds = &appsv1.DaemonSet{}
+		err = cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ds.Spec.Selector.MatchLabels).To(Equal(
+			map[string]string{
+				"k8s-app": MultiPurposeHostPathProvisionerName,
+				"not":     "desired",
+			},
+		))
+
+		// Run the reconcile loop
+		_, err = r.Reconcile(context.TODO(), req)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal("DaemonSet with extra selector labels spotted, cleaning up and requeueing"))
+		// Artificial requeue (err occured implies requeue)
+		_, err = r.Reconcile(context.TODO(), req)
+		Expect(err).ToNot(HaveOccurred())
+		// Check the daemonSet value, make sure it changed back.
+		ds = &appsv1.DaemonSet{}
+		err = cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ds.Spec.Selector.MatchLabels).To(Equal(selectorLabels))
+	})
 })
 
 // After this has run, the returned cr state should be available, not progressing and not degraded.
@@ -978,6 +1024,12 @@ func verifyCreateDaemonSet(cl client.Client) {
 	// Check k8s recommended labels
 	Expect(ds.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(ProvisionerImageDefault))
+	// No junk in .spec.selector, should only be a minimal set that is needed to know which pods are under our governance
+	Expect(ds.Spec.Selector.MatchLabels).To(Equal(
+		map[string]string{
+			"k8s-app": MultiPurposeHostPathProvisionerName,
+		},
+	))
 	// Check use naming prefix
 	Expect(ds.Spec.Template.Spec.Containers[0].Env[0].Value).To(Equal("false"))
 	// Check directory
@@ -998,6 +1050,12 @@ func verifyCreateDaemonSetCsi(cl client.Client) {
 	// Check k8s recommended labels
 	Expect(ds.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 	Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(CsiProvisionerImageDefault))
+	// No junk in .spec.selector, should only be a minimal set that is needed to know which pods are under our governance
+	Expect(ds.Spec.Selector.MatchLabels).To(Equal(
+		map[string]string{
+			"k8s-app": MultiPurposeHostPathProvisionerName,
+		},
+	))
 }
 
 func verifyCreateServiceAccount(cl client.Client) {
