@@ -234,9 +234,28 @@ rules:
   - delete
   - update
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+  - delete
+  - update
+- apiGroups:
   - ""
   resources:
   - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   verbs:
   - get
@@ -2735,7 +2754,7 @@ spec:
               name: "metrics"
               protocol: "TCP"
           # Replace this with the built image name
-          image: quay.io/kubevirt/hostpath-provisioner-operator:latest
+          image: registry:5000/hostpath-provisioner-operator:latest
           command:
           - hostpath-provisioner-operator
           imagePullPolicy: Always
@@ -2778,10 +2797,12 @@ spec:
                   fieldPath: metadata.labels['app.kubernetes.io/version']
             - name: OPERATOR_NAME
               value: "hostpath-provisioner-operator"
+            - name: OPERATOR_IMAGE
+              value: "registry:5000/hostpath-provisioner-operator:latest"
             - name: PROVISIONER_IMAGE
-              value: "quay.io/kubevirt/hostpath-provisioner:latest"
+              value: "registry:5000/hostpath-provisioner:latest"
             - name: CSI_PROVISIONER_IMAGE
-              value: "quay.io/kubevirt/hostpath-csi-driver:latest"
+              value: "registry:5000/hostpath-csi-driver:latest"
             - name: EXTERNAL_HEALTH_MON_IMAGE
               value: "k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0"
             - name: NODE_DRIVER_REG_IMAGE

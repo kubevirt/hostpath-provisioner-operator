@@ -140,6 +140,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+	})
+	if err != nil {
+		return err
+	}
+
 	err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
@@ -379,16 +387,16 @@ func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if err := r.reconcileStoragePool(reqLogger, cr, namespace); err != nil {
+	if err := r.reconcileStoragePoolStatus(reqLogger, cr, namespace); err != nil {
 		return reconcile.Result{}, err
 	}
 	if !degraded && cr.Status.ObservedVersion != versionString {
 		cr.Status.ObservedVersion = versionString
-		err = r.client.Update(context, cr)
-		if err != nil {
-			// Error updating the object - requeue the request.
-			return reconcile.Result{}, err
-		}
+	}
+	err = r.client.Update(context, cr)
+	if err != nil {
+		// Error updating the object - requeue the request.
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
@@ -449,47 +457,53 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	// Reconcile the objects this operator manages.
 	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create DaemonSet")
+		reqLogger.Error(err, "unable to create DaemonSet")
+		return res, err
+	}
+	// Reconcile storage pools
+	res, err = r.reconcileStoragePools(reqLogger, cr, namespace)
+	if err != nil {
+		reqLogger.Error(err, "unable to configure storage pools")
 		return res, err
 	}
 	res, err = r.reconcileServiceAccount(reqLogger, cr, namespace)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create ServiceAccount")
+		reqLogger.Error(err, "unable to create ServiceAccount")
 		return res, err
 	}
 	res, err = r.reconcileClusterRole(reqLogger, cr, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create ClusterRole")
+		reqLogger.Error(err, "unable to create ClusterRole")
 		return res, err
 	}
 	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create ClusterRoleBinding")
+		reqLogger.Error(err, "unable to create ClusterRoleBinding")
 		return res, err
 	}
 	res, err = r.reconcileRole(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create Role")
+		reqLogger.Error(err, "unable to create Role")
 		return res, err
 	}
 	res, err = r.reconcileRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create RoleBinding")
+		reqLogger.Error(err, "unable to create RoleBinding")
 		return res, err
 	}
 	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create CSIDriver")
+		reqLogger.Error(err, "unable to create CSIDriver")
 		return res, err
 	}
 	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create SecurityContextConstraints")
+		reqLogger.Error(err, "unable to create SecurityContextConstraints")
 		return res, err
 	}
 	res, err = r.reconcilePrometheusInfra(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
+		reqLogger.Error(err, "unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
 		return res, err
 	}
 	daemonSet := &appsv1.DaemonSet{}
@@ -501,7 +515,7 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		return reconcile.Result{}, err
 	}
 	if checkApplicationAvailable(daemonSet) && checkApplicationAvailable(daemonSetCsi) {
-		if !IsCrHealthy(cr) {
+		if IsCrHealthy(cr) {
 			r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 		}
 		MarkCrHealthyMessage(cr, "Complete", "Application Available")

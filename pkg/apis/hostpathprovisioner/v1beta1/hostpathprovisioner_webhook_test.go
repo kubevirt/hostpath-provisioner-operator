@@ -43,6 +43,12 @@ var (
 		},
 	}
 
+	invalidPathConfigCR = HostPathProvisioner{
+		Spec: HostPathProvisionerSpec{
+			PathConfig: &PathConfig{},
+		},
+	}
+
 	multiSourceVolumeCR = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
 			StoragePools: []StoragePool{
@@ -128,6 +134,9 @@ var _ = Describe("validating webhook", func() {
 		It("Cannot have blank path in volume source", func() {
 			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 			Expect(blankPathCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+		})
+		It("If pathConfig exists, path must be set", func() {
+			Expect(invalidPathConfigCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
 		})
 	})
 

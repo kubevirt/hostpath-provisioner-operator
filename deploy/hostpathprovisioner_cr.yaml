@@ -6,7 +6,16 @@ spec:
   imagePullPolicy: Always
   storagePools:
     - name: "local"
+      storageClass:
+        name: "local"
+        pvcTemplate:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
       path: "/var/hpvolumes"
   workload:
     nodeSelector:
       kubernetes.io/os: linux
+#      kubernetes.io/hostname: node01

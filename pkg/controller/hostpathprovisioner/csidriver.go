@@ -38,12 +38,12 @@ const (
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Define a new SecurityContextConstraints object
+	// Define a new CSIDriver object
 	desired := createCSIDriverObject(namespace)
 
 	setLastAppliedConfiguration(desired)
 
-	// Check if this SecurityContextConstraints already exists
+	// Check if this CSIDriver already exists
 	found := &storagev1.CSIDriver{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: driverName}, found)
 	if err != nil && errors.IsNotFound(err) {
@@ -53,7 +53,7 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
-		// SecurityContextConstraints created successfully - don't requeue
+		// CSIDriver created successfully - don't requeue
 		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
@@ -66,13 +66,13 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 	// allow users to add new annotations (but not change ours)
 	mergeLabelsAndAnnotations(desired, found)
 
-	// create merged SecurityContextConstraints from found and desired.
+	// create merged CSIDriver from found and desired.
 	merged, err := mergeObject(desired, found)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// SecurityContextConstraints already exists, check if we need to update.
+	// CSIDriver already exists, check if we need to update.
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.

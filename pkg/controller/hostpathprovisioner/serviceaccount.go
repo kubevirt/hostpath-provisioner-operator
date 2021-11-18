@@ -73,6 +73,9 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 
 			// Service Account created successfully - don't requeue
 			r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+			if err := r.deleteRunningPodsWithSa(desired.Name, cr.Namespace); err != nil {
+				return reconcile.Result{}, err
+			}
 			continue
 		} else if err != nil {
 			return reconcile.Result{}, err
@@ -108,6 +111,25 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 		reqLogger.V(3).Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHostPathProvisioner) deleteRunningPodsWithSa(name, namespace string) error {
+	// If there are running pods while the sa gets deleted, these pods are no longer authenticated
+	// we need to delete those pods and let the appropriate daemonset/deployment recreate them.
+	r.Log.Info("Check for pods that need to get deleted")
+	pods := &corev1.PodList{}
+	if err := r.client.List(context.TODO(), pods); err != nil {
+		return err
+	}
+	for _, pod := range pods.Items {
+		if pod.Spec.ServiceAccountName == name && pod.Status.Phase != corev1.PodPending {
+			r.Log.Info("Deleting pod that is using old sa", pod.Namespace, pod.Name)
+			if err := r.client.Delete(context.TODO(), &pod); err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileHostPathProvisioner) deleteServiceAccount(name, namespace string) error {
