@@ -38,6 +38,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var (
+	selectorLabels = map[string]string{
+		"k8s-app": MultiPurposeHostPathProvisionerName,
+	}
+)
+
 // reconcileDaemonSet Reconciles the daemon set.
 func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
 	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
@@ -84,6 +90,15 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	// Cleanup daemonsets from previous versions where .spec.selector contains junk
+	// We will remove those and have the next loop create them
+	if !reflect.DeepEqual(found.Spec.Selector.MatchLabels, desired.Spec.Selector.MatchLabels) {
+		if err := r.deleteDaemonSet(desired.Name, desired.Namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, fmt.Errorf("DaemonSet with extra selector labels spotted, cleaning up and requeueing")
 	}
 
 	// Keep a copy of the original for comparison later.
@@ -155,7 +170,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: selectorLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
