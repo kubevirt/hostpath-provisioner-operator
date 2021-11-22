@@ -63,6 +63,14 @@ rules:
   - get
 - apiGroups:
   - ""
+  resourceNames:
+  - hostpath-provisioner-operator-lock
+  resources:
+  - configmaps
+  verbs:
+  - update
+- apiGroups:
+  - ""
   resources:
   - serviceaccounts
   verbs:

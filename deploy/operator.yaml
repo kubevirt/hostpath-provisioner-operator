@@ -270,6 +270,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  resourceNames:
+  - hostpath-provisioner-operator-lock
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - 'list'
