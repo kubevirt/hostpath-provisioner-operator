@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -31,7 +30,6 @@ import (
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -87,14 +85,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := context.TODO()
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "hostpath-provisioner-operator-lock")
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
 		Namespace:              namespace,
@@ -102,6 +92,8 @@ func main() {
 		HealthProbeBindAddress: "0.0.0.0:6060",
 		ReadinessEndpointName:  "/readyz",
 		LivenessEndpointName:   "/livez",
+		LeaderElection:         true,
+		LeaderElectionID:       "hostpath-provisioner-operator-lock",
 	})
 	if err != nil {
 		log.Error(err, "")
@@ -145,7 +137,6 @@ func main() {
 	}
 
 	log.Info("Starting the Cmd.")
-
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")
