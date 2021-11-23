@@ -150,84 +150,9 @@ func main() {
 	}
 
 	if !isBlock {
-		hostMountPath := infos[0].GetSourcePath()
-		log.Info("Found mount info", "source path on host", hostMountPath)
-		log.Info("Target path", "path", targetPath)
-		log.Info("host path", "path", hostPath)
-		if err := syscall.Chroot(hostPath); err != nil {
-			panic(err)
-		}
-
-		// Check if path is already mounted
-		chrootInfos, err := lookupFindmntInfoByVolume(targetPath)
-		if err != nil {
-			log.Error(err, "unable to determine volume info", "path", targetPath)
-		}
-		if len(chrootInfos) == 0 || chrootInfos[0].GetSourcePath() != hostMountPath {
-			pathInfo, err := os.Stat(hostMountPath)
-			if err != nil {
-				panic(err)
-			}
-			if pathInfo.IsDir() {
-				log.Info("Bind mounting", "path", hostMountPath)
-				out, err := bindMountCommand(hostMountPath, targetPath)
-				if err != nil {
-					log.Error(err, "failed to mount path on host.")
-				}
-				log.Info("Output", "out", string(out))
-			} else if pathInfo.Mode()&os.ModeDevice > 0 {
-				log.Info("Mounting device", "path", hostMountPath)
-				// Make sure the target exists.
-				if err := os.MkdirAll(targetPath, 0750); err != nil {
-					panic(err)
-				}
-				out, err := mountDeviceCommand(hostMountPath, targetPath)
-				if err != nil {
-					log.Error(err, "failed to mount device to path on host.")
-				}
-				log.Info("Output", "out", string(out))
-			}
-		} else {
-			log.Info("Path is already mounted", "infos", chrootInfos)
-		}
+		mountFileSystemVolume(infos, targetPath, hostPath)
 	} else {
-		deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
-		if err != nil {
-			panic(err)
-		}
-		if len(deviceInfos) > 1 {
-			log.Info("Multiple device infos found")
-		} else if len(deviceInfos) == 0 {
-			log.Info("No device info found")
-			panic("No device infos found")
-		}
-		if err := syscall.Chroot(hostPath); err != nil {
-			panic(err)
-		}
-
-		// Check if filesystem exists on device
-		out, err := fsTypeCommand(deviceInfos[0].GetSourceDevice())
-		if err != nil {
-			log.Error(err, "unable to determine filesystem type on device")
-		}
-		log.Info("Output", "out", string(out))
-		if len(out) == 0 {
-			out, err := createXfs(deviceInfos[0].GetSourceDevice())
-			log.Info("Output", "out", string(out))
-			if err != nil {
-				panic(err)
-			}
-		}
-		log.Info("Mounting device", "path", deviceInfos[0].GetSourceDevice())
-		// Make sure the target exists.
-		if err := os.MkdirAll(targetPath, 0750); err != nil {
-			panic(err)
-		}
-		out, err = mountDeviceCommand(deviceInfos[0].GetSourceDevice(), targetPath)
-		if err != nil {
-			log.Error(err, "failed to mount device to path on host.")
-		}
-		log.Info("Output", "out", string(out))
+		mountBlockVolume(sourcePath, targetPath, hostPath)
 	}
 
 	i := 0
@@ -238,6 +163,89 @@ func main() {
 			log.Info("Slept 100 seconds")
 		}
 	}
+}
+
+func mountFileSystemVolume(infos []FindmntInfo, targetPath, hostPath string) {
+	hostMountPath := infos[0].GetSourcePath()
+	log.Info("Found mount info", "source path on host", hostMountPath)
+	log.Info("Target path", "path", targetPath)
+	log.Info("host path", "path", hostPath)
+	if err := syscall.Chroot(hostPath); err != nil {
+		panic(err)
+	}
+
+	// Check if path is already mounted
+	chrootInfos, err := lookupFindmntInfoByVolume(targetPath)
+	if err != nil {
+		log.Error(err, "unable to determine volume info", "path", targetPath)
+	}
+	if len(chrootInfos) == 0 || chrootInfos[0].GetSourcePath() != hostMountPath {
+		pathInfo, err := os.Stat(hostMountPath)
+		if err != nil {
+			panic(err)
+		}
+		if pathInfo.IsDir() {
+			log.Info("Bind mounting", "path", hostMountPath)
+			out, err := bindMountCommand(hostMountPath, targetPath)
+			if err != nil {
+				log.Error(err, "failed to mount path on host.")
+			}
+			log.Info("Output", "out", string(out))
+		} else if pathInfo.Mode()&os.ModeDevice > 0 {
+			log.Info("Mounting device", "path", hostMountPath)
+			// Make sure the target exists.
+			if err := os.MkdirAll(targetPath, 0750); err != nil {
+				panic(err)
+			}
+			out, err := mountDeviceCommand(hostMountPath, targetPath)
+			if err != nil {
+				log.Error(err, "failed to mount device to path on host.")
+			}
+			log.Info("Output", "out", string(out))
+		}
+	} else {
+		log.Info("Path is already mounted", "infos", chrootInfos)
+	}
+}
+
+func mountBlockVolume(sourcePath, targetPath, hostPath string) {
+	deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
+	if err != nil {
+		panic(err)
+	}
+	if len(deviceInfos) > 1 {
+		log.Info("Multiple device infos found")
+	} else if len(deviceInfos) == 0 {
+		log.Info("No device info found")
+		panic("No device infos found")
+	}
+	if err := syscall.Chroot(hostPath); err != nil {
+		panic(err)
+	}
+
+	// Check if filesystem exists on device
+	out, err := fsTypeCommand(deviceInfos[0].GetSourceDevice())
+	if err != nil {
+		log.Error(err, "unable to determine filesystem type on device")
+	}
+	log.Info("Output", "out", string(out))
+	if len(out) == 0 {
+		out, err := createXfs(deviceInfos[0].GetSourceDevice())
+		log.Info("Output", "out", string(out))
+		if err != nil {
+			panic(err)
+		}
+	}
+	log.Info("Mounting device", "path", deviceInfos[0].GetSourceDevice())
+	// Make sure the target exists.
+	if err := os.MkdirAll(targetPath, 0750); err != nil {
+		panic(err)
+	}
+	out, err = mountDeviceCommand(deviceInfos[0].GetSourceDevice(), targetPath)
+	if err != nil {
+		log.Error(err, "failed to mount device to path on host.")
+	}
+	log.Info("Output", "out", string(out))
 }
 
 func isBlockDevice(path string) (bool, error) {

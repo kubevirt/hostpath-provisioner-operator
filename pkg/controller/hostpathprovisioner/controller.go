@@ -514,11 +514,9 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi); err != nil {
 		return reconcile.Result{}, err
 	}
-	if checkApplicationAvailable(daemonSet) && checkApplicationAvailable(daemonSetCsi) {
-		if IsCrHealthy(cr) {
-			r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
-		}
+	if checkDaemonSetReady(daemonSet) && checkDaemonSetReady(daemonSetCsi) {
 		MarkCrHealthyMessage(cr, "Complete", "Application Available")
+		r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 	}
 	return res, nil
 }

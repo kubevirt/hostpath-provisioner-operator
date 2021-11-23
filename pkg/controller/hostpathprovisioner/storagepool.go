@@ -111,7 +111,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolDeploymentByNode(logg
 		return err
 	}
 
-	// Check if this SecurityContextConstraints already exists
+	// Check if this Deployment already exists
 	found := &appsv1.Deployment{}
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
 	if err != nil && errors.IsNotFound(err) {

@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,179 +50,42 @@ import (
 
 const (
 	versionString = "1.0.1"
-	csiVolume     = "csi-data-dir"
 	legacyVolume  = "pv-volume"
+	socketDir     = "socket-dir"
+	testNamespace = "test-namespace"
 )
 
 var _ = Describe("Controller reconcile loop", func() {
-	var (
-		cr *hppv1.HostPathProvisioner
-		cl client.Client
-		r  *ReconcileHostPathProvisioner
-	)
 	BeforeEach(func() {
 		watchNamespaceFunc = func() (string, error) {
-			return "test-namespace", nil
+			return testNamespace, nil
 		}
 		version.VersionStringFunc = func() (string, error) {
 			return versionString, nil
 		}
-		cr = &hppv1.HostPathProvisioner{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-			Spec: hppv1.HostPathProvisionerSpec{
-				ImagePullPolicy: corev1.PullAlways,
-				PathConfig: &hppv1.PathConfig{
-					Path:            "/tmp/test",
-					UseNamingPrefix: false,
-				},
-			},
-		}
 	})
 
-	table.DescribeTable("Should create new everything if nothing exist", func() {
-		createDeployedCr(cr)
-	},
-		table.Entry("Enable CSI"),
-	)
+	It("Should create new everything if nothing exist", func() {
+		createDeployedCr(createLegacyCr())
+	})
 
-	table.DescribeTable("Should fix a changed daemonSet", func() {
+	table.DescribeTable("Should respect snapshot feature gate", func(cr *hppv1.HostPathProvisioner, scName string) {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
-		dsNN := types.NamespacedName{
-			Name:      MultiPurposeHostPathProvisionerName,
-			Namespace: "test-namespace",
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the daemonSet to something not desired.
-		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		ds.Spec.Template.Spec.Volumes[0].Name = "invalid"
-		err = cl.Update(context.TODO(), ds)
-		Expect(err).NotTo(HaveOccurred())
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal("invalid"))
-
-		// Run the reconcile loop
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		// Check the daemonSet value, make sure it changed back.
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(legacyVolume))
-	},
-		table.Entry("Enable CSI"),
-	)
-
-	It("Should properly generate the datadir for legacy CR", func() {
-		dsNN := types.NamespacedName{
-			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-			Namespace: "test-namespace",
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the daemonSet to something not desired.
-		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		foundMount := false
-		for _, container := range ds.Spec.Template.Spec.Containers {
-			if container.Name == MultiPurposeHostPathProvisionerName {
-				for _, mount := range container.VolumeMounts {
-					if mount.MountPath == "/csi-data-dir" {
-						Expect(mount.Name).To(Equal("csi-data-dir"))
-						foundMount = true
-					}
-				}
-			}
-		}
-		Expect(foundMount).To(BeTrue(), "did not find expected volume mount named csi-data-dir")
-		foundVolume := false
-		for _, volume := range ds.Spec.Template.Spec.Volumes {
-			log.Info("Volume", "name", volume.Name)
-			if volume.Name == "csi-data-dir" {
-				Expect(volume.HostPath).NotTo(BeNil())
-				Expect(volume.HostPath.Path).To(Equal("/tmp/test"))
-				foundVolume = true
-			}
-		}
-		Expect(foundVolume).To(BeTrue(), "did not find expected volume named csi-data-dir")
-	})
-
-	It("Should properly generate the datadir for volumesource CR", func() {
-		dsNN := types.NamespacedName{
-			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-			Namespace: "test-namespace",
-		}
-		cr = &hppv1.HostPathProvisioner{
+		args := getDaemonSetArgs(logf.Log.WithName("hostpath-provisioner-operator-controller-test"), testNamespace, false)
+		cr, r, cl := createDeployedCr(cr)
+		ds := &appsv1.DaemonSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-			Spec: hppv1.HostPathProvisionerSpec{
-				ImagePullPolicy: corev1.PullAlways,
-				StoragePools: []hppv1.StoragePool{
-					{
-						Name: "test",
-						Path: "/tmp/test",
-					},
-				},
+				Name:      args.name,
+				Namespace: testNamespace,
 			},
 		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the daemonSet to something not desired.
-		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		foundMount := false
-		for _, container := range ds.Spec.Template.Spec.Containers {
-			if container.Name == MultiPurposeHostPathProvisionerName {
-				for _, mount := range container.VolumeMounts {
-					if mount.MountPath == "/test-data-dir" {
-						Expect(mount.Name).To(Equal("test-data-dir"))
-						foundMount = true
-					}
-				}
-			}
-		}
-		Expect(foundMount).To(BeTrue(), "did not find expected volume mount named csi-data-dir")
-		foundVolume := false
-		for _, volume := range ds.Spec.Template.Spec.Volumes {
-			log.Info("Volume", "name", volume.Name)
-			if volume.Name == "test-data-dir" {
-				Expect(volume.HostPath).NotTo(BeNil())
-				Expect(volume.HostPath.Path).To(Equal("/tmp/test"))
-				foundVolume = true
-			}
-		}
-		Expect(foundVolume).To(BeTrue(), "did not find expected volume named csi-data-dir")
-	})
-
-	table.DescribeTable("Should respect snapshot feature gate", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		args := getDaemonSetArgs(logf.Log.WithName("hostpath-provisioner-operator-controller-test"), "test-namespace", false)
-		dsNN := types.NamespacedName{
-			Name:      args.name,
-			Namespace: "test-namespace",
-		}
-		cr, r, cl = createDeployedCr(cr)
-		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), dsNN, ds)
+		csiVolume := fmt.Sprintf("%s-data-dir", scName)
+		err := cl.Get(context.TODO(), client.ObjectKeyFromObject(ds), ds)
 		Expect(err).NotTo(HaveOccurred())
 		// Ensure the csi side cars are there.
 		sidecarImages := make([]string, 0)
@@ -237,7 +101,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				found = true
 			}
 		}
-		Expect(found).To(BeTrue())
+		Expect(found).To(BeTrue(), fmt.Sprintf("%v", ds.Spec.Template.Spec.Volumes))
 
 		cr = &hppv1.HostPathProvisioner{}
 		err = r.client.Get(context.TODO(), req.NamespacedName, cr)
@@ -258,8 +122,13 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Requeue).To(BeFalse())
 		// Check the daemonSet value, make sure it added the snapshotter sidecar.
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
+		ds = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      args.name,
+				Namespace: testNamespace,
+			},
+		}
+		err = cl.Get(context.TODO(), client.ObjectKeyFromObject(ds), ds)
 		Expect(err).NotTo(HaveOccurred())
 		// Ensure the csi side cars are there.
 		sidecarImages = make([]string, 0)
@@ -275,191 +144,16 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		Expect(found).To(BeTrue())
 	},
-		table.Entry("Enable CSI"),
-	)
-
-	table.DescribeTable("Should fix a changed service account", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		saNN := types.NamespacedName{
-			Name:      ProvisionerServiceAccountName,
-			Namespace: "test-namespace",
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the service account to something not desired.
-		sa := &corev1.ServiceAccount{}
-		err := cl.Get(context.TODO(), saNN, sa)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
-		sa.ObjectMeta.Labels["k8s-app"] = "invalid"
-		err = cl.Update(context.TODO(), sa)
-		Expect(err).NotTo(HaveOccurred())
-		sa = &corev1.ServiceAccount{}
-		err = cl.Get(context.TODO(), saNN, sa)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("invalid"))
-		// Run the reconcile loop
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		// Verify the label has been changed back.
-		sa = &corev1.ServiceAccount{}
-		err = cl.Get(context.TODO(), saNN, sa)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
-	},
-		table.Entry("Enable CSI"),
-	)
-
-	table.DescribeTable("Should fix a changed ClusterRole", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		name := ProvisionerServiceAccountNameCsi
-		croleNN := types.NamespacedName{
-			Name: name,
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the ClusterRole to something not desired.
-		crole := &rbacv1.ClusterRole{}
-		err := cl.Get(context.TODO(), croleNN, crole)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
-		// Add delete to persistentvolumeclaims rule
-		crole.Rules[1].Verbs = append(crole.Rules[1].Verbs, "delete")
-		err = cl.Update(context.TODO(), crole)
-		Expect(err).NotTo(HaveOccurred())
-		crole = &rbacv1.ClusterRole{}
-		err = cl.Get(context.TODO(), croleNN, crole)
-		Expect(err).NotTo(HaveOccurred())
-		// Verify the extra ability is there.
-		Expect(len(crole.Rules[1].Verbs)).To(Equal(5))
-		Expect(crole.Rules[1].Verbs[4]).To(Equal("delete"))
-		// Run the reconcile loop
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		// Verify its gone now
-		err = cl.Get(context.TODO(), croleNN, crole)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
-	},
-		table.Entry("Enable CSI"),
-	)
-
-	table.DescribeTable("Should modify ClusterRole if snapshot enabled", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		cr, r, cl = createDeployedCr(cr)
-
-		cr = &hppv1.HostPathProvisioner{}
-		err := r.client.Get(context.TODO(), req.NamespacedName, cr)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Update the CR to enable the snapshotting feature gate.
-		cr.Spec.FeatureGates = append(cr.Spec.FeatureGates, snapshotFeatureGate)
-		err = cl.Update(context.TODO(), cr)
-		Expect(err).NotTo(HaveOccurred())
-		// Run the reconcile loop
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-
-		verifyCreateCSIClusterRole(cl, true)
-	},
-		table.Entry("Enable CSI"),
-	)
-
-	table.DescribeTable("Should fix a changed ClusterRoleBinding", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		name := ProvisionerServiceAccountNameCsi
-		crbNN := types.NamespacedName{
-			Name: name,
-		}
-		cr, r, cl = createDeployedCr(cr)
-
-		// Now modify the CRB to something not desired.
-		crb := &rbacv1.ClusterRoleBinding{}
-		err := cl.Get(context.TODO(), crbNN, crb)
-		Expect(err).NotTo(HaveOccurred())
-		crb.Subjects[0].Name = "invalid"
-		err = cl.Update(context.TODO(), crb)
-		Expect(err).NotTo(HaveOccurred())
-		// Verify the name is wrong
-		crb = &rbacv1.ClusterRoleBinding{}
-		err = cl.Get(context.TODO(), crbNN, crb)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(crb.Subjects[0].Name).To(Equal("invalid"))
-		// Run the reconcile loop
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		// Verify the name is correct again.
-		crb = &rbacv1.ClusterRoleBinding{}
-		err = cl.Get(context.TODO(), crbNN, crb)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
-	},
-		table.Entry("Enable CSI"),
-	)
-
-	table.DescribeTable("Should fix a changed SecurityContextConstraints", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		sccNN := types.NamespacedName{
-			Name: MultiPurposeHostPathProvisionerName,
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the SCC to something not desired.
-		scc := &secv1.SecurityContextConstraints{}
-		err := cl.Get(context.TODO(), sccNN, scc)
-		Expect(err).NotTo(HaveOccurred())
-		scc.AllowPrivilegedContainer = true
-		err = cl.Update(context.TODO(), scc)
-		Expect(err).NotTo(HaveOccurred())
-		// Verify allowPrivileged is true
-		scc = &secv1.SecurityContextConstraints{}
-		err = cl.Get(context.TODO(), sccNN, scc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(scc.AllowPrivilegedContainer).To(BeTrue())
-		// Run the reconcile loop
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-		// Verify allowPrivileged is false
-		scc = &secv1.SecurityContextConstraints{}
-		err = cl.Get(context.TODO(), sccNN, scc)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(scc.AllowPrivilegedContainer).To(BeFalse())
-		Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
-	},
-		table.Entry("Enable CSI"),
+		table.Entry("legacyCr", createLegacyCr(), "csi"),
+		table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), "legacy"),
+		table.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), "local"),
 	)
 
 	It("Should requeue if watch namespaces returns error", func() {
 		watchNamespaceFunc = func() (string, error) {
 			return "", fmt.Errorf("Something is not right, no watch namespace")
 		}
+		cr := createLegacyCr()
 		objs := []runtime.Object{cr}
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
@@ -482,7 +176,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
 		res, err := r.Reconcile(context.TODO(), req)
@@ -491,6 +185,7 @@ var _ = Describe("Controller reconcile loop", func() {
 	})
 
 	It("Should requeue if cr cannot be located", func() {
+		cr := createLegacyCr()
 		objs := []runtime.Object{cr}
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
@@ -515,7 +210,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name2",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
 		res, err := r.Reconcile(context.TODO(), req)
@@ -524,14 +219,14 @@ var _ = Describe("Controller reconcile loop", func() {
 	})
 
 	It("Should fail if trying to downgrade", func() {
-		cr, r, cl = createDeployedCr(cr)
+		_, r, _ := createDeployedCr(createLegacyCr())
 		version.VersionStringFunc = func() (string, error) {
 			return "1.0.0", nil
 		}
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
 		res, err := r.Reconcile(context.TODO(), req)
@@ -544,10 +239,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
-		cr, r, cl = createDeployedCr(cr)
+		_, r, cl := createDeployedCr(createLegacyCr())
 		version.VersionStringFunc = func() (string, error) {
 			return "1.0.2", nil
 		}
@@ -573,7 +268,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds := &appsv1.DaemonSet{}
 		dsNN := types.NamespacedName{
 			Name:      MultiPurposeHostPathProvisionerName,
-			Namespace: "test-namespace",
+			Namespace: testNamespace,
 		}
 		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
@@ -581,11 +276,11 @@ var _ = Describe("Controller reconcile loop", func() {
 		ds.Status.DesiredNumberScheduled = 2
 		err = cl.Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
-		// Now make the csi daemonSet available, and reconcile again.
+		// Now make the csi daemonSet unavailable, and reconcile again.
 		dsCsi := &appsv1.DaemonSet{}
 		dsNNCsi := types.NamespacedName{
 			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-			Namespace: "test-namespace",
+			Namespace: testNamespace,
 		}
 		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 		Expect(err).NotTo(HaveOccurred())
@@ -620,7 +315,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		dsCsi = &appsv1.DaemonSet{}
 		dsNNCsi = types.NamespacedName{
 			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-			Namespace: "test-namespace",
+			Namespace: testNamespace,
 		}
 		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 		Expect(err).NotTo(HaveOccurred())
@@ -650,15 +345,15 @@ var _ = Describe("Controller reconcile loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
-		cr, r, cl = createDeployedCr(cr)
+		_, r, _ := createDeployedCr(createLegacyCr())
 		// Mimic a service account from a previous version whose name depends on the CR's
 		err := r.client.Create(context.TODO(), createServiceAccountWithNameThatDependsOnCr())
 		Expect(err).NotTo(HaveOccurred())
 		saList := &corev1.ServiceAccountList{}
-		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: "test-namespace"})
+		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: testNamespace})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(saList.Items)).To(Equal(3))
 		Expect(saList.Items[1].Name).To(Equal(ProvisionerServiceAccountNameCsi))
@@ -682,7 +377,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
 
 		saList = &corev1.ServiceAccountList{}
-		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: "test-namespace"})
+		err = r.client.List(context.TODO(), saList, &client.ListOptions{Namespace: testNamespace})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(saList.Items)).To(Equal(2))
 		Expect(saList.Items[0].Name).To(Equal(ProvisionerServiceAccountName))
@@ -692,7 +387,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		secondCr := &hppv1.HostPathProvisioner{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name-second",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 			Spec: hppv1.HostPathProvisionerSpec{
 				ImagePullPolicy: corev1.PullAlways,
@@ -702,6 +397,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				},
 			},
 		}
+		cr := createLegacyCr()
 		objs := []runtime.Object{cr, secondCr}
 		// Register operator types with the runtime scheme.
 		s := scheme.Scheme
@@ -724,7 +420,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
 		res, err := r.Reconcile(context.TODO(), req)
@@ -737,10 +433,10 @@ var _ = Describe("Controller reconcile loop", func() {
 		req := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "test-name",
-				Namespace: "test-namespace",
+				Namespace: testNamespace,
 			},
 		}
-		cr, r, cl = createDeployedCr(cr)
+		cr, r, cl := createDeployedCr(createLegacyCr())
 		err := cl.Delete(context.TODO(), cr)
 		Expect(err).NotTo(HaveOccurred())
 		res, err := r.Reconcile(context.TODO(), req)
@@ -748,170 +444,85 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(res.Requeue).To(BeFalse())
 	})
 
-	It("Should create daemonset with node placement", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		cr, r, cl = createDeployedCr(cr)
-		ds := &appsv1.DaemonSet{}
-		dsNN := types.NamespacedName{
-			Name:      MultiPurposeHostPathProvisionerName,
-			Namespace: "test-namespace",
-		}
-		err := cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(ds.Spec.Template.Spec.Affinity).To(BeNil())
-		Expect(ds.Spec.Template.Spec.NodeSelector).To(BeEmpty())
-		Expect(ds.Spec.Template.Spec.Tolerations).To(BeEmpty())
-
-		affinityTestValue := &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpIn, Values: []string{"somehostname"}},
-							},
-						},
-					},
-				},
-			},
-		}
-		nodeSelectorTestValue := map[string]string{"kubernetes.io/arch": "ppc64le"}
-		tolerationsTestValue := []corev1.Toleration{{Key: "test", Value: "123"}}
-
-		cr = &hppv1.HostPathProvisioner{}
-		err = cl.Get(context.TODO(), req.NamespacedName, cr)
-		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.Workload = hppv1.NodePlacement{
-			NodeSelector: nodeSelectorTestValue,
-			Affinity:     affinityTestValue,
-			Tolerations:  tolerationsTestValue,
-		}
-		err = cl.Update(context.TODO(), cr)
-		Expect(err).NotTo(HaveOccurred())
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
-		Expect(ds.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelectorTestValue))
-		Expect(ds.Spec.Template.Spec.Tolerations).To(Equal(tolerationsTestValue))
-	})
-
-	It("Should be able to remove node placement if CR doesn't have it anymore", func() {
-		affinityTestValue := &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpIn, Values: []string{"somehostname"}},
-							},
-						},
-					},
-				},
-			},
-		}
-		nodeSelectorTestValue := map[string]string{"kubernetes.io/arch": "ppc64le"}
-		tolerationsTestValue := []corev1.Toleration{{Key: "test", Value: "123"}}
-		cr.Spec.Workload = hppv1.NodePlacement{
-			NodeSelector: nodeSelectorTestValue,
-			Affinity:     affinityTestValue,
-			Tolerations:  tolerationsTestValue,
-		}
-		cr, r, cl = createDeployedCr(cr)
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		ds := &appsv1.DaemonSet{}
-		dsNN := types.NamespacedName{
-			Name:      MultiPurposeHostPathProvisionerName,
-			Namespace: "test-namespace",
-		}
-		err := cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(ds.Spec.Template.Spec.Affinity).To(Equal(affinityTestValue))
-		Expect(ds.Spec.Template.Spec.NodeSelector).To(Equal(nodeSelectorTestValue))
-		Expect(ds.Spec.Template.Spec.Tolerations).To(Equal(tolerationsTestValue))
-
-		cr = &hppv1.HostPathProvisioner{}
-		err = cl.Get(context.TODO(), req.NamespacedName, cr)
-		Expect(err).NotTo(HaveOccurred())
-		cr.Spec.Workload = hppv1.NodePlacement{}
-		err = cl.Update(context.TODO(), cr)
-		Expect(err).NotTo(HaveOccurred())
-		res, err := r.Reconcile(context.TODO(), req)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Requeue).To(BeFalse())
-
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(ds.Spec.Template.Spec.Affinity).To(BeNil())
-		Expect(ds.Spec.Template.Spec.NodeSelector).To(BeEmpty())
-		Expect(ds.Spec.Template.Spec.Tolerations).To(BeEmpty())
-	})
-
-	It("Should delete daemonsets from versions with junk in .spec.selector", func() {
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: "test-namespace",
-			},
-		}
-		dsNN := types.NamespacedName{
-			Name:      MultiPurposeHostPathProvisionerName,
-			Namespace: "test-namespace",
-		}
-		cr, r, cl = createDeployedCr(cr)
-		// Now modify the daemonSet to something not desired.
-		ds := &appsv1.DaemonSet{}
-		err := cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		ds.Spec.Selector.MatchLabels = map[string]string{
-			"k8s-app": MultiPurposeHostPathProvisionerName,
-			"not":     "desired",
-		}
-		err = cl.Update(context.TODO(), ds)
-		Expect(err).NotTo(HaveOccurred())
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ds.Spec.Selector.MatchLabels).To(Equal(
-			map[string]string{
-				"k8s-app": MultiPurposeHostPathProvisionerName,
-				"not":     "desired",
-			},
-		))
-
-		// Run the reconcile loop
-		_, err = r.Reconcile(context.TODO(), req)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(Equal("DaemonSet with extra selector labels spotted, cleaning up and requeueing"))
-		// Artificial requeue (err occured implies requeue)
-		_, err = r.Reconcile(context.TODO(), req)
-		Expect(err).ToNot(HaveOccurred())
-		// Check the daemonSet value, make sure it changed back.
-		ds = &appsv1.DaemonSet{}
-		err = cl.Get(context.TODO(), dsNN, ds)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ds.Spec.Selector.MatchLabels).To(Equal(selectorLabels))
-	})
 })
+
+func createLegacyCr() *hppv1.HostPathProvisioner {
+	return &hppv1.HostPathProvisioner{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name",
+			Namespace: testNamespace,
+		},
+		Spec: hppv1.HostPathProvisionerSpec{
+			ImagePullPolicy: corev1.PullAlways,
+			PathConfig: &hppv1.PathConfig{
+				Path:            "/tmp/test",
+				UseNamingPrefix: false,
+			},
+		},
+	}
+}
+
+func createLegacyStoragePoolCr() *hppv1.HostPathProvisioner {
+	return &hppv1.HostPathProvisioner{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name",
+			Namespace: testNamespace,
+		},
+		Spec: hppv1.HostPathProvisionerSpec{
+			ImagePullPolicy: corev1.PullAlways,
+			StoragePools: []hppv1.StoragePool{
+				{
+					Name: "legacy",
+					Path: "/tmp/test",
+				},
+			},
+		},
+	}
+}
+
+func createStoragePoolWithTemplateCr() *hppv1.HostPathProvisioner {
+	volumeMode := corev1.PersistentVolumeFilesystem
+	return createStoragePoolWithTemplateVolumeModeCr(&volumeMode)
+}
+
+func createStoragePoolWithTemplateBlockCr() *hppv1.HostPathProvisioner {
+	volumeMode := corev1.PersistentVolumeBlock
+	return createStoragePoolWithTemplateVolumeModeCr(&volumeMode)
+}
+
+func createStoragePoolWithTemplateVolumeModeCr(volumeMode *corev1.PersistentVolumeMode) *hppv1.HostPathProvisioner {
+	scName := "test"
+	return &hppv1.HostPathProvisioner{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name",
+			Namespace: testNamespace,
+		},
+		Spec: hppv1.HostPathProvisionerSpec{
+			ImagePullPolicy: corev1.PullAlways,
+			StoragePools: []hppv1.StoragePool{
+				{
+					Name: "local",
+					Path: "/tmp/test",
+					StorageClass: &hppv1.SourceStorageClass{
+						Name: "local",
+						PVCTemplate: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &scName,
+							VolumeMode:       volumeMode,
+							AccessModes: []corev1.PersistentVolumeAccessMode{
+								corev1.ReadWriteOnce,
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
 
 // After this has run, the returned cr state should be available, not progressing and not degraded.
 func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner, *ReconcileHostPathProvisioner, client.Client) {
@@ -939,7 +550,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "test-name",
-			Namespace: "test-namespace",
+			Namespace: testNamespace,
 		},
 	}
 	res, err := r.Reconcile(context.TODO(), req)
@@ -972,7 +583,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	ds := &appsv1.DaemonSet{}
 	dsNN := types.NamespacedName{
 		Name:      MultiPurposeHostPathProvisionerName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err = cl.Get(context.TODO(), dsNN, ds)
 	Expect(err).NotTo(HaveOccurred())
@@ -985,7 +596,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	dsCsi := &appsv1.DaemonSet{}
 	dsNNCsi := types.NamespacedName{
 		Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 	Expect(err).NotTo(HaveOccurred())
@@ -1015,7 +626,7 @@ func verifyCreateDaemonSet(cl client.Client) {
 	ds := &appsv1.DaemonSet{}
 	nn := types.NamespacedName{
 		Name:      MultiPurposeHostPathProvisionerName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err := cl.Get(context.TODO(), nn, ds)
 	Expect(err).NotTo(HaveOccurred())
@@ -1041,7 +652,7 @@ func verifyCreateDaemonSetCsi(cl client.Client) {
 	ds := &appsv1.DaemonSet{}
 	nn := types.NamespacedName{
 		Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err := cl.Get(context.TODO(), nn, ds)
 	Expect(err).NotTo(HaveOccurred())
@@ -1062,7 +673,7 @@ func verifyCreateServiceAccount(cl client.Client) {
 	sa := &corev1.ServiceAccount{}
 	nn := types.NamespacedName{
 		Name:      ProvisionerServiceAccountName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err := cl.Get(context.TODO(), nn, sa)
 	Expect(err).NotTo(HaveOccurred())
@@ -1358,7 +969,7 @@ func verifyCreateCSIRole(cl client.Client) {
 	role := &rbacv1.Role{}
 	nn := types.NamespacedName{
 		Name:      ProvisionerServiceAccountNameCsi,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err := cl.Get(context.TODO(), nn, role)
 	Expect(err).NotTo(HaveOccurred())
@@ -1413,7 +1024,7 @@ func verifyCreateCSIRole(cl client.Client) {
 	role = &rbacv1.Role{}
 	nn = types.NamespacedName{
 		Name:      healthCheckName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err = cl.Get(context.TODO(), nn, role)
 	Expect(err).NotTo(HaveOccurred())
@@ -1465,12 +1076,12 @@ func verifyCreateCSIRoleBinding(cl client.Client) {
 	rb := &rbacv1.RoleBinding{}
 	nn := types.NamespacedName{
 		Name:      ProvisionerServiceAccountNameCsi,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err := cl.Get(context.TODO(), nn, rb)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(rb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
-	Expect(rb.Subjects[0].Namespace).To(Equal("test-namespace"))
+	Expect(rb.Subjects[0].Namespace).To(Equal(testNamespace))
 	Expect(rb.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
@@ -1525,7 +1136,7 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	rule := &promv1.PrometheusRule{}
 	nn := types.NamespacedName{
 		Name:      ruleName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err := cl.Get(context.TODO(), nn, rule)
 	Expect(err).NotTo(HaveOccurred())
@@ -1548,11 +1159,11 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	monitor := &promv1.ServiceMonitor{}
 	nn = types.NamespacedName{
 		Name:      monitorName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err = cl.Get(context.TODO(), nn, monitor)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(monitor.Spec.NamespaceSelector.MatchNames).To(ContainElement("test-namespace"))
+	Expect(monitor.Spec.NamespaceSelector.MatchNames).To(ContainElement(testNamespace))
 	Expect(rule.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 
 	// RBAC
@@ -1560,7 +1171,7 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	roleBinding := &rbacv1.RoleBinding{}
 	nn = types.NamespacedName{
 		Name:      rbacName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err = cl.Get(context.TODO(), nn, role)
 	Expect(err).NotTo(HaveOccurred())
@@ -1575,7 +1186,7 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	service := &corev1.Service{}
 	nn = types.NamespacedName{
 		Name:      PrometheusServiceName,
-		Namespace: "test-namespace",
+		Namespace: testNamespace,
 	}
 	err = cl.Get(context.TODO(), nn, service)
 	Expect(err).NotTo(HaveOccurred())
@@ -1615,7 +1226,7 @@ func createServiceAccountWithNameThatDependsOnCr() *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-name-admin",
-			Namespace: "test-namespace",
+			Namespace: testNamespace,
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
