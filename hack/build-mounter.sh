@@ -17,4 +17,4 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
 setGoInProw $GOLANG_VER
 
-CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/mounter cmd/mounter/main.go
+CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/mounter cmd/mounter/*.go
