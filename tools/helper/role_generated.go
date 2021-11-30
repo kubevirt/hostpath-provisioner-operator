@@ -28,9 +28,28 @@ rules:
   - delete
   - update
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+  - delete
+  - update
+- apiGroups:
   - ""
   resources:
   - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   verbs:
   - get
@@ -157,4 +176,10 @@ rules:
   verbs:
   - update
   - delete
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
 `

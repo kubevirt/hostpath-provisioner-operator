@@ -1096,8 +1096,6 @@ spec:
                         the node. The volume will be mounted on the path specified
                         in the storage pool
                       properties:
-                        name:
-                          type: string
                         pvcTemplate:
                           description: PersistentVolumeClaimSpec describes the common
                             attributes of storage devices and allows a Source for
@@ -1229,7 +1227,6 @@ spec:
                               type: string
                           type: object
                       required:
-                      - name
                       - pvcTemplate
                       type: object
                   required:
