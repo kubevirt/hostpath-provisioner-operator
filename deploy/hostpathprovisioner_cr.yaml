@@ -6,13 +6,12 @@ spec:
   imagePullPolicy: Always
   storagePools:
     - name: "local"
-      storageClass:
-        pvcTemplate:
-          accessModes:
-          - ReadWriteOnce
-          resources:
-            requests:
-              storage: 5Gi
+      pvcTemplate:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
       path: "/var/hpvolumes"
   workload:
     nodeSelector:

@@ -232,8 +232,8 @@ func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisio
 	Expect(err).ToNot(HaveOccurred())
 	for _, pvc := range pvcList.Items {
 		foundPVCs = append(foundPVCs, pvc.Name)
-		Expect(pvc.Name).To(ContainSubstring(*cr.Spec.StoragePools[0].StorageClass.PVCTemplate.StorageClassName))
-		Expect(pvc.Spec).To(BeEquivalentTo(*cr.Spec.StoragePools[0].StorageClass.PVCTemplate))
+		Expect(pvc.Name).To(ContainSubstring(*cr.Spec.StoragePools[0].PVCTemplate.StorageClassName))
+		Expect(pvc.Spec).To(BeEquivalentTo(*cr.Spec.StoragePools[0].PVCTemplate))
 	}
 	Expect(foundPVCs).ToNot(BeEmpty(), fmt.Sprintf("%v", foundPVCs))
 	Expect(len(foundPVCs)).To(Equal(pvcCount))

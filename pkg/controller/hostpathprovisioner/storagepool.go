@@ -64,7 +64,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 	}
 	for _, storagePool := range cr.Spec.StoragePools {
 		logger.Info("Checking storage pool", "pool.Name", storagePool.Name)
-		if storagePool.StorageClass != nil && storagePool.StorageClass.PVCTemplate != nil {
+		if storagePool.PVCTemplate != nil {
 			for _, node := range usedNodes {
 				if err := r.reconcileStoragePoolPVCByNode(logger, cr, namespace, &storagePool, &node); err != nil {
 					return reconcile.Result{}, err
@@ -146,7 +146,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePoolPVCByNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
-	desired := r.storagePoolPVCByNode(storagePool.StorageClass, namespace, node)
+	desired := r.storagePoolPVCByNode(storagePool, namespace, node)
 	// Check if this SecurityContextConstraints already exists
 	found := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
@@ -301,16 +301,16 @@ func (r *ReconcileHostPathProvisioner) getStorageClassNameOrDefault(template *co
 	return defaultStorageClassName
 }
 
-func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(sourceStorageClass *hostpathprovisionerv1.SourceStorageClass, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
+func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := getRecommendedLabels()
-	labels[storagePoolLabelKey] = r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate)
+	labels[storagePoolLabelKey] = r.getStorageClassNameOrDefault(storagePool.PVCTemplate)
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      getStoragePoolPVCName(r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate), node.GetName()),
+			Name:      getStoragePoolPVCName(r.getStorageClassNameOrDefault(storagePool.PVCTemplate), node.GetName()),
 			Namespace: namespace,
 			Labels:    labels,
 		},
-		Spec: *sourceStorageClass.PVCTemplate,
+		Spec: *storagePool.PVCTemplate,
 	}
 }
 
@@ -327,7 +327,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 	revisionHistoryLimit := int32(10)
 
 	dataMountPath := blockDataMountPath
-	if sourceStoragePool.StorageClass.PVCTemplate.VolumeMode == nil || *sourceStoragePool.StorageClass.PVCTemplate.VolumeMode == corev1.PersistentVolumeFilesystem {
+	if sourceStoragePool.PVCTemplate.VolumeMode == nil || *sourceStoragePool.PVCTemplate.VolumeMode == corev1.PersistentVolumeFilesystem {
 		dataMountPath = fsDataMountPath
 	}
 
@@ -429,7 +429,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 							Name: dataName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: getStoragePoolPVCName(r.getStorageClassNameOrDefault(sourceStoragePool.StorageClass.PVCTemplate), node.GetName()),
+									ClaimName: getStoragePoolPVCName(r.getStorageClassNameOrDefault(sourceStoragePool.PVCTemplate), node.GetName()),
 								},
 							},
 						},
@@ -448,7 +448,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 		},
 	}
 
-	if sourceStoragePool.StorageClass.PVCTemplate.VolumeMode == nil || *sourceStoragePool.StorageClass.PVCTemplate.VolumeMode == corev1.PersistentVolumeFilesystem {
+	if sourceStoragePool.PVCTemplate.VolumeMode == nil || *sourceStoragePool.PVCTemplate.VolumeMode == corev1.PersistentVolumeFilesystem {
 		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      dataName,
 			MountPath: fsDataMountPath,
@@ -466,12 +466,12 @@ func getStoragePoolPVCName(poolName, nodeName string) string {
 	return fmt.Sprintf("hpp-pool-%s-%s", poolName, nodeName)
 }
 
-func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, sourceStorageClass *hostpathprovisionerv1.SourceStorageClass) ([]appsv1.Deployment, error) {
+func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool) ([]appsv1.Deployment, error) {
 	res := make([]appsv1.Deployment, 0)
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"k8s-app":           MultiPurposeHostPathProvisionerName,
-			storagePoolLabelKey: r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate),
+			storagePoolLabelKey: r.getStorageClassNameOrDefault(storagePool.PVCTemplate),
 		},
 	})
 	if err != nil {
@@ -494,12 +494,13 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *h
 
 	return res, nil
 }
-func (r *ReconcileHostPathProvisioner) getClaimStatusesByStoragePool(sourceStorageClass *hostpathprovisionerv1.SourceStorageClass, namespace string) ([]hostpathprovisionerv1.ClaimStatus, error) {
+
+func (r *ReconcileHostPathProvisioner) getClaimStatusesByStoragePool(storagePool *hostpathprovisionerv1.StoragePool, namespace string) ([]hostpathprovisionerv1.ClaimStatus, error) {
 	res := make([]hostpathprovisionerv1.ClaimStatus, 0)
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"k8s-app":           MultiPurposeHostPathProvisionerName,
-			storagePoolLabelKey: r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate),
+			storagePoolLabelKey: r.getStorageClassNameOrDefault(storagePool.PVCTemplate),
 		},
 	})
 	if err != nil {
@@ -533,8 +534,8 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 	} else {
 		newStoragePoolStatuses := make([]hostpathprovisionerv1.StoragePoolStatus, 0)
 		for _, storagePool := range cr.Spec.StoragePools {
-			if storagePool.StorageClass != nil {
-				deployments, err := r.storagePoolDeploymentsByStoragePool(cr, namespace, storagePool.StorageClass)
+			if storagePool.PVCTemplate != nil {
+				deployments, err := r.storagePoolDeploymentsByStoragePool(cr, namespace, &storagePool)
 				if err != nil {
 					return err
 				}
@@ -546,7 +547,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 					}
 				}
 				logger.WithName("Status").Info("Number of deployments for pool ready", "storage pool", storagePool.Name, "deployment count", currentReady)
-				claimStatuses, err := r.getClaimStatusesByStoragePool(storagePool.StorageClass, namespace)
+				claimStatuses, err := r.getClaimStatusesByStoragePool(&storagePool, namespace)
 				if err != nil {
 					return err
 				}

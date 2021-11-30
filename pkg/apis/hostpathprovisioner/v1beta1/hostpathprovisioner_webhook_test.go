@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -106,9 +107,9 @@ var (
 		Spec: HostPathProvisionerSpec{
 			StoragePools: []StoragePool{
 				{
-					Name:         "test",
-					Path:         "test",
-					StorageClass: &SourceStorageClass{},
+					Name:        "test",
+					Path:        "test",
+					PVCTemplate: &corev1.PersistentVolumeClaimSpec{},
 				},
 			},
 		},
