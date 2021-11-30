@@ -318,20 +318,13 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_SourceStorageClass(ref common.R
 				Description: "SourceStorageClass defines the storage class and PVC template to use when preparing storage.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"pvcTemplate": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
 						},
 					},
 				},
-				Required: []string{"name", "pvcTemplate"},
+				Required: []string{"pvcTemplate"},
 			},
 		},
 		Dependencies: []string{

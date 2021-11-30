@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,10 +39,11 @@ import (
 )
 
 const (
-	storagePoolLabelKey = "kubevirt.io.hostpath-provisioner/storagePool"
-	dataName            = "data"
-	fsDataMountPath     = "/source"
-	blockDataMountPath  = "/dev/data"
+	storagePoolLabelKey     = "kubevirt.io.hostpath-provisioner/storagePool"
+	dataName                = "data"
+	fsDataMountPath         = "/source"
+	blockDataMountPath      = "/dev/data"
+	defaultStorageClassName = "default"
 )
 
 //StoragePoolInfo contains the name and path of a hostpath storage pool.
@@ -78,8 +81,68 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 		if err := r.client.Delete(context.TODO(), &ds); err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
+		sp := r.getStoragePoolForDeployment(cr, &ds)
+		if sp != nil {
+			if _, err := r.createCleanupJobForDeployment(logger, cr, namespace, &ds, sp); err != nil {
+
+			}
+		}
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHostPathProvisioner) getStoragePoolForDeployment(cr *hostpathprovisionerv1.HostPathProvisioner, deployment *appsv1.Deployment) *hostpathprovisionerv1.StoragePool {
+	for _, storagePool := range cr.Spec.StoragePools {
+		if strings.HasPrefix(deployment.GetName(), fmt.Sprintf("hpp-pool-%s", storagePool.Name)) {
+			return &storagePool
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) cleanDeployments(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) error {
+	logger.Info("Cleaning up storage pools")
+	for _, storagePool := range cr.Spec.StoragePools {
+		currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
+		if err != nil {
+			return err
+		}
+		logger.Info("Cleanup up", "count", len(currentStoragePoolDeployments))
+		for _, deployment := range currentStoragePoolDeployments {
+			node, err := r.createCleanupJobForDeployment(logger, cr, namespace, &deployment, &storagePool)
+			if err != nil {
+				return err
+			}
+			desired := r.storagePoolDeploymentByNode(logger, cr, &storagePool, namespace, node)
+
+			// delete deployment
+			found := &appsv1.Deployment{}
+			if err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found); err != nil && !errors.IsNotFound(err) {
+				return err
+			} else if err == nil {
+				if err := r.client.Delete(context.TODO(), found); err != nil && !errors.IsNotFound(err) {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, deployment *appsv1.Deployment, storagePool *hostpathprovisionerv1.StoragePool) (*corev1.Node, error) {
+	node := &corev1.Node{
+		ObjectMeta: v1.ObjectMeta{
+			Name: deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Values[0],
+		},
+	}
+	if err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(node), node); err != nil {
+		return nil, err
+	}
+	logger.Info("for node", "name", node.Name)
+	if err := r.createCleanupJobForNode(logger, cr, namespace, storagePool, node); err != nil && !errors.IsAlreadyExists(err) {
+		return nil, err
+	}
+	return node, nil
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePoolPVCByNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
@@ -128,6 +191,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolDeploymentByNode(logg
 		return err
 	}
 	delete(currentStoragePoolDeployments, desired.GetName())
+
 	// Keep a copy of the original for comparison later.
 	currentRuntimeObjCopy := found.DeepCopyObject()
 
@@ -230,12 +294,19 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 	return res, nil
 }
 
+func (r *ReconcileHostPathProvisioner) getStorageClassNameOrDefault(template *corev1.PersistentVolumeClaimSpec) string {
+	if template != nil && template.StorageClassName != nil && len(*template.StorageClassName) > 0 {
+		return *template.StorageClassName
+	}
+	return defaultStorageClassName
+}
+
 func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(sourceStorageClass *hostpathprovisionerv1.SourceStorageClass, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := getRecommendedLabels()
-	labels[storagePoolLabelKey] = sourceStorageClass.Name
+	labels[storagePoolLabelKey] = r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate)
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      getStoragePoolPVCName(sourceStorageClass.Name, node.GetName()),
+			Name:      getStoragePoolPVCName(r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate), node.GetName()),
 			Namespace: namespace,
 			Labels:    labels,
 		},
@@ -358,7 +429,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 							Name: dataName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: getStoragePoolPVCName(sourceStoragePool.StorageClass.Name, node.GetName()),
+									ClaimName: getStoragePoolPVCName(r.getStorageClassNameOrDefault(sourceStoragePool.StorageClass.PVCTemplate), node.GetName()),
 								},
 							},
 						},
@@ -400,7 +471,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *h
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"k8s-app":           MultiPurposeHostPathProvisionerName,
-			storagePoolLabelKey: sourceStorageClass.Name,
+			storagePoolLabelKey: r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate),
 		},
 	})
 	if err != nil {
@@ -428,7 +499,7 @@ func (r *ReconcileHostPathProvisioner) getClaimStatusesByStoragePool(sourceStora
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"k8s-app":           MultiPurposeHostPathProvisionerName,
-			storagePoolLabelKey: sourceStorageClass.Name,
+			storagePoolLabelKey: r.getStorageClassNameOrDefault(sourceStorageClass.PVCTemplate),
 		},
 	})
 	if err != nil {
@@ -495,6 +566,111 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 			}
 		}
 		cr.Status.StoragePoolStatuses = newStoragePoolStatuses
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) hasCleanUpFinished() (bool, error) {
+	jobList := &batchv1.JobList{}
+	if err := r.client.List(context.TODO(), jobList); err != nil {
+		return false, err
+	}
+	return len(jobList.Items) > 0, nil
+}
+
+func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, sourceStoragePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
+	args := getDaemonSetArgs(logger, namespace, false)
+	labels := getRecommendedLabels()
+	ttl := int32(10)
+	defaultGracePeriod := int64(30)
+	privileged := true
+	directory := corev1.HostPathDirectory
+	bidirectional := corev1.MountPropagationBidirectional
+	cleanupJob := &batchv1.Job{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      fmt.Sprintf("cleanup-pool-%s-%s", sourceStoragePool.Name, node.GetName()),
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: &ttl,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy:                 corev1.RestartPolicyOnFailure,
+					SchedulerName:                 corev1.DefaultSchedulerName,
+					TerminationGracePeriodSeconds: &defaultGracePeriod,
+					DNSPolicy:                     corev1.DNSClusterFirst,
+					SecurityContext:               &corev1.PodSecurityContext{},
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      corev1.LabelHostname,
+												Operator: corev1.NodeSelectorOpIn,
+												Values: []string{
+													node.GetName(),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:            "mounter",
+							ImagePullPolicy: cr.Spec.ImagePullPolicy,
+							Image:           args.operatorImage,
+							Command: []string{
+								"/usr/bin/mounter",
+								"--mountPath",
+								filepath.Join(sourceStoragePool.Path, "csi"),
+								"--hostPath",
+								"/host",
+								"--unmount",
+							},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &privileged,
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("100Mi"),
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:             "host-root",
+									MountPath:        "/host",
+									MountPropagation: &bidirectional,
+								},
+							},
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePath:   "/dev/termination-log",
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "host-root",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/",
+									Type: &directory,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	logger.Info("Creating cleanup job", "name", cleanupJob.Name)
+	if err := r.client.Create(context.TODO(), cleanupJob); err != nil && !errors.IsAlreadyExists(err) {
+		logger.Error(err, "Unable to create cleanup job", "name", cleanupJob.GetName())
 	}
 	return nil
 }

@@ -18,8 +18,10 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -117,6 +119,34 @@ var _ = Describe("Controller reconcile loop", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal("mounter"))
 		})
+
+		It("Should create cleanup jobs, if CR is marked for deletion", func() {
+			cr, r, cl := createDeployedCr(createStoragePoolWithTemplateCr())
+			scaleClusterNodesAndDsUp(1, 1, cr, r, cl)
+			// Expect 1 pods and 1 pvcs
+			verifyDeploymentsAndPVCs(1, 1, cr, r, cl)
+			deletionTime := metav1.NewTime(time.Now())
+
+			By("Marking CR as deleted, it should generate cleanup jobs after reconcile")
+			err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+			Expect(err).ToNot(HaveOccurred())
+			cr.DeletionTimestamp = &deletionTime
+			err = cl.Update(context.TODO(), cr)
+			Expect(err).ToNot(HaveOccurred())
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "test-name",
+					Namespace: testNamespace,
+				},
+			}
+			_, err = r.Reconcile(context.TODO(), req)
+			Expect(err).ToNot(HaveOccurred())
+			jobList := &batchv1.JobList{}
+			err = r.client.List(context.TODO(), jobList)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(jobList.Items)).To(Equal(1))
+			Expect(jobList.Items[0].GetName()).To(Equal("cleanup-pool-local-node1"))
+		})
 	})
 })
 
@@ -202,7 +232,7 @@ func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisio
 	Expect(err).ToNot(HaveOccurred())
 	for _, pvc := range pvcList.Items {
 		foundPVCs = append(foundPVCs, pvc.Name)
-		Expect(pvc.Name).To(ContainSubstring(cr.Spec.StoragePools[0].StorageClass.Name))
+		Expect(pvc.Name).To(ContainSubstring(*cr.Spec.StoragePools[0].StorageClass.PVCTemplate.StorageClassName))
 		Expect(pvc.Spec).To(BeEquivalentTo(*cr.Spec.StoragePools[0].StorageClass.PVCTemplate))
 	}
 	Expect(foundPVCs).ToNot(BeEmpty(), fmt.Sprintf("%v", foundPVCs))

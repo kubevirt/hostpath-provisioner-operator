@@ -55,6 +55,10 @@ var (
 		return exec.Command("/usr/bin/mount", source, target).CombinedOutput()
 	}
 
+	unmountPathCommand = func(target string) ([]byte, error) {
+		return exec.Command("/usr/bin/umount", target).CombinedOutput()
+	}
+
 	fsTypeCommand = func(source string) ([]byte, error) {
 		return exec.Command("/usr/sbin/blkid", source, "-s", "TYPE", "-o", "value").CombinedOutput()
 	}
@@ -107,11 +111,13 @@ func main() {
 		sourcePath string
 		targetPath string
 		hostPath   string
+		unmount    bool
 	)
 	flag.Set("logtostderr", "true")
 	flag.StringVar(&sourcePath, "storagePoolPath", "/source", "path the source storagePool is mounted under")
 	flag.StringVar(&targetPath, "mountPath", "/", "target path the volume should be mounted on the host")
 	flag.StringVar(&hostPath, "hostPath", "/", "path of the host in container")
+	flag.BoolVar(&unmount, "unmount", false, "set to have the target path unmounted")
 
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
@@ -135,24 +141,61 @@ func main() {
 
 	printVersion()
 
-	i := 0
-	for {
-		isBlock, err := isBlockDevice(sourcePath)
+	if unmount {
+		for {
+			if !unmountPath(targetPath, hostPath) {
+				time.Sleep(time.Second)
+			} else {
+				return
+			}
+		}
+	} else {
+		i := 0
+		for {
+			isBlock, err := isBlockDevice(sourcePath)
+			if err != nil {
+				panic(err)
+			}
+
+			if !isBlock {
+				mountFileSystemVolume(sourcePath, targetPath, hostPath)
+			} else {
+				mountBlockVolume(sourcePath, targetPath, hostPath)
+			}
+			time.Sleep(time.Second)
+			i++
+			if i%100 == 0 {
+				log.Info("Slept 100 seconds")
+			}
+		}
+	}
+}
+
+func unmountPath(targetPath, hostPath string) bool {
+	exit, err := chroot(hostPath)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := exit()
 		if err != nil {
 			panic(err)
 		}
-
-		if !isBlock {
-			mountFileSystemVolume(sourcePath, targetPath, hostPath)
-		} else {
-			mountBlockVolume(sourcePath, targetPath, hostPath)
-		}
-		time.Sleep(time.Second)
-		i++
-		if i%100 == 0 {
-			log.Info("Slept 100 seconds")
-		}
+	}()
+	beforeUnmountInfos, err := lookupFindmntInfoByVolume(targetPath)
+	if err != nil {
+		log.Error(err, "unable to determine volume info", "path", targetPath)
 	}
+	out, err := unmountPathCommand(targetPath)
+	if err != nil {
+		log.Error(err, "unable to determine filesystem type on device")
+		log.Info("Output", "out", string(out))
+	}
+	afterUnmountInfos, err := lookupFindmntInfoByVolume(targetPath)
+	if err != nil {
+		log.Error(err, "unable to determine volume info", "path", targetPath)
+	}
+	return beforeUnmountInfos[0].GetSourcePath() == afterUnmountInfos[0].GetSourcePath()
 }
 
 func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {

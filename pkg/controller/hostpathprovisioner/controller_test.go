@@ -504,7 +504,6 @@ func createStoragePoolWithTemplateVolumeModeCr(volumeMode *corev1.PersistentVolu
 					Name: "local",
 					Path: "/tmp/test",
 					StorageClass: &hppv1.SourceStorageClass{
-						Name: "local",
 						PVCTemplate: &corev1.PersistentVolumeClaimSpec{
 							StorageClassName: &scName,
 							VolumeMode:       volumeMode,

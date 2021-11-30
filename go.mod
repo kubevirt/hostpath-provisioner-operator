@@ -18,6 +18,7 @@ require (
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-sdk v0.16.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.19.0

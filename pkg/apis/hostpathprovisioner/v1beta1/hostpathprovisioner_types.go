@@ -104,7 +104,6 @@ const (
 // SourceStorageClass defines the storage class and PVC template to use when preparing storage.
 // +k8s:openapi-gen=true
 type SourceStorageClass struct {
-	Name        string                            `json:"name" valid:"required"`
 	PVCTemplate *corev1.PersistentVolumeClaimSpec `json:"pvcTemplate" valid:"required"`
 }
 

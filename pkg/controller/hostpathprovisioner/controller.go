@@ -67,6 +67,7 @@ func init() {
 
 const (
 	snapshotFeatureGate = "Snapshotting"
+	hppFinalizer        = "finalizer.delete.hostpath-provisioner"
 )
 
 func isErrCacheNotStarted(err error) bool {
@@ -324,13 +325,23 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 			return reconcile.Result{}, err
 		}
 
-		cr.SetFinalizers(nil)
-
-		// Update CR
-		err = r.client.Update(context, cr)
-		if err != nil {
-			reqLogger.Error(err, "Unable to remove finalizer from CR")
+		if err := r.cleanDeployments(reqLogger, cr, namespace); err != nil {
 			return reconcile.Result{}, err
+		}
+		deployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Number of deployments still active", "count", len(deployments))
+		if len(deployments) == 0 {
+			cr.SetFinalizers(nil)
+
+			// Update CR
+			err = r.client.Update(context, cr)
+			if err != nil {
+				reqLogger.Error(err, "Unable to remove finalizer from CR")
+				return reconcile.Result{}, err
+			}
 		}
 		return reconcile.Result{}, nil
 	}
@@ -566,13 +577,13 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 	return daemonSet.Status.NumberReady > 0
 }
 
-func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner) error {
-	if len(cr.GetFinalizers()) < 1 && cr.GetDeletionTimestamp() == nil {
+func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, obj client.Object) error {
+	if len(obj.GetFinalizers()) < 1 && obj.GetDeletionTimestamp() == nil {
 		reqLogger.Info("Adding deletion Finalizer")
-		cr.SetFinalizers([]string{"finalizer.delete.hostpath-provisioner"})
+		obj.SetFinalizers([]string{hppFinalizer})
 
 		// Update CR
-		err := r.client.Update(context.TODO(), cr)
+		err := r.client.Update(context.TODO(), obj)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update cr with finalizer")
 			return err
