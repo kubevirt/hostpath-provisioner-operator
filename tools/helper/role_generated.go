@@ -41,15 +41,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
-- apiGroups:
-  - ""
-  resources:
   - endpoints
   verbs:
   - get
@@ -182,4 +173,7 @@ rules:
   - jobs
   verbs:
   - create
+  - delete
+  - list
+  - watch
 `

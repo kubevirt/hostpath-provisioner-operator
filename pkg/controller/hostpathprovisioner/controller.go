@@ -19,6 +19,7 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
@@ -28,11 +29,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/api/meta/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -298,8 +299,26 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		return reconcile.Result{}, err
 	}
 
-	isMarkedToBeDeleted := cr.GetDeletionTimestamp() != nil
-	if isMarkedToBeDeleted {
+	if cr.GetDeletionTimestamp() != nil {
+		if err := r.cleanDeployments(reqLogger, cr, namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+		deployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Number of deployments still active", "count", len(deployments))
+		cleanupFinished, err := r.hasCleanUpFinished()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if len(deployments) == 0 && cleanupFinished {
+			if err := r.removeCleanUpJobs(reqLogger); err != nil {
+				return reconcile.Result{}, err
+			}
+		} else {
+			return reconcile.Result{RequeueAfter: time.Second}, nil
+		}
 		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", MultiPurposeHostPathProvisionerName)
 		if err := r.deleteSCC(MultiPurposeHostPathProvisionerName); err != nil {
 			reqLogger.Error(err, "Unable to delete SecurityContextConstraints")
@@ -325,24 +344,13 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 			reqLogger.Error(err, "Unable to delete CSIDriver")
 			return reconcile.Result{}, err
 		}
+		RemoveFinalizer(cr, hppFinalizer)
 
-		if err := r.cleanDeployments(reqLogger, cr, namespace); err != nil {
-			return reconcile.Result{}, err
-		}
-		deployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
+		// Update CR
+		err = r.client.Update(context, cr)
 		if err != nil {
+			reqLogger.Error(err, "Unable to remove finalizer from CR")
 			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Number of deployments still active", "count", len(deployments))
-		if len(deployments) == 0 {
-			RemoveFinalizer(cr, hppFinalizer)
-
-			// Update CR
-			err = r.client.Update(context, cr)
-			if err != nil {
-				reqLogger.Error(err, "Unable to remove finalizer from CR")
-				return reconcile.Result{}, err
-			}
 		}
 		return reconcile.Result{}, nil
 	}

@@ -573,17 +573,58 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 }
 
 func (r *ReconcileHostPathProvisioner) hasCleanUpFinished() (bool, error) {
-	jobList := &batchv1.JobList{}
-	if err := r.client.List(context.TODO(), jobList); err != nil {
+	jobs, err := r.getCleanUpJobs()
+	if err != nil {
 		return false, err
 	}
-	return len(jobList.Items) > 0, nil
+	finished := true
+	for _, job := range jobs {
+		if job.Status.Succeeded == int32(0) {
+			finished = false
+		}
+	}
+	return finished, nil
+}
+
+func (r *ReconcileHostPathProvisioner) removeCleanUpJobs(logger logr.Logger) error {
+	deletePropagationBackground := metav1.DeletePropagationBackground
+	jobs, err := r.getCleanUpJobs()
+	if err != nil {
+		return err
+	}
+	logger.Info("Found jobs", "count", len(jobs))
+	for _, job := range jobs {
+		logger.Info("Deleting job", "name", job.GetName())
+		if err := r.client.Delete(context.TODO(), &job, &client.DeleteOptions{
+			PropagationPolicy: &deletePropagationBackground,
+		}); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) getCleanUpJobs() ([]batchv1.Job, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			AppKubernetesManagedByLabel: "hostpath-provisioner-operator",
+		},
+	})
+	if err != nil {
+		return make([]batchv1.Job, 0), err
+	}
+	jobList := &batchv1.JobList{}
+	if err := r.client.List(context.TODO(), jobList, &client.ListOptions{
+		LabelSelector: selector,
+	}); err != nil {
+		return make([]batchv1.Job, 0), err
+	}
+	return jobList.Items, nil
 }
 
 func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, sourceStoragePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
 	args := getDaemonSetArgs(logger, namespace, false)
 	labels := getRecommendedLabels()
-	ttl := int32(10)
 	defaultGracePeriod := int64(30)
 	privileged := true
 	directory := corev1.HostPathDirectory
@@ -595,7 +636,6 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 			Labels:    labels,
 		},
 		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: &ttl,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            ProvisionerServiceAccountNameCsi,
