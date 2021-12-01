@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/api/meta/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -334,7 +335,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		}
 		reqLogger.Info("Number of deployments still active", "count", len(deployments))
 		if len(deployments) == 0 {
-			cr.SetFinalizers(nil)
+			RemoveFinalizer(cr, hppFinalizer)
 
 			// Update CR
 			err = r.client.Update(context, cr)
@@ -578,9 +579,9 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 }
 
 func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, obj client.Object) error {
-	if len(obj.GetFinalizers()) < 1 && obj.GetDeletionTimestamp() == nil {
+	if obj.GetDeletionTimestamp() == nil {
 		reqLogger.Info("Adding deletion Finalizer")
-		obj.SetFinalizers([]string{hppFinalizer})
+		AddFinalizer(obj, hppFinalizer)
 
 		// Update CR
 		err := r.client.Update(context.TODO(), obj)
@@ -610,4 +611,39 @@ func getHppList(c client.Client) (*hostpathprovisionerv1.HostPathProvisionerList
 	}
 
 	return hppList, nil
+}
+
+// AddFinalizer adds a finalizer to a resource
+func AddFinalizer(obj metav1.Object, name string) {
+	if HasFinalizer(obj, name) {
+		return
+	}
+
+	obj.SetFinalizers(append(obj.GetFinalizers(), name))
+}
+
+// RemoveFinalizer removes a finalizer from a resource
+func RemoveFinalizer(obj metav1.Object, name string) {
+	if !HasFinalizer(obj, name) {
+		return
+	}
+
+	var finalizers []string
+	for _, f := range obj.GetFinalizers() {
+		if f != name {
+			finalizers = append(finalizers, f)
+		}
+	}
+
+	obj.SetFinalizers(finalizers)
+}
+
+// HasFinalizer returns true if a resource has a specific finalizer
+func HasFinalizer(object metav1.Object, value string) bool {
+	for _, f := range object.GetFinalizers() {
+		if f == value {
+			return true
+		}
+	}
+	return false
 }
