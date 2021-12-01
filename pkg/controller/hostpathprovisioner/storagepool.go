@@ -366,6 +366,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 					},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            ProvisionerServiceAccountNameCsi,
 					RestartPolicy:                 corev1.RestartPolicyAlways,
 					SchedulerName:                 corev1.DefaultSchedulerName,
 					TerminationGracePeriodSeconds: &defaultGracePeriod,
@@ -597,6 +598,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 			TTLSecondsAfterFinished: &ttl,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					ServiceAccountName:            ProvisionerServiceAccountNameCsi,
 					RestartPolicy:                 corev1.RestartPolicyOnFailure,
 					SchedulerName:                 corev1.DefaultSchedulerName,
 					TerminationGracePeriodSeconds: &defaultGracePeriod,
