@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -40,6 +41,12 @@ var (
 					Path: "test",
 				},
 			},
+		},
+	}
+
+	invalidPathConfigCR = HostPathProvisioner{
+		Spec: HostPathProvisionerSpec{
+			PathConfig: &PathConfig{},
 		},
 	}
 
@@ -100,9 +107,9 @@ var (
 		Spec: HostPathProvisionerSpec{
 			StoragePools: []StoragePool{
 				{
-					Name:         "test",
-					Path:         "test",
-					StorageClass: &SourceStorageClass{},
+					Name:        "test",
+					Path:        "test",
+					PVCTemplate: &corev1.PersistentVolumeClaimSpec{},
 				},
 			},
 		},
@@ -128,6 +135,9 @@ var _ = Describe("validating webhook", func() {
 		It("Cannot have blank path in volume source", func() {
 			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 			Expect(blankPathCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+		})
+		It("If pathConfig exists, path must be set", func() {
+			Expect(invalidPathConfigCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
 		})
 	})
 

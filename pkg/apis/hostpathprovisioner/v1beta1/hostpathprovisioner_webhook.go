@@ -54,6 +54,9 @@ func (r *HostPathProvisioner) validatePathConfigAndStoragePools() error {
 	} else if r.Spec.PathConfig == nil && len(r.Spec.StoragePools) == 0 {
 		return fmt.Errorf("either pathConfig or storage pools must be set")
 	}
+	if r.Spec.PathConfig != nil && len(r.Spec.PathConfig.Path) == 0 {
+		return fmt.Errorf("pathconfig path must be set")
+	}
 	if len(r.Spec.StoragePools) > 1 {
 		return fmt.Errorf("currently only 1 storage pool is supported")
 	}

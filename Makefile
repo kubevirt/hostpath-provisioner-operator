@@ -21,6 +21,9 @@ all: test build
 operator:
 	GOLANG_VER=${GOLANG_VER} ./hack/build-operator.sh
 
+mounter:
+	GOLANG_VER=${GOLANG_VER} ./hack/build-mounter.sh
+
 csv-generator:
 	GOLANG_VER=${GOLANG_VER} ./hack/build-csv-generator.sh
 
@@ -28,7 +31,7 @@ crd-generator: generate-crd
 	GOLANG_VER=${GOLANG_VER} ./hack/build-crd-generator.sh
 	_out/crd-generator --sourcefile=./deploy/operator.yaml --outputDir=./tools/helper
 
-image: operator csv-generator
+image: operator mounter csv-generator
 	TAG=$(TAG) ./hack/version.sh ./_out; \
 	docker build -t $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG) -f Dockerfile .
 

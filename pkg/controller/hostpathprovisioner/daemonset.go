@@ -56,13 +56,8 @@ var (
 	}
 )
 
-//StoragePoolInfo contains the name and path of a hostpath storage pool.
-type StoragePoolInfo struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
-
 type daemonSetArgs struct {
+	operatorImage                        string
 	provisionerImage                     string
 	externalHealthMonitorControllerImage string
 	nodeDriverRegistrarImage             string
@@ -209,6 +204,11 @@ func getDaemonSetArgs(reqLogger logr.Logger, namespace string, legacyProvisioner
 		if res.csiProvisionerImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiSigStorageProvisionerImageEnvVarName, CsiSigStorageProvisionerImageDefault))
 			res.csiProvisionerImage = CsiSigStorageProvisionerImageDefault
+		}
+		res.operatorImage = os.Getenv(operatorImageEnvVarName)
+		if res.operatorImage == "" {
+			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", operatorImageEnvVarName, OperatorImageDefault))
+			res.operatorImage = OperatorImageDefault
 		}
 	}
 	res.namespace = namespace
@@ -451,12 +451,14 @@ func buildVolumesFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.Vo
 }
 
 func buildVolumeMountsFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.VolumeMount {
+	hostToContainer := corev1.MountPropagationHostToContainer
 	mounts := make([]corev1.VolumeMount, 0)
 	for _, storagePool := range storagePools {
 		mountName := getMountNameFromStoragePool(storagePool.Name)
 		mounts = append(mounts, corev1.VolumeMount{
-			Name:      mountName,
-			MountPath: fmt.Sprintf("/%s", mountName),
+			Name:             mountName,
+			MountPath:        fmt.Sprintf("/%s", mountName),
+			MountPropagation: &hostToContainer,
 		})
 	}
 	return mounts

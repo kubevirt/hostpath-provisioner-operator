@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -73,6 +74,9 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 
 			// Service Account created successfully - don't requeue
 			r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+			if err := r.deleteRunningPodsWithSa(desired.Name, cr.Namespace); err != nil {
+				return reconcile.Result{}, err
+			}
 			continue
 		} else if err != nil {
 			return reconcile.Result{}, err
@@ -108,6 +112,56 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 		reqLogger.V(3).Info("Skip reconcile: Service Account already exists", "ServiceAccount.Namespace", found.Namespace, "ServiceAccount.Name", found.Name)
 	}
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileHostPathProvisioner) deleteRunningPodsWithSa(name, namespace string) error {
+	// If there are running pods while the sa gets deleted, these pods are no longer authenticated
+	// we need to delete those pods and let the appropriate daemonset/deployment(s) recreate them. Since
+	// we don't have permission to delete pods, we should delete the daemonset/deployment(s) instead and
+	// let the operator recreate them.
+	r.Log.WithValues("Service Account Name", name, "Namespace", namespace).Info("Checking for daemonsets")
+	if err := r.deleteDaemonSetWithSa(name, namespace); err != nil {
+		return err
+	}
+	r.Log.WithValues("Service Account Name", name, "Namespace", namespace).Info("Checking for deployments")
+	if err := r.deleteDeploymentsWithSa(name, namespace); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) deleteDaemonSetWithSa(name, namespace string) error {
+	dsList := &appsv1.DaemonSetList{}
+	if err := r.client.List(context.TODO(), dsList, &client.ListOptions{Namespace: namespace}); err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Error with list", "error")
+		return err
+	}
+
+	for _, ds := range dsList.Items {
+		if ds.Spec.Template.Spec.ServiceAccountName == name && ds.Status.NumberAvailable > 0 {
+			if err := r.client.Delete(context.TODO(), &ds); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Error with delete", "error")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) deleteDeploymentsWithSa(name, namespace string) error {
+	deploymentList := &appsv1.DeploymentList{}
+	if err := r.client.List(context.TODO(), deploymentList, &client.ListOptions{Namespace: namespace}); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	for _, deployment := range deploymentList.Items {
+		if deployment.Spec.Template.Spec.ServiceAccountName == name && deployment.Status.ReadyReplicas > 0 {
+			if err := r.client.Delete(context.TODO(), &deployment); err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileHostPathProvisioner) deleteServiceAccount(name, namespace string) error {

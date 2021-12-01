@@ -60,8 +60,8 @@ type HostPathProvisionerStatus struct {
 type StoragePool struct {
 	// Name specifies an identifier that is used in the storage class arguments to identify the source to use.
 	Name string `json:"name" valid:"required"`
-	// StorageClass specifies which storage class to use to create PersistVolumeClaims that will be used to mount on the node. The volume will be mounted on the path specified in the storage pool
-	StorageClass *SourceStorageClass `json:"storageClass,omitempty" optional:"true"`
+	// PVCTemplate is the template of the PVC to create as the source volume
+	PVCTemplate *corev1.PersistentVolumeClaimSpec `json:"pvcTemplate,omitempty" optional:"true"`
 	// path the path to use on the host, this is a required field
 	Path string `json:"path" valid:"required"`
 }
@@ -100,13 +100,6 @@ const (
 	// StoragePoolReady indicates all the volumes are ready for use.
 	StoragePoolReady StoragePoolPhase = "Ready"
 )
-
-// SourceStorageClass defines the storage class and PVC template to use when preparing storage.
-// +k8s:openapi-gen=true
-type SourceStorageClass struct {
-	Name        string                            `json:"name" valid:"required"`
-	PVCTemplate *corev1.PersistentVolumeClaimSpec `json:"pvcTemplate" valid:"required"`
-}
 
 // this has to be here otherwise informer-gen doesn't recognize it
 // see https://github.com/kubernetes/code-generator/issues/59

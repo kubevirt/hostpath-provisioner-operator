@@ -44,6 +44,8 @@ spec:
               fieldPath: metadata.labels['app.kubernetes.io/version']
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
+        - name: OPERATOR_IMAGE
+          value: quay.io/kubevirt/hostpath-provisioner-operator:latest
         - name: PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-provisioner:latest
         - name: CSI_PROVISIONER_IMAGE

@@ -19,6 +19,7 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
@@ -32,6 +33,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -67,6 +69,7 @@ func init() {
 
 const (
 	snapshotFeatureGate = "Snapshotting"
+	hppFinalizer        = "finalizer.delete.hostpath-provisioner"
 )
 
 func isErrCacheNotStarted(err error) bool {
@@ -133,6 +136,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &appsv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
 	})
@@ -288,8 +299,26 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		return reconcile.Result{}, err
 	}
 
-	isMarkedToBeDeleted := cr.GetDeletionTimestamp() != nil
-	if isMarkedToBeDeleted {
+	if cr.GetDeletionTimestamp() != nil {
+		if err := r.cleanDeployments(reqLogger, cr, namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+		deployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Number of deployments still active", "count", len(deployments))
+		cleanupFinished, err := r.hasCleanUpFinished()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if len(deployments) == 0 && cleanupFinished {
+			if err := r.removeCleanUpJobs(reqLogger); err != nil {
+				return reconcile.Result{}, err
+			}
+		} else {
+			return reconcile.Result{RequeueAfter: time.Second}, nil
+		}
 		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", MultiPurposeHostPathProvisionerName)
 		if err := r.deleteSCC(MultiPurposeHostPathProvisionerName); err != nil {
 			reqLogger.Error(err, "Unable to delete SecurityContextConstraints")
@@ -315,8 +344,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 			reqLogger.Error(err, "Unable to delete CSIDriver")
 			return reconcile.Result{}, err
 		}
-
-		cr.SetFinalizers(nil)
+		RemoveFinalizer(cr, hppFinalizer)
 
 		// Update CR
 		err = r.client.Update(context, cr)
@@ -379,16 +407,16 @@ func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, 
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if err := r.reconcileStoragePool(reqLogger, cr, namespace); err != nil {
+	if err := r.reconcileStoragePoolStatus(reqLogger, cr, namespace); err != nil {
 		return reconcile.Result{}, err
 	}
 	if !degraded && cr.Status.ObservedVersion != versionString {
 		cr.Status.ObservedVersion = versionString
-		err = r.client.Update(context, cr)
-		if err != nil {
-			// Error updating the object - requeue the request.
-			return reconcile.Result{}, err
-		}
+	}
+	err = r.client.Update(context, cr)
+	if err != nil {
+		// Error updating the object - requeue the request.
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
@@ -449,47 +477,53 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	// Reconcile the objects this operator manages.
 	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create DaemonSet")
+		reqLogger.Error(err, "unable to create DaemonSet")
+		return res, err
+	}
+	// Reconcile storage pools
+	res, err = r.reconcileStoragePools(reqLogger, cr, namespace)
+	if err != nil {
+		reqLogger.Error(err, "unable to configure storage pools")
 		return res, err
 	}
 	res, err = r.reconcileServiceAccount(reqLogger, cr, namespace)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create ServiceAccount")
+		reqLogger.Error(err, "unable to create ServiceAccount")
 		return res, err
 	}
 	res, err = r.reconcileClusterRole(reqLogger, cr, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create ClusterRole")
+		reqLogger.Error(err, "unable to create ClusterRole")
 		return res, err
 	}
 	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create ClusterRoleBinding")
+		reqLogger.Error(err, "unable to create ClusterRoleBinding")
 		return res, err
 	}
 	res, err = r.reconcileRole(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create Role")
+		reqLogger.Error(err, "unable to create Role")
 		return res, err
 	}
 	res, err = r.reconcileRoleBinding(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create RoleBinding")
+		reqLogger.Error(err, "unable to create RoleBinding")
 		return res, err
 	}
 	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create CSIDriver")
+		reqLogger.Error(err, "unable to create CSIDriver")
 		return res, err
 	}
 	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create SecurityContextConstraints")
+		reqLogger.Error(err, "unable to create SecurityContextConstraints")
 		return res, err
 	}
 	res, err = r.reconcilePrometheusInfra(reqLogger, cr, namespace, r.recorder)
 	if err != nil {
-		reqLogger.Error(err, "Unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
+		reqLogger.Error(err, "unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
 		return res, err
 	}
 	daemonSet := &appsv1.DaemonSet{}
@@ -500,11 +534,9 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi); err != nil {
 		return reconcile.Result{}, err
 	}
-	if checkApplicationAvailable(daemonSet) && checkApplicationAvailable(daemonSetCsi) {
-		if !IsCrHealthy(cr) {
-			r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
-		}
+	if checkDaemonSetReady(daemonSet) && checkDaemonSetReady(daemonSetCsi) {
 		MarkCrHealthyMessage(cr, "Complete", "Application Available")
+		r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 	}
 	return res, nil
 }
@@ -554,13 +586,13 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 	return daemonSet.Status.NumberReady > 0
 }
 
-func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner) error {
-	if len(cr.GetFinalizers()) < 1 && cr.GetDeletionTimestamp() == nil {
+func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, obj client.Object) error {
+	if obj.GetDeletionTimestamp() == nil {
 		reqLogger.Info("Adding deletion Finalizer")
-		cr.SetFinalizers([]string{"finalizer.delete.hostpath-provisioner"})
+		AddFinalizer(obj, hppFinalizer)
 
 		// Update CR
-		err := r.client.Update(context.TODO(), cr)
+		err := r.client.Update(context.TODO(), obj)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update cr with finalizer")
 			return err
@@ -587,4 +619,39 @@ func getHppList(c client.Client) (*hostpathprovisionerv1.HostPathProvisionerList
 	}
 
 	return hppList, nil
+}
+
+// AddFinalizer adds a finalizer to a resource
+func AddFinalizer(obj metav1.Object, name string) {
+	if HasFinalizer(obj, name) {
+		return
+	}
+
+	obj.SetFinalizers(append(obj.GetFinalizers(), name))
+}
+
+// RemoveFinalizer removes a finalizer from a resource
+func RemoveFinalizer(obj metav1.Object, name string) {
+	if !HasFinalizer(obj, name) {
+		return
+	}
+
+	var finalizers []string
+	for _, f := range obj.GetFinalizers() {
+		if f != name {
+			finalizers = append(finalizers, f)
+		}
+	}
+
+	obj.SetFinalizers(finalizers)
+}
+
+// HasFinalizer returns true if a resource has a specific finalizer
+func HasFinalizer(object metav1.Object, value string) bool {
+	for _, f := range object.GetFinalizers() {
+		if f == value {
+			return true
+		}
+	}
+	return false
 }

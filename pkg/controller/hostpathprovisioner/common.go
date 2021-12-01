@@ -34,6 +34,7 @@ const (
 	// CsiSigStorageProvisionerImageDefault is the default value of the sig storage csi provisioner side car container image name.
 	CsiSigStorageProvisionerImageDefault = "k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1"
 
+	operatorImageEnvVarName                        = "OPERATOR_IMAGE"
 	provisionerImageEnvVarName                     = "PROVISIONER_IMAGE"
 	csiProvisionerImageEnvVarName                  = "CSI_PROVISIONER_IMAGE"
 	externalHealthMonitorControllerImageEnvVarName = "EXTERNAL_HEALTH_MON_IMAGE"

@@ -34,7 +34,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.HostPathProvisionerStatus": schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerStatus(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement":             schema_pkg_apis_hostpathprovisioner_v1beta1_NodePlacement(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.PathConfig":                schema_pkg_apis_hostpathprovisioner_v1beta1_PathConfig(ref),
-		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass":        schema_pkg_apis_hostpathprovisioner_v1beta1_SourceStorageClass(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePool":               schema_pkg_apis_hostpathprovisioner_v1beta1_StoragePool(ref),
 	}
 }
@@ -311,34 +310,6 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_PathConfig(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_hostpathprovisioner_v1beta1_SourceStorageClass(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "SourceStorageClass defines the storage class and PVC template to use when preparing storage.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"pvcTemplate": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
-						},
-					},
-				},
-				Required: []string{"name", "pvcTemplate"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimSpec"},
-	}
-}
-
 func schema_pkg_apis_hostpathprovisioner_v1beta1_StoragePool(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -354,10 +325,10 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_StoragePool(ref common.Referenc
 							Format:      "",
 						},
 					},
-					"storageClass": {
+					"pvcTemplate": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StorageClass specifies which storage class to use to create PersistVolumeClaims that will be used to mount on the node. The volume will be mounted on the path specified in the storage pool",
-							Ref:         ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass"),
+							Description: "PVCTemplate is the template of the PVC to create as the source volume",
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
 						},
 					},
 					"path": {
@@ -373,6 +344,6 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_StoragePool(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.SourceStorageClass"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimSpec"},
 	}
 }
