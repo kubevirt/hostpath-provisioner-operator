@@ -16,10 +16,8 @@ If you want to change the namespace in which you create the provisioner, make su
 
 Once you have installed the operator, you need to create an instance of the Custom Resource to deploy the hostpath provisioner in the hostpath-provisioner namespace.
 
-### Custom Resource (CR)
+### Custom Resource with storage pool (CR)
 [Example CR](deploy/hostpathprovisioner_cr.yaml) allows you specify the storage pool you wish to use as the backing storage for the persistent volumes. You specify the path to use to create volumes on the node, and the name of the storage pool. The name of the storage pool is used in the storage class to identify the pool.
-
-(Once implemented) One can specify a storage class (and pvc template) that will be used to create PVC against, and those PVCs will be mounted by a pod that mounts the PV into the host on the specified path. Then the hostpath provisioner will created directories in that volume.
 
 ```yaml
 apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
@@ -35,7 +33,7 @@ spec:
     nodeSelector:
       kubernetes.io/os: linux
 ```
-This example names the storage pool 'local' and the path used is '/var/hpvolumes'. No storage class and pvc template is defined so the directories will be created on the node filesystem in the specified path. The [matching storage class](deploy/storageclass-wffc-csi.yaml) looks like this:
+This example names the storage pool 'local' and the path used is '/var/hpvolumes'. No pvc template is defined so the directories will be created on the node filesystem in the specified path. The [matching storage class](deploy/storageclass-wffc-csi.yaml) looks like this:
 ```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -49,7 +47,44 @@ parameters:
 ```
 Notice the storagePool parameter. This lets the provisioner know which pool to use. Once multiple pools are supported you can create multiple storage classes, each pointing to a different pool.
 
-#### Legacy CR
+### Custom Resource with PVCTemplate storage pool
+[Example CR](deploy/hostpathprovisioner_pvctemplate_cr.yaml) allows you specify the storage pool you wish to use as the backing storage for the persistent volumes. You specify the path to use to create volumes on the node, and the name of the storage pool. The name of the storage pool is used in the storage class to identify the pool. You also specified the PVC template to use. This causes the operator to create PVCs for each node that match the workload nodeSelector and a pod that mounts that PVC on to the node at the path specified. The hpp csi driver will then use the PVC to create directories on. If the storageClassName is not specified the default storage class will be used.
+
+```yaml
+apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
+kind: HostPathProvisioner
+metadata:
+  name: hostpath-provisioner
+spec:
+  imagePullPolicy: Always
+  storagePools:
+    - name: "local"
+      pvcTemplate:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+      path: "/var/hpvolumes"
+  workload:
+    nodeSelector:
+      kubernetes.io/os: linux
+```
+This example names the storage pool 'local' and the path used is '/var/hpvolumes'. The [matching storage class](deploy/storageclass-wffc-csi.yaml) looks like this:
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: hostpath-csi
+provisioner: kubevirt.io.hostpath-provisioner
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  storagePool: local
+```
+Notice the storagePool parameter. This lets the provisioner know which pool to use. Once multiple pools are supported you can create multiple storage classes, each pointing to a different pool.
+
+### Legacy CR
 If you are using a previous version of the hostpath provisioner operator your CR will look like this:
 ```yaml
 apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
