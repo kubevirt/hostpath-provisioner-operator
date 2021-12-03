@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +36,7 @@ const (
 	driverName = "kubevirt.io.hostpath-provisioner"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new CSIDriver object
 	desired := createCSIDriverObject(namespace)
 
@@ -50,11 +49,11 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 		reqLogger.Info("Creating a new CSI Driver", "CSIDriver.Name", desired.Name)
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 		// CSIDriver created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -75,14 +74,12 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 	// CSIDriver already exists, check if we need to update.
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating CSIDriver", "CSIDriver.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
+		// Current is different from desired, delete. CSIDriver object is immutable, so need to recreate.
+		reqLogger.Info("Deleting CSIDriver so we can update", "CSIDriver.Name", desired.GetName())
+		err = r.client.Delete(context.TODO(), merged)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 	// CSIDriver already exists and matches the desired state - don't requeue

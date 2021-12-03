@@ -120,14 +120,14 @@ var _ = Describe("Controller reconcile loop", func() {
 			Expect(foundVolume).To(BeTrue(), "did not find expected volume path /tmp/test")
 		})
 
-		table.DescribeTable("Should fix a changed legacy daemonSet", func(cr *hppv1.HostPathProvisioner) {
+		It("Should fix a changed legacy daemonSet", func() {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
 					Namespace: testNamespace,
 				},
 			}
-			cr, r, cl = createDeployedCr(cr)
+			_, r, cl = createDeployedCr(createLegacyCr())
 			// Now modify the daemonSet to something not desired.
 			ds := &appsv1.DaemonSet{
 				ObjectMeta: v1.ObjectMeta{
@@ -155,11 +155,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			err = cl.Get(context.TODO(), dsNN, ds)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(legacyVolume))
-		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
-		)
+		})
 
 		table.DescribeTable("Should fix a changed csi daemonSet", func(cr *hppv1.HostPathProvisioner) {
 			req := reconcile.Request{

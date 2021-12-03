@@ -17,6 +17,7 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -41,43 +42,49 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		table.DescribeTable("Should fix a changed SecurityContextConstraints", func(cr *hppv1.HostPathProvisioner) {
+		table.DescribeTable("Should fix a changed SecurityContextConstraints", func(cr *hppv1.HostPathProvisioner, names ...string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
 					Namespace: testNamespace,
 				},
 			}
-			sccNN := types.NamespacedName{
-				Name: MultiPurposeHostPathProvisionerName,
+			for _, name := range names {
+				sccNN := types.NamespacedName{
+					Name: name,
+				}
+				_, r, cl := createDeployedCr(cr)
+				// Now modify the SCC to something not desired.
+				scc := &secv1.SecurityContextConstraints{}
+				err := cl.Get(context.TODO(), sccNN, scc)
+				Expect(err).NotTo(HaveOccurred())
+				scc.AllowPrivilegedContainer = true
+				err = cl.Update(context.TODO(), scc)
+				Expect(err).NotTo(HaveOccurred())
+				// Verify allowPrivileged is true
+				scc = &secv1.SecurityContextConstraints{}
+				err = cl.Get(context.TODO(), sccNN, scc)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(scc.AllowPrivilegedContainer).To(BeTrue())
+				// Run the reconcile loop
+				res, err := r.Reconcile(context.TODO(), req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res.Requeue).To(BeFalse())
+				// Verify allowPrivileged is false
+				scc = &secv1.SecurityContextConstraints{}
+				err = cl.Get(context.TODO(), sccNN, scc)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(scc.AllowPrivilegedContainer).To(Equal(MultiPurposeHostPathProvisionerName != name))
+				if name == MultiPurposeHostPathProvisionerName {
+					Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
+				} else {
+					Expect(scc.Volumes).To(ContainElements(secv1.FSTypeAll))
+				}
 			}
-			cr, r, cl := createDeployedCr(cr)
-			// Now modify the SCC to something not desired.
-			scc := &secv1.SecurityContextConstraints{}
-			err := cl.Get(context.TODO(), sccNN, scc)
-			Expect(err).NotTo(HaveOccurred())
-			scc.AllowPrivilegedContainer = true
-			err = cl.Update(context.TODO(), scc)
-			Expect(err).NotTo(HaveOccurred())
-			// Verify allowPrivileged is true
-			scc = &secv1.SecurityContextConstraints{}
-			err = cl.Get(context.TODO(), sccNN, scc)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(scc.AllowPrivilegedContainer).To(BeTrue())
-			// Run the reconcile loop
-			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
-			// Verify allowPrivileged is false
-			scc = &secv1.SecurityContextConstraints{}
-			err = cl.Get(context.TODO(), sccNN, scc)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(scc.AllowPrivilegedContainer).To(BeFalse())
-			Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			table.Entry("legacyCr", createLegacyCr(), MultiPurposeHostPathProvisionerName, fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
+			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
+			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
 		)
 
 	})

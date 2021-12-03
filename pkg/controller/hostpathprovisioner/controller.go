@@ -277,7 +277,11 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	reqLogger.Info("Reconciling CSI and legacy controller plugin")
+	if r.isLegacy(cr) {
+		reqLogger.Info("Detected legacy CR, Reconciling CSI and legacy controller plugin")
+	} else {
+		reqLogger.Info("Detected CSI CR, reconciling CSI only")
+	}
 
 	// Ready metric so we can alert whenever we are not ready for a while
 	if IsHppAvailable(cr) {
@@ -401,6 +405,10 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 	return res, err
 }
 
+func (r *ReconcileHostPathProvisioner) isLegacy(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
+	return cr.Spec.PathConfig != nil
+}
+
 func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace, versionString string) (reconcile.Result, error) {
 	// Check if all requested pods are available.
 	degraded, err := r.checkDegraded(reqLogger, cr, namespace)
@@ -475,7 +483,7 @@ func canUpgrade(current, target string) (bool, error) {
 
 func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, request reconcile.Request, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Reconcile the objects this operator manages.
-	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace, r.recorder)
+	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create DaemonSet")
 		return res, err
@@ -491,50 +499,52 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		reqLogger.Error(err, "unable to create ServiceAccount")
 		return res, err
 	}
-	res, err = r.reconcileClusterRole(reqLogger, cr, r.recorder)
+	res, err = r.reconcileClusterRole(reqLogger, cr)
 	if err != nil {
 		reqLogger.Error(err, "unable to create ClusterRole")
 		return res, err
 	}
-	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace, r.recorder)
+	res, err = r.reconcileClusterRoleBinding(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create ClusterRoleBinding")
 		return res, err
 	}
-	res, err = r.reconcileRole(reqLogger, cr, namespace, r.recorder)
+	res, err = r.reconcileRole(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create Role")
 		return res, err
 	}
-	res, err = r.reconcileRoleBinding(reqLogger, cr, namespace, r.recorder)
+	res, err = r.reconcileRoleBinding(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create RoleBinding")
 		return res, err
 	}
-	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace, r.recorder)
+	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create CSIDriver")
 		return res, err
 	}
-	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace, r.recorder)
+	res, err = r.reconcileSecurityContextConstraints(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create SecurityContextConstraints")
 		return res, err
 	}
-	res, err = r.reconcilePrometheusInfra(reqLogger, cr, namespace, r.recorder)
+	res, err = r.reconcilePrometheusInfra(reqLogger, cr, namespace)
 	if err != nil {
 		reqLogger.Error(err, "unable to create Prometheus Infra (PrometheusRule, ServiceMonitor, RBAC)")
 		return res, err
 	}
 	daemonSet := &appsv1.DaemonSet{}
-	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet); err != nil {
-		return reconcile.Result{}, err
+	if r.isLegacy(cr) {
+		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	daemonSetCsi := &appsv1.DaemonSet{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi); err != nil {
 		return reconcile.Result{}, err
 	}
-	if checkDaemonSetReady(daemonSet) && checkDaemonSetReady(daemonSetCsi) {
+	if (!r.isLegacy(cr) || checkDaemonSetReady(daemonSet)) && checkDaemonSetReady(daemonSetCsi) {
 		MarkCrHealthyMessage(cr, "Complete", "Application Available")
 		r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 	}
@@ -545,17 +555,19 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 	degraded := false
 
 	daemonSet := &appsv1.DaemonSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet)
-	if err != nil {
-		return true, err
+	if r.isLegacy(cr) {
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: MultiPurposeHostPathProvisionerName, Namespace: namespace}, daemonSet)
+		if err != nil {
+			return true, err
+		}
 	}
 	daemonSetCsi := &appsv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName), Namespace: namespace}, daemonSetCsi)
 	if err != nil {
 		return true, err
 	}
 
-	if !(checkDaemonSetReady(daemonSet) && checkDaemonSetReady(daemonSetCsi)) {
+	if !((!r.isLegacy(cr) || checkDaemonSetReady(daemonSet)) && checkDaemonSetReady(daemonSetCsi)) {
 		degraded = true
 	}
 

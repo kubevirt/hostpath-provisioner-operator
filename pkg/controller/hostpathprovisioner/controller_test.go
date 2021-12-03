@@ -563,11 +563,14 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeTrue())
 	Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeFalse())
 	// Verify all the different objects are created.
-	verifyCreateDaemonSet(r.client)
+	if r.isLegacy(cr) {
+		verifyCreateDaemonSet(r.client)
+		verifyCreateServiceAccount(r.client, ProvisionerServiceAccountName)
+		verifyCreateClusterRole(r.client)
+		verifyCreateClusterRoleBinding(r.client)
+	}
 	verifyCreateDaemonSetCsi(r.client)
-	verifyCreateServiceAccount(r.client)
-	verifyCreateClusterRole(r.client)
-	verifyCreateClusterRoleBinding(r.client)
+	verifyCreateServiceAccount(r.client, ProvisionerServiceAccountNameCsi)
 	verifyCreateCSIClusterRole(r.client, false)
 	verifyCreateCSIClusterRoleBinding(r.client)
 	verifyCreateCSIRole(r.client)
@@ -576,19 +579,20 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	verifyCreateSCC(r.client)
 	verifyCreatePrometheusResources(r.client)
 
-	// Now make the daemonSet available, and reconcile again.
-	ds := &appsv1.DaemonSet{}
-	dsNN := types.NamespacedName{
-		Name:      MultiPurposeHostPathProvisionerName,
-		Namespace: testNamespace,
+	if r.isLegacy(cr) {
+		// Now make the daemonSet available, and reconcile again.
+		ds := &appsv1.DaemonSet{}
+		dsNN := types.NamespacedName{
+			Name:      MultiPurposeHostPathProvisionerName,
+			Namespace: testNamespace,
+		}
+		err = cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		ds.Status.NumberReady = 2
+		ds.Status.DesiredNumberScheduled = 2
+		err = cl.Update(context.TODO(), ds)
+		Expect(err).NotTo(HaveOccurred())
 	}
-	err = cl.Get(context.TODO(), dsNN, ds)
-	Expect(err).NotTo(HaveOccurred())
-	ds.Status.NumberReady = 2
-	ds.Status.DesiredNumberScheduled = 2
-	err = cl.Update(context.TODO(), ds)
-	Expect(err).NotTo(HaveOccurred())
-
 	// Now make the csi daemonSet available, and reconcile again.
 	dsCsi := &appsv1.DaemonSet{}
 	dsNNCsi := types.NamespacedName{
@@ -666,15 +670,16 @@ func verifyCreateDaemonSetCsi(cl client.Client) {
 	))
 }
 
-func verifyCreateServiceAccount(cl client.Client) {
-	sa := &corev1.ServiceAccount{}
-	nn := types.NamespacedName{
-		Name:      ProvisionerServiceAccountName,
-		Namespace: testNamespace,
+func verifyCreateServiceAccount(cl client.Client, name string) {
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNamespace,
+		},
 	}
-	err := cl.Get(context.TODO(), nn, sa)
+	err := cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(sa.ObjectMeta.Name).To(Equal(ProvisionerServiceAccountName))
+	Expect(sa.ObjectMeta.Name).To(Equal(name))
 	Expect(sa.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 

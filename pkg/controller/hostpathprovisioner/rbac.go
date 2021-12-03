@@ -22,55 +22,52 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	var result reconcile.Result
-	var err error
+func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new ClusterRoleBinding object
-	result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
-	if err != nil {
+	if err := r.reconcileRbacResource(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), createClusterRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), cr); err != nil {
 		return reconcile.Result{}, err
 	}
-	result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createClusterRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
-	if err != nil {
+	if err := r.reconcileRbacResource(reqLogger.WithName("Health Check RBAC"), createClusterRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), createClusterRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), cr); err != nil {
 		return reconcile.Result{}, err
 	}
-	result, err = r.reconcileClusterRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(MultiPurposeHostPathProvisionerName, namespace, ProvisionerServiceAccountName), cr, namespace, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return result, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBindingForSa(reqLogger logr.Logger, desired *rbacv1.ClusterRoleBinding, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	setLastAppliedConfiguration(desired)
-	// Check if this ClusterRoleBinding already exists
-	found := &rbacv1.ClusterRoleBinding{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+	if r.isLegacy(cr) {
+		if err := r.reconcileRbacResource(reqLogger.WithName("Provisioner RBAC"), createClusterRoleBindingObject(MultiPurposeHostPathProvisionerName, namespace, ProvisionerServiceAccountName), createClusterRoleBindingObject(MultiPurposeHostPathProvisionerName, namespace, ProvisionerServiceAccountName), cr); err != nil {
 			return reconcile.Result{}, err
 		}
+	} else {
+		if err := r.deleteClusterRoleBindingObject(MultiPurposeHostPathProvisionerName); err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+	}
+	return reconcile.Result{}, nil
+}
 
-		// ClusterRoleBinding created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
+func (r *ReconcileHostPathProvisioner) reconcileRbacResource(reqLogger logr.Logger, desired, found client.Object, cr *hostpathprovisionerv1.HostPathProvisioner) error {
+	setLastAppliedConfiguration(desired)
+	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(found), found)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Rbac Resource", "Name", desired.GetName())
+		err = r.client.Create(context.TODO(), desired)
+		if err != nil {
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.GetName(), err))
+			return err
+		}
+
+		// Resource created successfully - don't requeue
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.GetName()))
+		return nil
 	} else if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// Keep a copy of the original for comparison later.
@@ -82,26 +79,26 @@ func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBindingForSa(reqLogge
 	// create merged ClusterRoleBinding from found and desired.
 	merged, err := mergeObject(desired, found)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
-	// ClusterRoleBinding already exists, check if we need to update.
+	// Rbac resource already exists, check if we need to update.
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
-		reqLogger.Info("Updating ClusterRoleBinding", "ClusterRoleBinding.Name", desired.Name)
+		reqLogger.Info("Updating Rbac resouce", "Name", desired.GetName())
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
+			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.GetName(), err))
+			return err
 		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.GetName()))
+		return nil
 	}
 
-	// ClusterRoleBinding already exists and matches the desired state - don't requeue
-	reqLogger.V(3).Info("Skip reconcile: ClusterRoleBinding already exists", "ClusterRoleBinding.Name", found.Name)
-	return reconcile.Result{}, nil
+	// Rbac resource already exists and matches the desired state - don't requeue
+	reqLogger.V(3).Info("Skip reconcile: Rbac Resource already exists", "Name", found.GetName())
+	return nil
 }
 
 func createClusterRoleBindingObject(name, namespace, saName string) *rbacv1.ClusterRoleBinding {
@@ -140,71 +137,22 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleBindingObject(name strin
 	return nil
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
-	result, err := r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectProvisioner(), cr, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), r.createCsiClusterRoleObjectProvisioner(cr), cr, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	result, err = r.reconcileClusterRoleForSa(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectHealthCheck(), cr, recorder)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return result, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcileClusterRoleForSa(reqLogger logr.Logger, desired *rbacv1.ClusterRole, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
-	setLastAppliedConfiguration(desired)
-
-	// Check if this ClusterRole already exists
-	found := &rbacv1.ClusterRole{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new ClusterRole", "ClusterRole.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+func (r *ReconcileHostPathProvisioner) reconcileClusterRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner) (reconcile.Result, error) {
+	if r.isLegacy(cr) {
+		if err := r.reconcileRbacResource(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectProvisioner(), createClusterRoleObjectProvisioner(), cr); err != nil {
 			return reconcile.Result{}, err
 		}
-
-		// ClusterRole created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged ClusterRole from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// ClusterRole already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating ClusterRole", "ClusterRole.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+	} else {
+		if err := r.deleteClusterRoleObject(MultiPurposeHostPathProvisionerName); err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
 	}
-
-	// ClusterRole already exists and matches the desired state - don't requeue
-	reqLogger.V(3).Info("Skip reconcile: ClusterRole already exists", "ClusterRole.Name", found.Name)
+	if err := r.reconcileRbacResource(reqLogger.WithName("Provisioner RBAC"), r.createCsiClusterRoleObjectProvisioner(cr), r.createCsiClusterRoleObjectProvisioner(cr), cr); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err := r.reconcileRbacResource(reqLogger.WithName("Provisioner RBAC"), createClusterRoleObjectHealthCheck(), createClusterRoleObjectHealthCheck(), cr); err != nil {
+		return reconcile.Result{}, err
+	}
 	return reconcile.Result{}, nil
 }
 
@@ -560,70 +508,13 @@ func (r *ReconcileHostPathProvisioner) deleteClusterRoleObject(name string) erro
 	return nil
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	result, err := r.reconcileRoleBindingForSa(reqLogger.WithName("Provisioner RBAC"), createRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
-	if err != nil {
+func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+	if err := r.reconcileRbacResource(reqLogger.WithName("Provisioner RBAC"), createRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), createRoleBindingObject(ProvisionerServiceAccountNameCsi, namespace, ProvisionerServiceAccountNameCsi), cr); err != nil {
 		return reconcile.Result{}, err
 	}
-	result, err = r.reconcileRoleBindingForSa(reqLogger.WithName("Health Check RBAC"), createRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), cr, namespace, recorder)
-	if err != nil {
+	if err := r.reconcileRbacResource(reqLogger.WithName("Health Check RBAC"), createRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), createRoleBindingObject(healthCheckName, namespace, ProvisionerServiceAccountNameCsi), cr); err != nil {
 		return reconcile.Result{}, err
 	}
-	return result, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcileRoleBindingForSa(reqLogger logr.Logger, desired *rbacv1.RoleBinding, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	setLastAppliedConfiguration(desired)
-	// Check if this RoleBinding already exists
-	found := &rbacv1.RoleBinding{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new RoleBinding", "RoleBinding.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-
-		// RoleBinding created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged ClusterRoleBinding from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// RoleBinding already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating RoleBinding", "RoleBinding.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-
-	// RoleBinding already exists and matches the desired state - don't requeue
-	reqLogger.V(3).Info("Skip reconcile: RoleBinding already exists", "RoleBinding.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
@@ -650,71 +541,13 @@ func createRoleBindingObject(name, namespace, saName string) *rbacv1.RoleBinding
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	result, err := r.reconcileRoleForSa(reqLogger.WithName("provisioner RBAC"), createRoleObjectProvisioner(namespace), cr, recorder)
-	if err != nil {
+func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+	if err := r.reconcileRbacResource(reqLogger.WithName("provisioner RBAC"), createRoleObjectProvisioner(namespace), createRoleObjectProvisioner(namespace), cr); err != nil {
 		return reconcile.Result{}, err
 	}
-	result, err = r.reconcileRoleForSa(reqLogger.WithName("healthcheck RBAC"), createRoleObjectHealthCheck(namespace), cr, recorder)
-	if err != nil {
+	if err := r.reconcileRbacResource(reqLogger.WithName("healthcheck RBAC"), createRoleObjectHealthCheck(namespace), createRoleObjectHealthCheck(namespace), cr); err != nil {
 		return reconcile.Result{}, err
 	}
-	return result, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcileRoleForSa(reqLogger logr.Logger, desired *rbacv1.Role, cr *hostpathprovisionerv1.HostPathProvisioner, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Set HostPathProvisioner instance as the owner and controller
-	if err := controllerutil.SetControllerReference(cr, desired, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	setLastAppliedConfiguration(desired)
-
-	// Check if this Role already exists
-	found := &rbacv1.Role{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Role", "Role.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-
-		// Role created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged Role from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Role already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating Role", "Role.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-
-	// Role already exists and matches the desired state - don't requeue
-	reqLogger.V(3).Info("Skip reconcile: Role already exists", "Role.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 

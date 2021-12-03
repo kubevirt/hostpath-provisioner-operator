@@ -43,7 +43,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		table.DescribeTable("Should fix a changed service account", func(cr *hppv1.HostPathProvisioner) {
+		table.DescribeTable("Should fix a changed service account", func(cr *hppv1.HostPathProvisioner, saNames ...string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -51,42 +51,44 @@ var _ = Describe("Controller reconcile loop", func() {
 				},
 			}
 			cr, r, cl := createDeployedCr(cr)
-			// Now modify the service account to something not desired.
-			sa := &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ProvisionerServiceAccountName,
-					Namespace: testNamespace,
-				},
+			for _, saName := range saNames {
+				// Now modify the service account to something not desired.
+				sa := &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      saName,
+						Namespace: testNamespace,
+					},
+				}
+				err := cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
+				sa.ObjectMeta.Labels["k8s-app"] = "invalid"
+				err = cl.Update(context.TODO(), sa)
+				Expect(err).NotTo(HaveOccurred())
+				sa = &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      saName,
+						Namespace: testNamespace,
+					},
+				}
+				err = cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("invalid"))
+				// Run the reconcile loop
+				res, err := r.Reconcile(context.TODO(), req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res.Requeue).To(BeFalse())
+				// Verify the label has been changed back.
+				sa = &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      saName,
+						Namespace: testNamespace,
+					},
+				}
+				err = cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
 			}
-			err := cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
-			sa.ObjectMeta.Labels["k8s-app"] = "invalid"
-			err = cl.Update(context.TODO(), sa)
-			Expect(err).NotTo(HaveOccurred())
-			sa = &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ProvisionerServiceAccountName,
-					Namespace: testNamespace,
-				},
-			}
-			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("invalid"))
-			// Run the reconcile loop
-			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
-			// Verify the label has been changed back.
-			sa = &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      ProvisionerServiceAccountName,
-					Namespace: testNamespace,
-				},
-			}
-			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
 		},
 			table.Entry("legacyCr", createLegacyCr()),
 			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
