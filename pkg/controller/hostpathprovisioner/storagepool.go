@@ -527,13 +527,13 @@ func (r *ReconcileHostPathProvisioner) getClaimStatusesByStoragePool(storagePool
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) error {
 	// Check the template of the storage pool
+	newStoragePoolStatuses := make([]hostpathprovisionerv1.StoragePoolStatus, 0)
 	if cr.Spec.PathConfig != nil {
-		cr.Status.StoragePoolStatuses = append(cr.Status.StoragePoolStatuses, hostpathprovisionerv1.StoragePoolStatus{
+		newStoragePoolStatuses = append(newStoragePoolStatuses, hostpathprovisionerv1.StoragePoolStatus{
 			Name:  legacyStoragePoolName,
 			Phase: hostpathprovisionerv1.StoragePoolReady,
 		})
 	} else {
-		newStoragePoolStatuses := make([]hostpathprovisionerv1.StoragePoolStatus, 0)
 		for _, storagePool := range cr.Spec.StoragePools {
 			if storagePool.PVCTemplate != nil {
 				deployments, err := r.storagePoolDeploymentsByStoragePool(cr, namespace, &storagePool)
@@ -567,8 +567,8 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 				})
 			}
 		}
-		cr.Status.StoragePoolStatuses = newStoragePoolStatuses
 	}
+	cr.Status.StoragePoolStatuses = newStoragePoolStatuses
 	return nil
 }
 
