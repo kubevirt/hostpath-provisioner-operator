@@ -57,13 +57,13 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	logger.Info("Checking if storage pools are configured", "current nodes number of used nodes", len(usedNodes))
+	logger.V(3).Info("Checking if storage pools are configured", "current nodes number of used nodes", len(usedNodes))
 	currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	for _, storagePool := range cr.Spec.StoragePools {
-		logger.Info("Checking storage pool", "pool.Name", storagePool.Name)
+		logger.V(3).Info("Checking storage pool", "pool.Name", storagePool.Name)
 		if storagePool.PVCTemplate != nil {
 			for _, node := range usedNodes {
 				if err := r.reconcileStoragePoolPVCByNode(logger, cr, namespace, &storagePool, &node); err != nil {
@@ -77,7 +77,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 	}
 	// Clean up any deployments that are no longer used.
 	for _, ds := range currentStoragePoolDeployments {
-		logger.Info("Deleting unused deployment", "deployment name", ds.GetName())
+		logger.V(3).Info("Deleting unused deployment", "deployment name", ds.GetName())
 		if err := r.client.Delete(context.TODO(), &ds); err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
@@ -101,13 +101,12 @@ func (r *ReconcileHostPathProvisioner) getStoragePoolForDeployment(cr *hostpathp
 }
 
 func (r *ReconcileHostPathProvisioner) cleanDeployments(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) error {
-	logger.Info("Cleaning up storage pools")
+	logger.V(3).Info("Cleaning up storage pools")
 	for _, storagePool := range cr.Spec.StoragePools {
 		currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
 		if err != nil {
 			return err
 		}
-		logger.Info("Cleanup up", "count", len(currentStoragePoolDeployments))
 		for _, deployment := range currentStoragePoolDeployments {
 			node, err := r.createCleanupJobForDeployment(logger, cr, namespace, &deployment, &storagePool)
 			if err != nil {
@@ -138,7 +137,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr
 	if err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(node), node); err != nil {
 		return nil, err
 	}
-	logger.Info("for node", "name", node.Name)
+	logger.V(3).Info("for node", "name", node.Name)
 	if err := r.createCleanupJobForNode(logger, cr, namespace, storagePool, node); err != nil && !errors.IsAlreadyExists(err) {
 		return nil, err
 	}
@@ -147,7 +146,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePoolPVCByNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
 	desired := r.storagePoolPVCByNode(storagePool, namespace, node)
-	// Check if this SecurityContextConstraints already exists
+	// Check if this PersistentVolumeClaim already exists
 	found := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
 	if err != nil && errors.IsNotFound(err) {
@@ -203,7 +202,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolDeploymentByNode(logg
 	if !reflect.DeepEqual(currentRuntimeObjCopy, found) {
 		logJSONDiff(logger, currentRuntimeObjCopy, found)
 		// Current is different from desired, update.
-		logger.Info("Updating Deployment for node", "deployment.Name", desired.GetName(), "node.Name", node.GetName())
+		logger.V(3).Info("Updating Deployment for node", "deployment.Name", desired.GetName(), "node.Name", node.GetName())
 		err = r.client.Update(context.TODO(), found)
 		if err != nil {
 			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.GetName(), err))
@@ -255,7 +254,7 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 		}
 		return res, err
 	}
-	logger.Info("Finding pods associated with daemonset", "daemonSet", ds.GetName())
+	logger.V(3).Info("Finding pods associated with daemonset", "daemonSet", ds.GetName())
 
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -279,7 +278,7 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 			nodeNames[pod.Spec.NodeName] = struct{}{}
 		}
 	}
-	logger.Info("Found pods on the following nodes", "nodes", nodeNames)
+	logger.V(3).Info("Found pods on the following nodes", "nodes", nodeNames)
 	for nodeName := range nodeNames {
 		node := &corev1.Node{
 			ObjectMeta: v1.ObjectMeta{
@@ -540,14 +539,14 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 				if err != nil {
 					return err
 				}
-				logger.WithName("Status").Info("Number of deployments for pool", "storage pool", storagePool.Name, "deployment count", len(deployments))
+				logger.V(5).WithName("Status").Info("Number of deployments for pool", "storage pool", storagePool.Name, "deployment count", len(deployments))
 				currentReady := 0
 				for _, deployment := range deployments {
 					if deployment.Status.ReadyReplicas == int32(1) {
 						currentReady++
 					}
 				}
-				logger.WithName("Status").Info("Number of deployments for pool ready", "storage pool", storagePool.Name, "deployment count", currentReady)
+				logger.V(5).WithName("Status").Info("Number of deployments for pool ready", "storage pool", storagePool.Name, "deployment count", currentReady)
 				claimStatuses, err := r.getClaimStatusesByStoragePool(&storagePool, namespace)
 				if err != nil {
 					return err
@@ -592,9 +591,9 @@ func (r *ReconcileHostPathProvisioner) removeCleanUpJobs(logger logr.Logger) err
 	if err != nil {
 		return err
 	}
-	logger.Info("Found jobs", "count", len(jobs))
+	logger.V(3).Info("Found jobs", "count", len(jobs))
 	for _, job := range jobs {
-		logger.Info("Deleting job", "name", job.GetName())
+		logger.V(3).Info("Deleting job", "name", job.GetName())
 		if err := r.client.Delete(context.TODO(), &job, &client.DeleteOptions{
 			PropagationPolicy: &deletePropagationBackground,
 		}); err != nil && !errors.IsNotFound(err) {
@@ -711,7 +710,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 			},
 		},
 	}
-	logger.Info("Creating cleanup job", "name", cleanupJob.Name)
+	logger.V(3).Info("Creating cleanup job", "name", cleanupJob.Name)
 	if err := r.client.Create(context.TODO(), cleanupJob); err != nil && !errors.IsAlreadyExists(err) {
 		logger.Error(err, "Unable to create cleanup job", "name", cleanupJob.GetName())
 	}

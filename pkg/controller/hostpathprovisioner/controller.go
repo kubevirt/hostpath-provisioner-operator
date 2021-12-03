@@ -588,7 +588,7 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 
 func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, obj client.Object) error {
 	if obj.GetDeletionTimestamp() == nil {
-		reqLogger.Info("Adding deletion Finalizer")
+		reqLogger.V(3).Info("Adding deletion Finalizer")
 		AddFinalizer(obj, hppFinalizer)
 
 		// Update CR
