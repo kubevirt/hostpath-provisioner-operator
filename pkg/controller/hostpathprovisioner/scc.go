@@ -24,7 +24,6 @@ import (
 	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,19 +33,25 @@ import (
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	if used, err := r.checkSCCUsed(); err != nil {
 		return reconcile.Result{}, err
 	} else if used == false {
 		return reconcile.Result{}, nil
 	}
-	if res, err := r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createSecurityContextConstraintsObject(cr, namespace), namespace, recorder); err != nil {
-		return res, err
+	if r.isLegacy(cr) {
+		if res, err := r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createSecurityContextConstraintsObject(cr, namespace), namespace); err != nil {
+			return res, err
+		}
+	} else {
+		if err := r.deleteSCC(MultiPurposeHostPathProvisionerName); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
-	return r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createCsiSecurityContextConstraintsObject(cr, namespace), namespace, recorder)
+	return r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createCsiSecurityContextConstraintsObject(cr, namespace), namespace)
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *secv1.SecurityContextConstraints, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *secv1.SecurityContextConstraints, namespace string) (reconcile.Result, error) {
 	// Define a new SecurityContextConstraints object
 	setLastAppliedConfiguration(desired)
 
@@ -57,11 +62,11 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesire
 		reqLogger.Info("Creating a new SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 		// SecurityContextConstraints created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -86,10 +91,10 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesire
 		reqLogger.Info("Updating SecurityContextConstraints", "SecurityContextConstraints.Name", desired.Name)
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 	// SecurityContextConstraints already exists and matches the desired state - don't requeue

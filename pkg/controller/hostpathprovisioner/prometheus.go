@@ -26,13 +26,12 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
@@ -45,43 +44,41 @@ const (
 	runbookURLBasePath  = "https://kubevirt.io/monitoring/runbooks/"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	if used, err := r.checkPrometheusUsed(); err != nil {
 		return reconcile.Result{}, err
 	} else if used == false {
 		return reconcile.Result{}, nil
 	}
-	if res, err := r.reconcilePrometheusRuleDesired(reqLogger, cr, createPrometheusRule(cr, namespace), namespace, recorder); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRule(cr, namespace), createPrometheusRule(cr, namespace)); err != nil {
 		return res, err
 	}
-	if res, err := r.reconcilePrometheusRoleDesired(reqLogger, cr, createPrometheusRole(cr, namespace), namespace, recorder); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRole(cr, namespace), createPrometheusRole(cr, namespace)); err != nil {
 		return res, err
 	}
-	if res, err := r.reconcilePrometheusRoleBindingDesired(reqLogger, cr, createPrometheusRoleBinding(cr, namespace), namespace, recorder); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRoleBinding(cr, namespace), createPrometheusRoleBinding(cr, namespace)); err != nil {
 		return res, err
 	}
-	if res, err := r.reconcilePrometheusServiceDesired(reqLogger, cr, createPrometheusService(cr, namespace), namespace, recorder); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusService(cr, namespace), createPrometheusService(cr, namespace)); err != nil {
 		return res, err
 	}
-	return r.reconcilePrometheusServiceMonitorDesired(reqLogger, cr, createPrometheusServiceMonitor(cr, namespace), namespace, recorder)
+	return r.reconcilePrometheusResource(reqLogger, cr, createPrometheusServiceMonitor(cr, namespace), createPrometheusServiceMonitor(cr, namespace))
 }
 
-func (r *ReconcileHostPathProvisioner) reconcilePrometheusRuleDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *promv1.PrometheusRule, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcilePrometheusResource(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired, found client.Object) (reconcile.Result, error) {
 	// Define a new PrometheusRule object
 	setLastAppliedConfiguration(desired)
-
 	// Check if this PrometheusRule already exists
-	found := &promv1.PrometheusRule{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
+	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(found), found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new PrometheusRule", "PrometheusRule.Name", desired.Name)
+		reqLogger.Info("Creating a new PrometheusResource", "Name", found.GetName())
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.GetName(), err))
 			return reconcile.Result{}, err
 		}
 		// PrometheusRule created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.GetName()))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -103,221 +100,17 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusRuleDesired(reqLogger 
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
 		// Current is different from desired, update.
-		reqLogger.Info("Updating PrometheusRule", "PrometheusRule.Name", desired.Name)
+		reqLogger.Info("Updating PrometheusResource", "Name", desired.GetName())
 		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.GetName(), err))
 			return reconcile.Result{}, err
 		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.GetName()))
 		return reconcile.Result{}, nil
 	}
-	// PrometheusRule already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: PrometheusRule already exists", "PrometheusRule.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcilePrometheusRoleDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *rbacv1.Role, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Define a new Prometheus Role object
-	setLastAppliedConfiguration(desired)
-
-	// Check if this Prometheus Role already exists
-	found := &rbacv1.Role{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Prometheus Role", "Role.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		// Prometheus Role created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged Role from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Prometheus Role already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating Prometheus Role", "Role.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-	// Prometheus Role already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: Prometheus Role already exists", "Role.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcilePrometheusRoleBindingDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *rbacv1.RoleBinding, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Define a new Prometheus RoleBinding object
-	setLastAppliedConfiguration(desired)
-
-	// Check if this Prometheus RoleBinding already exists
-	found := &rbacv1.RoleBinding{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Prometheus RoleBinding", "RoleBinding.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		// Prometheus RoleBinding created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged RoleBinding from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Prometheus RoleBinding already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating Prometheus RoleBinding", "RoleBinding.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-	// Prometheus RoleBinding already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: Prometheus RoleBinding already exists", "RoleBinding.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcilePrometheusServiceMonitorDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *promv1.ServiceMonitor, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Define a new ServiceMonitor object
-	setLastAppliedConfiguration(desired)
-
-	// Check if this ServiceMonitor already exists
-	found := &promv1.ServiceMonitor{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Prometheus ServiceMonitor", "ServiceMonitor.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		// ServiceMonitor created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged ServiceMonitor from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// ServiceMonitor already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating Prometheus ServiceMonitor", "ServiceMonitor.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-	// ServiceMonitor already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: Prometheus ServiceMonitor already exists", "ServiceMonitor.Name", found.Name)
-	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileHostPathProvisioner) reconcilePrometheusServiceDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *corev1.Service, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
-	// Define a new Service object
-	setLastAppliedConfiguration(desired)
-
-	// Check if this Service already exists
-	found := &corev1.Service{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Prometheus Service", "Service.Name", desired.Name)
-		err = r.client.Create(context.TODO(), desired)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		// Service created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Keep a copy of the original for comparison later.
-	currentRuntimeObjCopy := found.DeepCopyObject()
-
-	// allow users to add new annotations (but not change ours)
-	mergeLabelsAndAnnotations(desired, found)
-
-	// create merged Service from found and desired.
-	merged, err := mergeObject(desired, found)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Service already exists, check if we need to update.
-	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
-		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, update.
-		reqLogger.Info("Updating Prometheus Service", "Service.Name", desired.Name)
-		err = r.client.Update(context.TODO(), merged)
-		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
-			return reconcile.Result{}, err
-		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
-		return reconcile.Result{}, nil
-	}
-	// Service already exists and matches the desired state - don't requeue
-	reqLogger.Info("Skip reconcile: Prometheus Service already exists", "Service.Name", found.Name)
+	// PrometheusResource already exists and matches the desired state - don't requeue
+	reqLogger.Info("Skip reconcile: PrometheusResource already exists", "Name", found.GetName())
 	return reconcile.Result{}, nil
 }
 

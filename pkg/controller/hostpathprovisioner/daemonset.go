@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"k8s.io/utils/pointer"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
@@ -71,7 +70,7 @@ type daemonSetArgs struct {
 }
 
 // reconcileDaemonSet Reconciles the daemon set.
-func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Previous versions created resources with names that depend on the CR, whereas now, we have fixed names for those.
 	// We will remove those and have the next loop create the resources with fixed names so we don't end up with two sets of hpp resources.
 	dups, err := r.getDuplicateDaemonSet(cr.Name, namespace)
@@ -83,19 +82,26 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 			return reconcile.Result{}, err
 		}
 	}
-	// provisioner
 	args := getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, true)
-	args.version = cr.Status.TargetVersion
-	if res, err := r.reconcileDaemonSetForSa(reqLogger, createDaemonSetObject(cr, reqLogger, args), cr, namespace, recorder); err != nil {
-		return res, err
+	if r.isLegacy(cr) {
+		// provisioner
+		args.version = cr.Status.TargetVersion
+		if res, err := r.reconcileDaemonSetForSa(reqLogger, createDaemonSetObject(cr, reqLogger, args), cr, namespace); err != nil {
+			return res, err
+		}
+	} else {
+		// remove legacy ds if it exists.
+		if err := r.deleteDaemonSet(args.name, args.namespace); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	// csi driver
 	args = getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, false)
 	args.version = cr.Status.TargetVersion
-	return r.reconcileDaemonSetForSa(reqLogger, r.createCSIDaemonSetObject(cr, reqLogger, args), cr, namespace, recorder)
+	return r.reconcileDaemonSetForSa(reqLogger, r.createCSIDaemonSetObject(cr, reqLogger, args), cr, namespace)
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Logger, desired *appsv1.DaemonSet, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, recorder record.EventRecorder) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Logger, desired *appsv1.DaemonSet, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Define a new DaemonSet object
 	setLastAppliedConfiguration(desired)
 
@@ -111,12 +117,12 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Lo
 		reqLogger.Info("Creating a new DaemonSet", "DaemonSet.Namespace", desired.Namespace, "Daemonset.Name", desired.Name)
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
 
 		// DaemonSet created successfully - don't requeue
-		recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -147,10 +153,10 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Lo
 		reqLogger.Info("Updating DaemonSet", "DaemonSet.Name", desired.Name)
 		err = r.client.Update(context.TODO(), found)
 		if err != nil {
-			recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
+			r.recorder.Event(cr, corev1.EventTypeWarning, updateResourceFailed, fmt.Sprintf(updateMessageFailed, desired.Name, err))
 			return reconcile.Result{}, err
 		}
-		recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
+		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.Name))
 		return reconcile.Result{}, nil
 	}
 

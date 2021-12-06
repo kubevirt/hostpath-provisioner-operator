@@ -50,7 +50,13 @@ func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Lo
 	}
 
 	accounts := make([]*corev1.ServiceAccount, 0)
-	accounts = append(accounts, createServiceAccountObject(namespace))
+	if r.isLegacy(cr) {
+		accounts = append(accounts, createServiceAccountObject(namespace))
+	} else {
+		if err := r.deleteServiceAccount(ProvisionerServiceAccountName, namespace); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 	accounts = append(accounts, createCsiServiceAccountObject(namespace))
 	for _, desired := range accounts {
 		// Define a new Service Account object
