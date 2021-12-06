@@ -147,6 +147,26 @@ var _ = Describe("Controller reconcile loop", func() {
 			Expect(len(jobList.Items)).To(Equal(1))
 			Expect(jobList.Items[0].GetName()).To(Equal("cleanup-pool-local-node1"))
 		})
+
+		It("Status length should remain at one with legacy CR", func() {
+			cr, r, cl := createDeployedCr(createLegacyCr())
+			err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(cr.Status.StoragePoolStatuses)).To(Equal(1))
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "test-name",
+					Namespace: testNamespace,
+				},
+			}
+			for i := 0; i < 10; i++ {
+				_, err := r.Reconcile(context.TODO(), req)
+				Expect(err).ToNot(HaveOccurred())
+				err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			Expect(len(cr.Status.StoragePoolStatuses)).To(Equal(1))
+		})
 	})
 })
 
