@@ -48,7 +48,6 @@ var (
 	operatorImage    = flag.String("operator-image-name", hostpathprovisioner.OperatorImageDefault, "optional")
 	provisionerImage = flag.String("provisioner-image-name", hostpathprovisioner.ProvisionerImageDefault, "optional")
 	csiDriverImage   = flag.String("csi-driver-image-name", hostpathprovisioner.CsiProvisionerImageDefault, "optional")
-	csiExternalHealthMonitorImage   = flag.String("csi-external-health-monitor-image-name", hostpathprovisioner.CsiExternalHealthMonitorControllerImageDefault, "optional")
 	csiNodeDriverRegistrarImage   = flag.String("csi-node-driver-image-name", hostpathprovisioner.CsiNodeDriverRegistrationImageDefault, "optional")
 	csiLivenessProbeImage   = flag.String("csi-liveness-probe-image-name", hostpathprovisioner.LivenessProbeImageDefault, "optional")
 	csiExternalProvisionerImage   = flag.String("csi-external-provisioner-image-name", hostpathprovisioner.CsiSigStorageProvisionerImageDefault, "optional")
@@ -73,7 +72,6 @@ func main() {
 		OperatorImage:    *operatorImage,
 		ProvisionerImage: *provisionerImage,
 		CsiDriverImage: *csiDriverImage,
-		CsiExternalHealthMonitorImage: *csiExternalHealthMonitorImage,
 		CsiNodeDriverRegistrarImage: *csiNodeDriverRegistrarImage,
 		CsiLivenessProbeImage: *csiLivenessProbeImage,
 		CsiExternalProvisionerImage: *csiExternalProvisionerImage,

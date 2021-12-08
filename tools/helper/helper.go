@@ -33,7 +33,6 @@ type OperatorArgs struct {
 	OperatorImage                 string
 	ProvisionerImage              string
 	CsiDriverImage                string
-	CsiExternalHealthMonitorImage string
 	CsiNodeDriverRegistrarImage   string
 	CsiLivenessProbeImage         string
 	CsiExternalProvisionerImage   string
@@ -60,7 +59,6 @@ func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
 	setEnvVariable("VERBOSITY", args.Verbosity, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("PROVISIONER_IMAGE", args.ProvisionerImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("CSI_PROVISIONER_IMAGE", args.CsiDriverImage, deployment.Spec.Template.Spec.Containers[0].Env)
-	setEnvVariable("EXTERNAL_HEALTH_MON_IMAGE", args.CsiExternalHealthMonitorImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("NODE_DRIVER_REG_IMAGE", args.CsiNodeDriverRegistrarImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("LIVENESS_PROBE_IMAGE", args.CsiLivenessProbeImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("CSI_SIG_STORAGE_PROVISIONER_IMAGE", args.CsiExternalProvisionerImage, deployment.Spec.Template.Spec.Containers[0].Env)

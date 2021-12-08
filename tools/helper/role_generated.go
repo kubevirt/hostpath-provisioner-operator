@@ -147,7 +147,6 @@ rules:
   - hostpath-provisioner
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
-  - hostpath-provisioner-health-check
   - hostpath-provisioner-monitoring
   resources:
   - rolebindings
@@ -160,7 +159,6 @@ rules:
   - hostpath-provisioner
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
-  - hostpath-provisioner-health-check
   - hostpath-provisioner-monitoring
   resources:
   - roles

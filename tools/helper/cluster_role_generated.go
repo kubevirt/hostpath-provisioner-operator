@@ -41,7 +41,6 @@ rules:
   - hostpath-provisioner
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
-  - hostpath-provisioner-health-check
   resources:
   - clusterrolebindings
   verbs:
@@ -71,7 +70,6 @@ rules:
   - hostpath-provisioner
   - hostpath-provisioner-admin
   - hostpath-provisioner-admin-csi
-  - hostpath-provisioner-health-check
   resources:
   - clusterroles
   verbs:

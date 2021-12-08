@@ -50,8 +50,6 @@ spec:
           value: quay.io/kubevirt/hostpath-provisioner:latest
         - name: CSI_PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-csi-driver:latest
-        - name: EXTERNAL_HEALTH_MON_IMAGE
-          value: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
         - name: NODE_DRIVER_REG_IMAGE
           value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
         - name: LIVENESS_PROBE_IMAGE

@@ -23,8 +23,6 @@ const (
 	ProvisionerImageDefault = "hostpath-provisioner"
 	// CsiProvisionerImageDefault is the default value of the hostpath provisioner csi container image name.
 	CsiProvisionerImageDefault = "hostpath-provisioner-csi"
-	// CsiExternalHealthMonitorControllerImageDefault is the default value of the sig storage csi health monitor controller side car container image name.
-	CsiExternalHealthMonitorControllerImageDefault = "k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0"
 	// CsiNodeDriverRegistrationImageDefault is the default value of the sig storage csi node registration side car container image name.
 	CsiNodeDriverRegistrationImageDefault = "k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0"
 	// LivenessProbeImageDefault is the default value of the liveness probe side car container image name.
@@ -34,15 +32,14 @@ const (
 	// CsiSigStorageProvisionerImageDefault is the default value of the sig storage csi provisioner side car container image name.
 	CsiSigStorageProvisionerImageDefault = "k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1"
 
-	operatorImageEnvVarName                        = "OPERATOR_IMAGE"
-	provisionerImageEnvVarName                     = "PROVISIONER_IMAGE"
-	csiProvisionerImageEnvVarName                  = "CSI_PROVISIONER_IMAGE"
-	externalHealthMonitorControllerImageEnvVarName = "EXTERNAL_HEALTH_MON_IMAGE"
-	nodeDriverRegistrarImageEnvVarName             = "NODE_DRIVER_REG_IMAGE"
-	livenessProbeImageEnvVarName                   = "LIVENESS_PROBE_IMAGE"
-	snapshotterImageEnvVarName                     = "CSI_SNAPSHOT_IMAGE"
-	csiSigStorageProvisionerImageEnvVarName        = "CSI_SIG_STORAGE_PROVISIONER_IMAGE"
-	verbosityEnvVarName                            = "VERBOSITY"
+	operatorImageEnvVarName                 = "OPERATOR_IMAGE"
+	provisionerImageEnvVarName              = "PROVISIONER_IMAGE"
+	csiProvisionerImageEnvVarName           = "CSI_PROVISIONER_IMAGE"
+	nodeDriverRegistrarImageEnvVarName      = "NODE_DRIVER_REG_IMAGE"
+	livenessProbeImageEnvVarName            = "LIVENESS_PROBE_IMAGE"
+	snapshotterImageEnvVarName              = "CSI_SNAPSHOT_IMAGE"
+	csiSigStorageProvisionerImageEnvVarName = "CSI_SIG_STORAGE_PROVISIONER_IMAGE"
+	verbosityEnvVarName                     = "VERBOSITY"
 
 	// OperatorServiceAccountName is the name of Service Account used to run the operator.
 	OperatorServiceAccountName = "hostpath-provisioner-operator"
@@ -51,7 +48,6 @@ const (
 	// ProvisionerServiceAccountNameCsi is the name of Service Account used to run the csi driver.
 	ProvisionerServiceAccountNameCsi = "hostpath-provisioner-admin-csi"
 
-	healthCheckName = "hostpath-provisioner-health-check"
 	// MultiPurposeHostPathProvisionerName is the name used for the DaemonSet, ClusterRole/Binding, SCC and k8s-app label value.
 	MultiPurposeHostPathProvisionerName = "hostpath-provisioner"
 	// PartOfLabelEnvVarName is the environment variable name for the part-of label value
