@@ -440,7 +440,7 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 }
 
 func buildVolumesFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.Volume {
-	directory := corev1.HostPathDirectory
+	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	volumes := make([]corev1.Volume, 0)
 	for _, storagePool := range storagePools {
 		volumes = append(volumes, corev1.Volume{
@@ -448,7 +448,7 @@ func buildVolumesFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.Vo
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: storagePool.Path,
-					Type: &directory,
+					Type: &directoryOrCreate,
 				},
 			},
 		})
