@@ -56,17 +56,16 @@ var (
 )
 
 type daemonSetArgs struct {
-	operatorImage                        string
-	provisionerImage                     string
-	externalHealthMonitorControllerImage string
-	nodeDriverRegistrarImage             string
-	livenessProbeImage                   string
-	snapshotterImage                     string
-	csiProvisionerImage                  string
-	namespace                            string
-	name                                 string
-	verbosity                            int
-	version                              string
+	operatorImage            string
+	provisionerImage         string
+	nodeDriverRegistrarImage string
+	livenessProbeImage       string
+	snapshotterImage         string
+	csiProvisionerImage      string
+	namespace                string
+	name                     string
+	verbosity                int
+	version                  string
 }
 
 // reconcileDaemonSet Reconciles the daemon set.
@@ -181,12 +180,6 @@ func getDaemonSetArgs(reqLogger logr.Logger, namespace string, legacyProvisioner
 		if res.provisionerImage == "" {
 			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", csiProvisionerImageEnvVarName, CsiProvisionerImageDefault))
 			res.provisionerImage = CsiProvisionerImageDefault
-		}
-
-		res.externalHealthMonitorControllerImage = os.Getenv(externalHealthMonitorControllerImageEnvVarName)
-		if res.externalHealthMonitorControllerImage == "" {
-			reqLogger.V(3).Info(fmt.Sprintf("%s not set, defaulting to %s", externalHealthMonitorControllerImageEnvVarName, CsiExternalHealthMonitorControllerImageDefault))
-			res.externalHealthMonitorControllerImage = CsiExternalHealthMonitorControllerImageDefault
 		}
 
 		res.nodeDriverRegistrarImage = os.Getenv(nodeDriverRegistrarImageEnvVarName)
@@ -592,33 +585,6 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 									MountPropagation: &biDirectional,
 								},
 								socketDirVolumeMount,
-							},
-							TerminationMessagePath:   "/dev/termination-log",
-							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
-						},
-						{
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("150Mi"),
-								},
-							},
-							Name:            "csi-external-health-monitor-controller",
-							Image:           args.externalHealthMonitorControllerImage,
-							ImagePullPolicy: cr.Spec.ImagePullPolicy,
-							Args: []string{
-								fmt.Sprintf("--v=%d", args.verbosity),
-								"--csi-address=$(ADDRESS)",
-								"--leader-election",
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								socketDirVolumeMount,
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "ADDRESS",
-									Value: csiSocket,
-								},
 							},
 							TerminationMessagePath:   "/dev/termination-log",
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,

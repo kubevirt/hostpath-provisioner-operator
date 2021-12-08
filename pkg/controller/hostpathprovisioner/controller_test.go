@@ -92,7 +92,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		for _, container := range ds.Spec.Template.Spec.Containers {
 			sidecarImages = append(sidecarImages, container.Image)
 		}
-		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiExternalHealthMonitorControllerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault))
+		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault))
 		// Ensure the snapshot sidecar is not there.
 		Expect(sidecarImages).ToNot(ContainElement(SnapshotterImageDefault))
 		found := false
@@ -135,7 +135,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		for _, container := range ds.Spec.Template.Spec.Containers {
 			sidecarImages = append(sidecarImages, container.Image)
 		}
-		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiExternalHealthMonitorControllerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault, SnapshotterImageDefault))
+		Expect(sidecarImages).To(ContainElements(CsiProvisionerImageDefault, CsiNodeDriverRegistrationImageDefault, LivenessProbeImageDefault, CsiSigStorageProvisionerImageDefault, SnapshotterImageDefault))
 		found = false
 		for _, volume := range ds.Spec.Template.Spec.Volumes {
 			if volume.Name == csiVolume {
@@ -806,84 +806,6 @@ func verifyCreateCSIClusterRole(cl client.Client, enableSnapshot bool) {
 
 	Expect(crole.Rules).To(Equal(expectedRules))
 	Expect(crole.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
-
-	crole = &rbacv1.ClusterRole{}
-	nn = types.NamespacedName{
-		Name: healthCheckName,
-	}
-	err = cl.Get(context.TODO(), nn, crole)
-	Expect(err).NotTo(HaveOccurred())
-	expectedRules = []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"persistentvolumes",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"persistentvolumeclaims",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"nodes",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"pods",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"",
-			},
-			Resources: []string{
-				"events",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"patch",
-			},
-		},
-	}
-	Expect(crole.Rules).To(Equal(expectedRules))
-	Expect(crole.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 }
 
 func verifyCreateClusterRole(cl client.Client) {
@@ -1017,34 +939,6 @@ func verifyCreateCSIRole(cl client.Client) {
 			},
 			Verbs: []string{
 				"get",
-			},
-		},
-	}
-	Expect(role.Rules).To(Equal(expectedRules))
-	Expect(role.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
-
-	role = &rbacv1.Role{}
-	nn = types.NamespacedName{
-		Name:      healthCheckName,
-		Namespace: testNamespace,
-	}
-	err = cl.Get(context.TODO(), nn, role)
-	Expect(err).NotTo(HaveOccurred())
-	expectedRules = []rbacv1.PolicyRule{
-		{
-			APIGroups: []string{
-				"coordination.k8s.io",
-			},
-			Resources: []string{
-				"leases",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"delete",
-				"update",
-				"create",
 			},
 		},
 	}
