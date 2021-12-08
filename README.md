@@ -45,7 +45,8 @@ volumeBindingMode: WaitForFirstConsumer
 parameters:
   storagePool: local
 ```
-Notice the storagePool parameter. This lets the provisioner know which pool to use. Once multiple pools are supported you can create multiple storage classes, each pointing to a different pool.
+Notice the storagePool parameter. This lets the provisioner know which pool to use. You can define multiple storage pools each
+with a different name.
 
 ### Custom Resource with PVCTemplate storage pool
 [Example CR](deploy/hostpathprovisioner_pvctemplate_cr.yaml) allows you specify the storage pool you wish to use as the backing storage for the persistent volumes. You specify the path to use to create volumes on the node, and the name of the storage pool. The name of the storage pool is used in the storage class to identify the pool. You also specified the PVC template to use. This causes the operator to create PVCs for each node that match the workload nodeSelector and a pod that mounts that PVC on to the node at the path specified. The hpp csi driver will then use the PVC to create directories on. If the storageClassName is not specified the default storage class will be used.
@@ -82,7 +83,8 @@ volumeBindingMode: WaitForFirstConsumer
 parameters:
   storagePool: local
 ```
-Notice the storagePool parameter. This lets the provisioner know which pool to use. Once multiple pools are supported you can create multiple storage classes, each pointing to a different pool.
+Notice the storagePool parameter. This lets the provisioner know which pool to use. You can define multiple storage pools each
+pointing to a different path.
 
 ### Legacy CR
 If you are using a previous version of the hostpath provisioner operator your CR will look like this:

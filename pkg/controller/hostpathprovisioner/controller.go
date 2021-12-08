@@ -19,6 +19,7 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -600,14 +601,17 @@ func checkApplicationAvailable(daemonSet *appsv1.DaemonSet) bool {
 
 func (r *ReconcileHostPathProvisioner) addFinalizer(reqLogger logr.Logger, obj client.Object) error {
 	if obj.GetDeletionTimestamp() == nil {
+		currentFinalizers := obj.GetFinalizers()
 		reqLogger.V(3).Info("Adding deletion Finalizer")
 		AddFinalizer(obj, hppFinalizer)
-
-		// Update CR
-		err := r.client.Update(context.TODO(), obj)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update cr with finalizer")
-			return err
+		// Only update if we modified the finalizers.
+		if !reflect.DeepEqual(currentFinalizers, obj.GetFinalizers()) {
+			// Update CR
+			err := r.client.Update(context.TODO(), obj)
+			if err != nil {
+				reqLogger.Error(err, "Failed to update cr with finalizer")
+				return err
+			}
 		}
 	}
 	return nil

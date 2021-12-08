@@ -302,10 +302,10 @@ func (r *ReconcileHostPathProvisioner) getStorageClassNameOrDefault(template *co
 
 func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := getRecommendedLabels()
-	labels[storagePoolLabelKey] = r.getStorageClassNameOrDefault(storagePool.PVCTemplate)
+	labels[storagePoolLabelKey] = storagePool.Name
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      getStoragePoolPVCName(r.getStorageClassNameOrDefault(storagePool.PVCTemplate), node.GetName()),
+			Name:      getStoragePoolPVCName(storagePool.Name, node.GetName()),
 			Namespace: namespace,
 			Labels:    labels,
 		},
@@ -365,7 +365,6 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            ProvisionerServiceAccountNameCsi,
 					RestartPolicy:                 corev1.RestartPolicyAlways,
 					SchedulerName:                 corev1.DefaultSchedulerName,
 					TerminationGracePeriodSeconds: &defaultGracePeriod,
@@ -429,7 +428,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 							Name: dataName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: getStoragePoolPVCName(r.getStorageClassNameOrDefault(sourceStoragePool.PVCTemplate), node.GetName()),
+									ClaimName: getStoragePoolPVCName(sourceStoragePool.Name, node.GetName()),
 								},
 							},
 						},
