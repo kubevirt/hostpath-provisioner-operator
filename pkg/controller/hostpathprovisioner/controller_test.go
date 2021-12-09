@@ -1045,7 +1045,9 @@ func verifyCreatePrometheusResources(cl client.Client) {
 			"runbook_url": runbookURLBasePath + "HPPOperatorDown",
 		},
 		Labels: map[string]string{
-			"severity": "warning",
+			"severity":                      "warning",
+			"kubernetes_operator_part_of":   "kubevirt",
+			"kubernetes_operator_component": "hostpath-provisioner-operator",
 		},
 	}
 	Expect(rule.Spec.Groups[0].Rules).To(ContainElement(hppDownAlert))

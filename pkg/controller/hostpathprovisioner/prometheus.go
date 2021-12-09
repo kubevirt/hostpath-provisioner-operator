@@ -37,11 +37,16 @@ import (
 )
 
 const (
-	ruleName            = "prometheus-hpp-rules"
-	rbacName            = "hostpath-provisioner-monitoring"
-	monitorName         = "service-monitor-hpp"
-	defaultMonitoringNs = "monitoring"
-	runbookURLBasePath  = "https://kubevirt.io/monitoring/runbooks/"
+	ruleName                 = "prometheus-hpp-rules"
+	rbacName                 = "hostpath-provisioner-monitoring"
+	monitorName              = "service-monitor-hpp"
+	defaultMonitoringNs      = "monitoring"
+	runbookURLBasePath       = "https://kubevirt.io/monitoring/runbooks/"
+	severityAlertLabelKey    = "severity"
+	partOfAlertLabelKey      = "kubernetes_operator_part_of"
+	partOfAlertLabelValue    = "kubevirt"
+	componentAlertLabelKey   = "kubernetes_operator_component"
+	componentAlertLabelValue = "hostpath-provisioner-operator"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -204,7 +209,9 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 								"runbook_url": runbookURLBasePath + "HPPOperatorDown",
 							},
 							map[string]string{
-								"severity": "warning",
+								severityAlertLabelKey:  "warning",
+								partOfAlertLabelKey:    partOfAlertLabelValue,
+								componentAlertLabelKey: componentAlertLabelValue,
 							},
 						),
 						generateAlertRule(
@@ -216,7 +223,9 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 								"runbook_url": runbookURLBasePath + "HPPNotReady",
 							},
 							map[string]string{
-								"severity": "warning",
+								severityAlertLabelKey:  "warning",
+								partOfAlertLabelKey:    partOfAlertLabelValue,
+								componentAlertLabelKey: componentAlertLabelValue,
 							},
 						),
 					},
