@@ -57,12 +57,21 @@ func (r *HostPathProvisioner) validatePathConfigAndStoragePools() error {
 	if r.Spec.PathConfig != nil && len(r.Spec.PathConfig.Path) == 0 {
 		return fmt.Errorf("pathconfig path must be set")
 	}
-	if len(r.Spec.StoragePools) > 1 {
-		return fmt.Errorf("currently only 1 storage pool is supported")
-	}
-	for _, source := range r.Spec.StoragePools {
+	usedPaths := make(map[string]int, 0)
+	usedNames := make(map[string]int, 0)
+	for i, source := range r.Spec.StoragePools {
 		if err := validateStoragePool(source); err != nil {
 			return err
+		}
+		if index, ok := usedPaths[source.Path]; !ok {
+			usedPaths[source.Path] = i
+		} else {
+			return fmt.Errorf("spec.storagePools[%d].path is the same as spec.storagePools[%d].path, cannot have duplicate paths", i, index)
+		}
+		if index, ok := usedNames[source.Name]; !ok {
+			usedNames[source.Name] = i
+		} else {
+			return fmt.Errorf("spec.storagePools[%d].name is the same as spec.storagePools[%d].name, cannot have duplicate names", i, index)
 		}
 	}
 	return nil
@@ -70,7 +79,7 @@ func (r *HostPathProvisioner) validatePathConfigAndStoragePools() error {
 
 func validateStoragePool(storagePool StoragePool) error {
 	if storagePool.Name == "" {
-		return fmt.Errorf("storagePool.kind cannot be blank")
+		return fmt.Errorf("storagePool.name cannot be blank")
 	}
 	if storagePool.Path == "" {
 		return fmt.Errorf("storagePool.path cannot be blank")

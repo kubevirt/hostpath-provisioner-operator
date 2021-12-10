@@ -65,7 +65,45 @@ var (
 		},
 	}
 
-	blankKindCr1 = HostPathProvisioner{
+	multiSourceVolumeDuplicatePathCR = HostPathProvisioner{
+		Spec: HostPathProvisionerSpec{
+			StoragePools: []StoragePool{
+				{
+					Name: "test",
+					Path: "test",
+				},
+				{
+					Name: "test2",
+					Path: "test2",
+				},
+				{
+					Name: "test3",
+					Path: "test",
+				},
+			},
+		},
+	}
+
+	multiSourceVolumeDuplicateNameCR = HostPathProvisioner{
+		Spec: HostPathProvisionerSpec{
+			StoragePools: []StoragePool{
+				{
+					Name: "test",
+					Path: "test",
+				},
+				{
+					Name: "test2",
+					Path: "test2",
+				},
+				{
+					Name: "test",
+					Path: "test3",
+				},
+			},
+		},
+	}
+
+	blankNameCr1 = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
 			StoragePools: []StoragePool{
 				{
@@ -74,7 +112,7 @@ var (
 			},
 		},
 	}
-	blankKindCr2 = HostPathProvisioner{
+	blankNameCr2 = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
 			StoragePools: []StoragePool{
 				{
@@ -125,12 +163,9 @@ var _ = Describe("validating webhook", func() {
 		It("Both legacy or volume sources cannot to be set.", func() {
 			Expect(bothLegacyAndVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
-		It("Cannot have more than one volume source", func() {
-			Expect(multiSourceVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("currently only 1 storage pool is supported")))
-		})
 		It("Cannot have blank kind in volume source", func() {
-			Expect(blankKindCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
-			Expect(blankKindCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
+			Expect(blankNameCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			Expect(blankNameCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
 		})
 		It("Cannot have blank path in volume source", func() {
 			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
@@ -138,6 +173,12 @@ var _ = Describe("validating webhook", func() {
 		})
 		It("If pathConfig exists, path must be set", func() {
 			Expect(invalidPathConfigCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
+		})
+		It("Should not allow duplicate paths", func() {
+			Expect(multiSourceVolumeDuplicatePathCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+		})
+		It("Should not allow duplicate names", func() {
+			Expect(multiSourceVolumeDuplicateNameCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
 	})
 
@@ -149,16 +190,19 @@ var _ = Describe("validating webhook", func() {
 		It("Both legacy or volume sources cannot to be set.", func() {
 			Expect(bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
-		It("Cannot have more than one volume source", func() {
-			Expect(multiSourceVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("currently only 1 storage pool is supported")))
-		})
 		It("Cannot have blank kind in volume source", func() {
-			Expect(blankKindCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
-			Expect(blankKindCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.kind cannot be blank")))
+			Expect(blankNameCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			Expect(blankNameCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
 		})
 		It("Cannot have blank path in volume source", func() {
 			Expect(blankPathCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 			Expect(blankPathCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+		})
+		It("Should not allow duplicate paths", func() {
+			Expect(multiSourceVolumeDuplicatePathCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+		})
+		It("Should not allow duplicate names", func() {
+			Expect(multiSourceVolumeDuplicateNameCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
 	})
 })
