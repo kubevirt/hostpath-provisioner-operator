@@ -480,17 +480,24 @@ func createLegacyStoragePoolCr() *hppv1.HostPathProvisioner {
 	}
 }
 
+func createStoragePoolWithTemplateLongNameCr() *hppv1.HostPathProvisioner {
+	volumeMode := corev1.PersistentVolumeFilesystem
+	name := "l123456789012345678901234567890123456789012345678901234567890123"
+	Expect(len(name)).To(BeNumerically(">=", maxMountNameLength))
+	return createStoragePoolWithTemplateVolumeModeCr(name, &volumeMode)
+}
+
 func createStoragePoolWithTemplateCr() *hppv1.HostPathProvisioner {
 	volumeMode := corev1.PersistentVolumeFilesystem
-	return createStoragePoolWithTemplateVolumeModeCr(&volumeMode)
+	return createStoragePoolWithTemplateVolumeModeCr("local", &volumeMode)
 }
 
 func createStoragePoolWithTemplateBlockCr() *hppv1.HostPathProvisioner {
 	volumeMode := corev1.PersistentVolumeBlock
-	return createStoragePoolWithTemplateVolumeModeCr(&volumeMode)
+	return createStoragePoolWithTemplateVolumeModeCr("local", &volumeMode)
 }
 
-func createStoragePoolWithTemplateVolumeModeCr(volumeMode *corev1.PersistentVolumeMode) *hppv1.HostPathProvisioner {
+func createStoragePoolWithTemplateVolumeModeCr(name string, volumeMode *corev1.PersistentVolumeMode) *hppv1.HostPathProvisioner {
 	scName := "test"
 	return &hppv1.HostPathProvisioner{
 		ObjectMeta: metav1.ObjectMeta{
@@ -501,7 +508,7 @@ func createStoragePoolWithTemplateVolumeModeCr(volumeMode *corev1.PersistentVolu
 			ImagePullPolicy: corev1.PullAlways,
 			StoragePools: []hppv1.StoragePool{
 				{
-					Name: "local",
+					Name: name,
 					Path: "/tmp/test",
 					PVCTemplate: &corev1.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,

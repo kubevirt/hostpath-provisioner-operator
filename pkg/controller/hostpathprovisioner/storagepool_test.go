@@ -73,6 +73,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			verifyDeploymentsAndPVCs(10, 10, cr, r, cl)
 		},
 			table.Entry("filesystem", createStoragePoolWithTemplateCr()),
+			table.Entry("filesystem long name", createStoragePoolWithTemplateLongNameCr()),
 			table.Entry("block", createStoragePoolWithTemplateBlockCr()),
 		)
 
@@ -235,9 +236,14 @@ func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisio
 		Namespace: testNamespace,
 	})
 	Expect(err).ToNot(HaveOccurred())
+	storagePoolName := ""
+	for _, storagePool := range cr.Spec.StoragePools {
+		storagePoolName = storagePool.Name
+	}
+	Expect(storagePoolName).ToNot(BeEmpty())
 	foundDeployments := make([]string, 0)
 	for _, deployment := range deploymentList.Items {
-		if metav1.IsControlledBy(&deployment, cr) {
+		if metav1.IsControlledBy(&deployment, cr) && deployment.GetLabels()[storagePoolLabelKey] == getResourceNameWithMaxLength(storagePoolName, "hpp", maxNameLength) {
 			foundDeployments = append(foundDeployments, deployment.Name)
 		}
 	}
@@ -250,9 +256,14 @@ func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisio
 		Namespace: testNamespace,
 	})
 	Expect(err).ToNot(HaveOccurred())
+	pvcNames := make([]string, 0)
+	for i := 1; i <= pvcCount; i++ {
+		pvcNames = append(pvcNames, getStoragePoolPVCName(storagePoolName, fmt.Sprintf("node%d", i)))
+	}
 	for _, pvc := range pvcList.Items {
 		foundPVCs = append(foundPVCs, pvc.Name)
-		Expect(pvc.Name).To(ContainSubstring(cr.Spec.StoragePools[0].Name))
+		Expect(pvc.GetLabels()[storagePoolLabelKey]).To(Equal(getResourceNameWithMaxLength(storagePoolName, "hpp", maxNameLength)))
+		Expect(pvcNames).To(ContainElement(pvc.Name))
 		Expect(pvc.Spec).To(BeEquivalentTo(*cr.Spec.StoragePools[0].PVCTemplate))
 	}
 	Expect(foundPVCs).ToNot(BeEmpty(), fmt.Sprintf("%v", foundPVCs))

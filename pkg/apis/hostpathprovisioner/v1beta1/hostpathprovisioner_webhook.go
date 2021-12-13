@@ -24,6 +24,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	maxStoragePoolNameLength = 50
+	maxPathLength            = 255
+)
+
 // SetupWebhookWithManager configures the webhook for the passed in manager
 func (r *HostPathProvisioner) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -81,8 +86,14 @@ func validateStoragePool(storagePool StoragePool) error {
 	if storagePool.Name == "" {
 		return fmt.Errorf("storagePool.name cannot be blank")
 	}
+	if len(storagePool.Name) > maxStoragePoolNameLength {
+		return fmt.Errorf("storagePool.name cannot have a length greater than 50")
+	}
 	if storagePool.Path == "" {
 		return fmt.Errorf("storagePool.path cannot be blank")
+	}
+	if len(storagePool.Path) > maxPathLength {
+		return fmt.Errorf("storagePool.path cannot have a length greater than 255")
 	}
 	return nil
 }

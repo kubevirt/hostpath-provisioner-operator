@@ -18,6 +18,7 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +34,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+)
+
+const (
+	legacyDataDir                    = "csi-data-dir"
+	legacyStoragePoolDataDir         = "legacy-data-dir"
+	localDataDir                     = "local-data-dir"
+	hashedLongStoragePoolNameDataDir = "l12345678901234567890123456789012345678901234-69d4290d-data-dir"
 )
 
 var _ = Describe("Controller reconcile loop", func() {
@@ -66,7 +74,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				if container.Name == MultiPurposeHostPathProvisionerName {
 					for _, mount := range container.VolumeMounts {
 						if mount.MountPath == "/csi-data-dir" {
-							Expect(mount.Name).To(Equal("csi-data-dir"))
+							Expect(mount.Name).To(Equal(legacyDataDir))
 							foundMount = true
 						}
 					}
@@ -76,7 +84,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			foundVolume := false
 			for _, volume := range ds.Spec.Template.Spec.Volumes {
 				log.Info("Volume", "name", volume.Name)
-				if volume.Name == "csi-data-dir" {
+				if volume.Name == legacyDataDir {
 					Expect(volume.HostPath).NotTo(BeNil())
 					Expect(volume.HostPath.Path).To(Equal("/tmp/test"))
 					foundVolume = true
@@ -101,7 +109,7 @@ var _ = Describe("Controller reconcile loop", func() {
 				if container.Name == MultiPurposeHostPathProvisionerName {
 					for _, mount := range container.VolumeMounts {
 						if mount.MountPath == "/legacy-data-dir" {
-							Expect(mount.Name).To(Equal("legacy-data-dir"))
+							Expect(mount.Name).To(Equal(legacyStoragePoolDataDir))
 							foundMount = true
 						}
 					}
@@ -111,7 +119,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			foundVolume := false
 			for _, volume := range ds.Spec.Template.Spec.Volumes {
 				log.Info("Volume", "name", volume.Name)
-				if volume.Name == "legacy-data-dir" {
+				if volume.Name == legacyStoragePoolDataDir {
 					Expect(volume.HostPath).NotTo(BeNil())
 					Expect(volume.HostPath.Path).To(Equal("/tmp/test"))
 					foundVolume = true
@@ -157,7 +165,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(legacyVolume))
 		})
 
-		table.DescribeTable("Should fix a changed csi daemonSet", func(cr *hppv1.HostPathProvisioner) {
+		table.DescribeTable("Should fix a changed csi daemonSet", func(cr *hppv1.HostPathProvisioner, volumeMountName string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -192,10 +200,22 @@ var _ = Describe("Controller reconcile loop", func() {
 			err = cl.Get(context.TODO(), dsNN, ds)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(Equal(socketDir))
+			foundVolumeMountName := false
+			volumeMounts := make([]string, 0)
+			for _, container := range ds.Spec.Template.Spec.Containers {
+				for _, volumeMount := range container.VolumeMounts {
+					volumeMounts = append(volumeMounts, volumeMount.Name)
+					if strings.Contains(volumeMount.Name, volumeMountName) {
+						foundVolumeMountName = true
+					}
+				}
+			}
+			Expect(foundVolumeMountName).To(BeTrue(), fmt.Sprintf("Did not find volumeMount with string %s, in %v", volumeMountName, volumeMounts))
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			table.Entry("legacyCr", createLegacyCr(), legacyDataDir),
+			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), legacyStoragePoolDataDir),
+			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), localDataDir),
+			table.Entry("longNamecr", createStoragePoolWithTemplateLongNameCr(), hashedLongStoragePoolNameDataDir),
 		)
 
 		table.DescribeTable("Should create daemonset with node placement", func(dsName string) {

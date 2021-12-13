@@ -19,6 +19,7 @@ package hostpathprovisioner
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"reflect"
 
@@ -152,4 +153,54 @@ func getRecommendedLabels() map[string]string {
 	}
 
 	return labels
+}
+
+func getResourceNameWithMaxLength(base, suffix string, maxLength int) string {
+	if maxLength <= 0 {
+		return ""
+	}
+	name := fmt.Sprintf("%s-%s", base, suffix)
+	if len(name) <= maxLength {
+		return name
+	}
+
+	baseLength := maxLength - 10 /*length of -hash-*/ - len(suffix)
+
+	// if the suffix is too long, ignore it
+	if baseLength < 0 {
+		prefix := base[0:min(len(base), max(0, maxLength-9))]
+		// Calculate hash on initial base-suffix string
+		shortName := fmt.Sprintf("%s-%s", prefix, hash(name))
+		return shortName[:min(maxLength, len(shortName))]
+	}
+
+	prefix := base[0:baseLength]
+	// Calculate hash on initial base-suffix string
+	return fmt.Sprintf("%s-%s-%s", prefix, hash(base), suffix)
+}
+
+// hash calculates the hexadecimal representation (8-chars)
+// of the hash of the passed in string using the FNV-a algorithm
+func hash(s string) string {
+	hash := fnv.New32a()
+	hash.Write([]byte(s))
+	intHash := hash.Sum32()
+	result := fmt.Sprintf("%08x", intHash)
+	return result
+}
+
+// max returns the greater of its 2 inputs
+func max(a, b int) int {
+	if b > a {
+		return b
+	}
+	return a
+}
+
+// min returns the lesser of its 2 inputs
+func min(a, b int) int {
+	if b < a {
+		return b
+	}
+	return a
 }
