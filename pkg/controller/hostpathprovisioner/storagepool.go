@@ -44,6 +44,7 @@ const (
 	fsDataMountPath         = "/source"
 	blockDataMountPath      = "/dev/data"
 	defaultStorageClassName = "default"
+	maxNameLength           = 63
 )
 
 //StoragePoolInfo contains the name and path of a hostpath storage pool.
@@ -302,7 +303,7 @@ func (r *ReconcileHostPathProvisioner) getStorageClassNameOrDefault(template *co
 
 func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := getRecommendedLabels()
-	labels[storagePoolLabelKey] = storagePool.Name
+	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      getStoragePoolPVCName(storagePool.Name, node.GetName()),
@@ -316,7 +317,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpat
 func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, sourceStoragePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *appsv1.Deployment {
 	args := getDaemonSetArgs(logger, namespace, false)
 	labels := getRecommendedLabels()
-	labels[storagePoolLabelKey] = sourceStoragePool.Name
+	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(sourceStoragePool.Name, "hpp", maxNameLength)
 	replicaCount := int32(1)
 	directory := corev1.HostPathDirectory
 	bidirectional := corev1.MountPropagationBidirectional
@@ -332,14 +333,14 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      fmt.Sprintf("hpp-pool-%s-%s", sourceStoragePool.Name, node.GetName()),
+			Name:      getResourceNameWithMaxLength("hpp-pool", fmt.Sprintf("%s-%s", sourceStoragePool.Name, node.GetName()), maxNameLength),
 			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
-					"hpp-pool": sourceStoragePool.Name,
+					"hpp-pool": getResourceNameWithMaxLength(sourceStoragePool.Name, "hpp", maxNameLength),
 				},
 			},
 			Replicas: &replicaCount,
@@ -358,10 +359,10 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 			RevisionHistoryLimit:    &revisionHistoryLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      sourceStoragePool.Name,
+					Name:      getResourceNameWithMaxLength(sourceStoragePool.Name, "hpp", maxNameLength),
 					Namespace: namespace,
 					Labels: map[string]string{
-						"hpp-pool": sourceStoragePool.Name,
+						"hpp-pool": getResourceNameWithMaxLength(sourceStoragePool.Name, "hpp", maxNameLength),
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -462,7 +463,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 }
 
 func getStoragePoolPVCName(poolName, nodeName string) string {
-	return fmt.Sprintf("hpp-pool-%s-%s", poolName, nodeName)
+	return getResourceNameWithMaxLength("hpp-pool", fmt.Sprintf("%s-%s", poolName, nodeName), maxNameLength)
 }
 
 func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool) ([]appsv1.Deployment, error) {
@@ -629,7 +630,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 	bidirectional := corev1.MountPropagationBidirectional
 	cleanupJob := &batchv1.Job{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      fmt.Sprintf("cleanup-pool-%s-%s", sourceStoragePool.Name, node.GetName()),
+			Name:      getResourceNameWithMaxLength("cleanup-pool", fmt.Sprintf("%s-%s", sourceStoragePool.Name, node.GetName()), maxNameLength),
 			Namespace: namespace,
 			Labels:    labels,
 		},

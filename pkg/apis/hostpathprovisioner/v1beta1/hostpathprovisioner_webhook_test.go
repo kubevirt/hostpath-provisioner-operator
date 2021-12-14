@@ -24,9 +24,11 @@ import (
 )
 
 const (
-	versionString = "1.0.1"
-	csiVolume     = "csi-data-dir"
-	legacyVolume  = "pv-volume"
+	versionString   = "1.0.1"
+	csiVolume       = "csi-data-dir"
+	legacyVolume    = "pv-volume"
+	longPathMax     = "/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/1234"
+	longPathOverMax = "/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/123456789/12345"
 )
 
 var (
@@ -152,6 +154,34 @@ var (
 			},
 		},
 	}
+	longNameCr = HostPathProvisioner{
+		Spec: HostPathProvisionerSpec{
+			StoragePools: []StoragePool{
+				{
+					Name: "1234567890123456789012345678901234567890123456789",
+					Path: "test",
+				},
+				{
+					Name: "l12345678901234567890123456789012345678901234567890",
+					Path: "test2",
+				},
+			},
+		},
+	}
+	longPathCr = HostPathProvisioner{
+		Spec: HostPathProvisionerSpec{
+			StoragePools: []StoragePool{
+				{
+					Name: "test",
+					Path: longPathMax,
+				},
+				{
+					Name: "test2",
+					Path: longPathOverMax,
+				},
+			},
+		},
+	}
 )
 
 var _ = Describe("validating webhook", func() {
@@ -180,6 +210,12 @@ var _ = Describe("validating webhook", func() {
 		It("Should not allow duplicate names", func() {
 			Expect(multiSourceVolumeDuplicateNameCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
+		It("Should not allow storagepool.name length > 50", func() {
+			Expect(longNameCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+		})
+		It("Should not allow storagepool.path length > 255", func() {
+			Expect(longPathCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+		})
 	})
 
 	Context("update", func() {
@@ -199,10 +235,16 @@ var _ = Describe("validating webhook", func() {
 			Expect(blankPathCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
 		It("Should not allow duplicate paths", func() {
-			Expect(multiSourceVolumeDuplicatePathCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+			Expect(multiSourceVolumeDuplicatePathCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
 		})
 		It("Should not allow duplicate names", func() {
-			Expect(multiSourceVolumeDuplicateNameCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+			Expect(multiSourceVolumeDuplicateNameCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+		})
+		It("Should not allow storagepool.name length > 50", func() {
+			Expect(longNameCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+		})
+		It("Should not allow storagepool.path length > 255", func() {
+			Expect(longPathCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
 		})
 	})
 })

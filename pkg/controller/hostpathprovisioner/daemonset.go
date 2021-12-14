@@ -46,6 +46,7 @@ const (
 	csiSocket               = "/csi/csi.sock"
 	nodeDriverRegistrarName = "node-driver-registrar"
 	legacyStoragePoolName   = "legacy"
+	maxMountNameLength      = 63
 )
 
 var (
@@ -412,7 +413,7 @@ func getMountNameFromStoragePool(poolName string) string {
 	if poolName == "" {
 		poolName = "csi"
 	}
-	return fmt.Sprintf("%s-data-dir", poolName)
+	return getResourceNameWithMaxLength(poolName, "data-dir", maxMountNameLength)
 }
 
 func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
@@ -467,9 +468,9 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
-	kindPaths := getStoragePoolPaths(cr)
-	pathVolumes := buildVolumesFromStoragePoolInfo(kindPaths)
-	pathMounts := buildVolumeMountsFromStoragePoolInfo(kindPaths)
+	storagePoolPaths := getStoragePoolPaths(cr)
+	pathVolumes := buildVolumesFromStoragePoolInfo(storagePoolPaths)
+	pathMounts := buildVolumeMountsFromStoragePoolInfo(storagePoolPaths)
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := getRecommendedLabels()
 	ds := &appsv1.DaemonSet{
@@ -532,7 +533,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								},
 								{
 									Name:  "PV_DIR",
-									Value: buildPathArgFromStoragePoolInfo(kindPaths),
+									Value: buildPathArgFromStoragePoolInfo(storagePoolPaths),
 								},
 								{
 									Name:  "VERSION",
