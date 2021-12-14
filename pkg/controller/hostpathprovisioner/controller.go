@@ -306,7 +306,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(request reconcile.Request) (rec
 		MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 		r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 	}
-	return res, nil
+	return res, err
 }
 
 func canUpgrade(current, target string) (bool, error) {
