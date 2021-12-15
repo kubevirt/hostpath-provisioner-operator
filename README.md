@@ -2,6 +2,8 @@
 The Kubernetes [operator](https://github.com/operator-framework) for managing [KubeVirt hostpath provisioner](https://github.com/kubevirt/hostpath-provisioner) deployment.
 Leverages the [operator-sdk](https://github.com/operator-framework/operator-sdk/).
 
+Any version after v0.9.0 requires Kubernetes version >= 1.21. This is because the operator manages the CSIDriver object and tries to update it with fields that only exist in kubernetes >= 1.21
+
 ## How to deploy
 Before deploying the operator, you need to create the hostpath provisioner namespace:
 ```bash
