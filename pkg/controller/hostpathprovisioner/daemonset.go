@@ -669,6 +669,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								"--immediate-topology=false",
 								"--strict-topology=true",
 								"--node-deployment=true",
+								"--default-fstype=xfs",
 							},
 							Env: []corev1.EnvVar{
 								{
