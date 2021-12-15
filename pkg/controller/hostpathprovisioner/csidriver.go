@@ -62,6 +62,9 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 	// Keep a copy of the original for comparison later.
 	currentRuntimeObjCopy := found.DeepCopyObject()
 
+	// Copy some immutable spec fields on csidrivers that don't need to be reconciled
+	desired = copyImmutableFields(desired, found)
+
 	// allow users to add new annotations (but not change ours)
 	mergeLabelsAndAnnotations(desired, found)
 
@@ -74,9 +77,9 @@ func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger,
 	// CSIDriver already exists, check if we need to update.
 	if !reflect.DeepEqual(currentRuntimeObjCopy, merged) {
 		logJSONDiff(reqLogger, currentRuntimeObjCopy, merged)
-		// Current is different from desired, delete. CSIDriver object is immutable, so need to recreate.
-		reqLogger.Info("Deleting CSIDriver so we can update", "CSIDriver.Name", desired.GetName())
-		err = r.client.Delete(context.TODO(), merged)
+		// Current is different from desired, update.
+		reqLogger.Info("Updating CSIDriver", "CSIDriver.Name", desired.Name)
+		err = r.client.Update(context.TODO(), merged)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -102,11 +105,22 @@ func (r *ReconcileHostPathProvisioner) deleteCSIDriver() error {
 	return nil
 }
 
+func copyImmutableFields(desired, current *storagev1.CSIDriver) *storagev1.CSIDriver {
+	desired.Spec.AttachRequired = current.Spec.AttachRequired
+	desired.Spec.PodInfoOnMount = current.Spec.PodInfoOnMount
+	desired.Spec.VolumeLifecycleModes = current.Spec.VolumeLifecycleModes
+	desired.Spec.StorageCapacity = current.Spec.StorageCapacity
+	desired.Spec.FSGroupPolicy = current.Spec.FSGroupPolicy
+
+	return desired
+}
+
 func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 	labels := getRecommendedLabels()
 	podInfoOnMount := true
 	attachRequired := false
 	storageCapacity := true
+	requiresRepublish := false
 	fsGroupPolicy := storagev1.ReadWriteOnceWithFSTypeFSGroupPolicy
 
 	return &storagev1.CSIDriver{
@@ -124,8 +138,9 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 			VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
 				storagev1.VolumeLifecyclePersistent,
 			},
-			PodInfoOnMount:  &podInfoOnMount,
-			StorageCapacity: &storageCapacity,
+			PodInfoOnMount:    &podInfoOnMount,
+			StorageCapacity:   &storageCapacity,
+			RequiresRepublish: &requiresRepublish,
 		},
 	}
 }
