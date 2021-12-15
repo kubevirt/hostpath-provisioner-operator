@@ -150,6 +150,5 @@ var _ = Describe("Controller reconcile loop", func() {
 			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
 			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
-
 	})
 })

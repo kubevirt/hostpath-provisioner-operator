@@ -86,6 +86,5 @@ var _ = Describe("Controller reconcile loop", func() {
 			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
 			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
 		)
-
 	})
 })
