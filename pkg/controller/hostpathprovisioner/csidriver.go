@@ -107,7 +107,7 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 	podInfoOnMount := true
 	attachRequired := false
 	storageCapacity := true
-	fsGroupPolicy := storagev1.NoneFSGroupPolicy
+	fsGroupPolicy := storagev1.ReadWriteOnceWithFSTypeFSGroupPolicy
 
 	return &storagev1.CSIDriver{
 		TypeMeta: metav1.TypeMeta{
