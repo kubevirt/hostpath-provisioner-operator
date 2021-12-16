@@ -1120,8 +1120,8 @@ func verifyCreateCSIDriver(cl client.Client) {
 	Expect(*cd.Spec.AttachRequired).To(BeFalse())
 	Expect(cd.Spec.PodInfoOnMount).NotTo(BeNil())
 	Expect(*cd.Spec.PodInfoOnMount).To(BeTrue())
-	Expect(len(cd.Spec.VolumeLifecycleModes)).To(Equal(1))
-	Expect(cd.Spec.VolumeLifecycleModes[0]).To(Equal(storagev1.VolumeLifecyclePersistent))
+	Expect(len(cd.Spec.VolumeLifecycleModes)).To(Equal(2))
+	Expect(cd.Spec.VolumeLifecycleModes).To(ContainElements(storagev1.VolumeLifecyclePersistent, storagev1.VolumeLifecycleEphemeral))
 }
 
 func createServiceAccountWithNameThatDependsOnCr() *corev1.ServiceAccount {
