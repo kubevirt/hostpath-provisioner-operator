@@ -137,6 +137,7 @@ func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
 			FSGroupPolicy:  &fsGroupPolicy,
 			VolumeLifecycleModes: []storagev1.VolumeLifecycleMode{
 				storagev1.VolumeLifecyclePersistent,
+				storagev1.VolumeLifecycleEphemeral,
 			},
 			PodInfoOnMount:    &podInfoOnMount,
 			StorageCapacity:   &storageCapacity,
