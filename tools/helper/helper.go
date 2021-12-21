@@ -67,9 +67,9 @@ func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
 }
 
 func setEnvVariable(key, value string, env []corev1.EnvVar) {
-	for _, envValue := range env {
+	for i, envValue := range env {
 		if envValue.Name == key {
-			envValue.Value = value
+			env[i].Value = value
 		}
 	}
 }
