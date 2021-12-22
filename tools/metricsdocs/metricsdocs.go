@@ -44,7 +44,7 @@ func main() {
 
 	var metricsList metricList
 	if status := recorder.Code; status == http.StatusOK {
-		err := parseVirtMetrics(recorder.Body, &metricsList)
+		err := parseHppMetrics(recorder.Body, &metricsList)
 		checkError(err)
 
 	} else {
@@ -102,7 +102,7 @@ func (m metricList) writeOut() {
 
 const filter = "kubevirt_hpp_operator_"
 
-func parseVirtMetrics(r io.Reader, metricsList *metricList) error {
+func parseHppMetrics(r io.Reader, metricsList *metricList) error {
 	scan := bufio.NewScanner(r)
 	for scan.Scan() {
 		helpLine := scan.Text()
