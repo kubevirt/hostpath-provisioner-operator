@@ -182,6 +182,9 @@ func createPrometheusRules(namespace string) []promv1.Rule {
 		generateRecordRule(
 			"kubevirt_hpp_operator_up_total",
 			fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
+			map[string]string{
+				"summary": "The total number of running hostpath-provisioner-operator pods",
+			},
 		),
 		generateAlertRule(
 			"HPPOperatorDown",
@@ -378,7 +381,7 @@ func generateAlertRule(alert, expr, duration string, annotations, labels map[str
 func generateRecordRule(record, expr string, annotations map[string]string) promv1.Rule {
 	return promv1.Rule{
 		Record:      record,
-		Expr: 	     intstr.FromString(expr),
+		Expr:        intstr.FromString(expr),
 		Annotations: annotations,
 	}
 }
