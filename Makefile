@@ -56,3 +56,9 @@ test:
 	hack/run-lint-checks.sh
 	hack/language.sh
 	go test -v ./pkg/... ./tools/... ./version/...
+
+generate-doc: build-docgen
+	_out/metricsdocs > docs/metrics.md
+
+build-docgen:
+	go build -ldflags="-s -w" -o _out/metricsdocs ./tools/metricsdocs
