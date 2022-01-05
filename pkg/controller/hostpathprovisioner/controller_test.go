@@ -1043,6 +1043,11 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	}
 	err := cl.Get(context.TODO(), nn, rule)
 	Expect(err).NotTo(HaveOccurred())
+	for _, r := range rule.Spec.Groups[0].Rules {
+		if r.Record != "" {
+			Expect(r.Annotations).To(BeNil())
+		}
+	}
 	hppDownAlert := promv1.Rule{
 		Alert: "HPPOperatorDown",
 		Expr:  intstr.FromString("kubevirt_hpp_operator_up_total == 0"),
