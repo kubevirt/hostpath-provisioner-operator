@@ -246,6 +246,7 @@ func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisio
 		if metav1.IsControlledBy(&deployment, cr) && deployment.GetLabels()[storagePoolLabelKey] == getResourceNameWithMaxLength(storagePoolName, "hpp", maxNameLength) {
 			foundDeployments = append(foundDeployments, deployment.Name)
 		}
+		Expect(deployment.Spec.Template.Spec.ServiceAccountName).To(Equal(ProvisionerServiceAccountNameCsi))
 	}
 	Expect(foundDeployments).ToNot(BeEmpty(), fmt.Sprintf("%v", foundDeployments))
 	Expect(len(foundDeployments)).To(Equal(podCount), fmt.Sprintf("%v", foundDeployments))
