@@ -177,6 +177,46 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 	return nil
 }
 
+func createPrometheusRules(namespace string) []promv1.Rule {
+	return []promv1.Rule{
+		generateRecordRule(
+			"kubevirt_hpp_operator_up_total",
+			fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
+			map[string]string{
+				"summary": "The total number of running hostpath-provisioner-operator pods",
+			},
+		),
+		generateAlertRule(
+			"HPPOperatorDown",
+			"kubevirt_hpp_operator_up_total == 0",
+			"5m",
+			map[string]string{
+				"summary":     "Hostpath Provisioner operator is down",
+				"runbook_url": runbookURLBasePath + "HPPOperatorDown",
+			},
+			map[string]string{
+				severityAlertLabelKey:  "warning",
+				partOfAlertLabelKey:    partOfAlertLabelValue,
+				componentAlertLabelKey: componentAlertLabelValue,
+			},
+		),
+		generateAlertRule(
+			"HPPNotReady",
+			"kubevirt_hpp_cr_ready == 0",
+			"5m",
+			map[string]string{
+				"summary":     "Hostpath Provisioner is not available to use",
+				"runbook_url": runbookURLBasePath + "HPPNotReady",
+			},
+			map[string]string{
+				severityAlertLabelKey:  "warning",
+				partOfAlertLabelKey:    partOfAlertLabelValue,
+				componentAlertLabelKey: componentAlertLabelValue,
+			},
+		),
+	}
+}
+
 func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *promv1.PrometheusRule {
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
@@ -194,41 +234,8 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 		Spec: promv1.PrometheusRuleSpec{
 			Groups: []promv1.RuleGroup{
 				{
-					Name: "hpp.rules",
-					Rules: []promv1.Rule{
-						generateRecordRule(
-							"kubevirt_hpp_operator_up_total",
-							fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
-						),
-						generateAlertRule(
-							"HPPOperatorDown",
-							"kubevirt_hpp_operator_up_total == 0",
-							"5m",
-							map[string]string{
-								"summary":     "Hostpath Provisioner operator is down",
-								"runbook_url": runbookURLBasePath + "HPPOperatorDown",
-							},
-							map[string]string{
-								severityAlertLabelKey:  "warning",
-								partOfAlertLabelKey:    partOfAlertLabelValue,
-								componentAlertLabelKey: componentAlertLabelValue,
-							},
-						),
-						generateAlertRule(
-							"HPPNotReady",
-							"kubevirt_hpp_cr_ready == 0",
-							"5m",
-							map[string]string{
-								"summary":     "Hostpath Provisioner is not available to use",
-								"runbook_url": runbookURLBasePath + "HPPNotReady",
-							},
-							map[string]string{
-								severityAlertLabelKey:  "warning",
-								partOfAlertLabelKey:    partOfAlertLabelValue,
-								componentAlertLabelKey: componentAlertLabelValue,
-							},
-						),
-					},
+					Name:  "hpp.rules",
+					Rules: createPrometheusRules(namespace),
 				},
 			},
 		},
@@ -371,10 +378,11 @@ func generateAlertRule(alert, expr, duration string, annotations, labels map[str
 	}
 }
 
-func generateRecordRule(record, expr string) promv1.Rule {
+func generateRecordRule(record, expr string, annotations map[string]string) promv1.Rule {
 	return promv1.Rule{
-		Record: record,
-		Expr:   intstr.FromString(expr),
+		Record:      record,
+		Expr:        intstr.FromString(expr),
+		Annotations: annotations,
 	}
 }
 
