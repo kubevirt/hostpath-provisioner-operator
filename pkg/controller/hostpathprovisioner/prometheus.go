@@ -177,12 +177,36 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 	return nil
 }
 
-func createPrometheusRules(namespace string) []promv1.Rule {
-	return []promv1.Rule{
-		generateRecordRule(
+// RecordRulesDesc represent HPP Prometheus Record Rules
+type RecordRulesDesc struct {
+	Name        string
+	Expr        string
+	Description string
+}
+
+// GetRecordRulesDesc returns HPPgst Prometheus Record Rules
+func GetRecordRulesDesc(namespace string) []RecordRulesDesc {
+	return []RecordRulesDesc{
+		{
 			"kubevirt_hpp_operator_up_total",
 			fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
-		),
+			"The total number of running hostpath-provisioner-operator pods",
+		},
+	}
+}
+
+func getRecordRules(namespace string) []promv1.Rule {
+	var recordRules []promv1.Rule
+
+	for _, rrd := range GetRecordRulesDesc(namespace) {
+		recordRules = append(recordRules, generateRecordRule(rrd.Name, rrd.Expr))
+	}
+
+	return recordRules
+}
+
+func getAlertRules() []promv1.Rule {
+	return []promv1.Rule{
 		generateAlertRule(
 			"HPPOperatorDown",
 			"kubevirt_hpp_operator_up_total == 0",
@@ -232,7 +256,7 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 			Groups: []promv1.RuleGroup{
 				{
 					Name:  "hpp.rules",
-					Rules: createPrometheusRules(namespace),
+					Rules: append(getRecordRules(namespace), getAlertRules()...),
 				},
 			},
 		},
