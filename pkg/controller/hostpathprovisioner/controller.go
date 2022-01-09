@@ -423,6 +423,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, 
 		return reconcile.Result{}, err
 	}
 	if err := r.reconcileStoragePoolStatus(reqLogger, cr, namespace); err != nil {
+		MarkCrFailedHealing(cr, "StoragePoolNotReady", err.Error())
 		return reconcile.Result{}, err
 	}
 	if !degraded && cr.Status.ObservedVersion != versionString {
