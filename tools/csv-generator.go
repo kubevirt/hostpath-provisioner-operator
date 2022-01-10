@@ -152,19 +152,36 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 				"alm-examples": `
       [
         {
-		  "apiVersion": "hostpathprovisioner.kubevirt.io/v1beta1",
-		  "kind": "HostPathProvisioner",
-		  "metadata": {
-			"name": "hostpath-provisioner"
-		  },
-		  "spec": {
-			"imagePullPolicy":"IfNotPresent",
-			"pathConfig": {
-			  "path": "/var/hpvolumes",
-			  "useNamingPrefix": false
-			}
-          }
-        }
+			"apiVersion": "hostpathprovisioner.kubevirt.io/v1beta1",
+			"kind": "HostPathProvisioner",
+			"metadata": {
+				"name": "hostpath-provisioner"
+			},
+			"spec": {
+				"imagePullPolicy":"IfNotPresent",
+				"storagePools": [
+					{
+						"name": "local",
+						"pvcTemplate": {
+							"accessModes": {
+								"ReadWriteOnce"
+							},
+							"resources": {
+								"requests": {
+									"storage": "50Gi"
+								},
+							},
+						},
+						"path": "/var/hpvolumes",
+					},
+				],
+				"workload": {
+					"nodeSelector": {
+						"kubernetes.io/os": "linux"
+					},
+				},
+			},
+		}
       ]`,
 				"description": "Creates and maintains hostpath provisioner deployments",
 			},
