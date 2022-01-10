@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller/hostpathprovisioner"
-	"net/http"
-	"net/http/httptest"
 	"sort"
 	"strings"
 )
@@ -32,24 +28,8 @@ const (
 )
 
 func main() {
-	handler := hostpathprovisioner.Handler(1)
-	RegisterFakeCollector()
-
-	req, err := http.NewRequest(http.MethodGet, "/metrics", nil)
-	checkError(err)
-
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, req)
-
-	var metricsList metricList
-	if status := recorder.Code; status == http.StatusOK {
-		err := parseHppMetrics(recorder.Body, &metricsList)
-		checkError(err)
-
-	} else {
-		panic(fmt.Errorf("got HTTP status code of %d from /metrics", recorder.Code))
-	}
+	metricsList := recordRulesDescToMetricList(hostpathprovisioner.GetRecordRulesDesc(""))
+	sort.Sort(metricsList)
 	writeToFile(metricsList)
 }
 
@@ -62,6 +42,22 @@ func writeToFile(metricsList metricList) {
 type metric struct {
 	name        string
 	description string
+}
+
+func recordRulesDescToMetricList(mdl []hostpathprovisioner.RecordRulesDesc) metricList {
+	res := make([]metric, len(mdl))
+	for i, md := range mdl {
+		res[i] = metricDescriptionToMetric(md)
+	}
+
+	return res
+}
+
+func metricDescriptionToMetric(rrd hostpathprovisioner.RecordRulesDesc) metric {
+	return metric{
+		name:        rrd.Name,
+		description: rrd.Description,
+	}
 }
 
 func (m metric) writeOut() {
@@ -97,33 +93,5 @@ func (m *metricList) add(line string) {
 func (m metricList) writeOut() {
 	for _, met := range m {
 		met.writeOut()
-	}
-}
-
-const filter = "kubevirt_hpp_operator_"
-
-func parseHppMetrics(r io.Reader, metricsList *metricList) error {
-	scan := bufio.NewScanner(r)
-	for scan.Scan() {
-		helpLine := scan.Text()
-		if strings.HasPrefix(helpLine, "# HELP ") {
-			if strings.Contains(helpLine, filter) {
-				metricsList.add(helpLine)
-			}
-		}
-	}
-
-	if scan.Err() != nil {
-		return fmt.Errorf("failed to parse metrics from prometheus endpoint, %w", scan.Err())
-	}
-
-	sort.Sort(metricsList)
-
-	return nil
-}
-
-func checkError(err error) {
-	if err != nil {
-		panic(err)
 	}
 }
