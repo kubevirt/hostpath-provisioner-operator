@@ -399,10 +399,16 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 
 	res, err := r.reconcileUpdate(reqLogger, request, cr, namespace)
 	if err == nil {
-		return r.reconcileStatus(context, reqLogger, cr, namespace, versionString)
+		res, err = r.reconcileStatus(context, reqLogger, cr, namespace, versionString)
+	} else {
+		MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
+		r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 	}
-	MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
-	r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
+	updateErr := r.client.Update(context, cr)
+	if updateErr != nil {
+		r.Log.Error(err, "Unable to successfully reconcile")
+		err = updateErr
+	}
 	return res, err
 }
 
@@ -421,11 +427,6 @@ func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, 
 	}
 	if !degraded && cr.Status.ObservedVersion != versionString {
 		cr.Status.ObservedVersion = versionString
-	}
-	err = r.client.Update(context, cr)
-	if err != nil {
-		// Error updating the object - requeue the request.
-		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
