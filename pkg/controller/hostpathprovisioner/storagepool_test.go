@@ -197,7 +197,26 @@ func scaleClusterNodesAndDsUp(start, end int, cr *hppv1.HostPathProvisioner, r *
 
 	By("reconciling again, it should create storage pools")
 	_, err = r.Reconcile(context.TODO(), req)
+	Expect(err).To(HaveOccurred())
+	Expect(err.Error()).To(ContainSubstring("instead of Bound"))
+	err = r.client.Get(context.TODO(), req.NamespacedName, cr)
 	Expect(err).ToNot(HaveOccurred())
+	Expect(IsHppAvailable(cr)).To(BeFalse())
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	err = cl.List(context.TODO(), pvcList, &client.ListOptions{
+		Namespace: testNamespace,
+	})
+	Expect(err).ToNot(HaveOccurred())
+	for _, pvc := range pvcList.Items {
+		pvc.Status.Phase = corev1.ClaimBound
+		err = cl.Update(context.TODO(), &pvc)
+		Expect(err).ToNot(HaveOccurred())
+	}
+	_, err = r.Reconcile(context.TODO(), req)
+	Expect(err).ToNot(HaveOccurred())
+	err = r.client.Get(context.TODO(), req.NamespacedName, cr)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(IsHppAvailable(cr)).To(BeTrue())
 }
 
 func scaleClusterNodesAndDsDown(start, end, newCount int, cr *hppv1.HostPathProvisioner, r *ReconcileHostPathProvisioner, cl client.Client) {
