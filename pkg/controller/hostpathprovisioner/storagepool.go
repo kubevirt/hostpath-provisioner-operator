@@ -294,13 +294,6 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 	return res, nil
 }
 
-func (r *ReconcileHostPathProvisioner) getStorageClassNameOrDefault(template *corev1.PersistentVolumeClaimSpec) string {
-	if template != nil && template.StorageClassName != nil && len(*template.StorageClassName) > 0 {
-		return *template.StorageClassName
-	}
-	return defaultStorageClassName
-}
-
 func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := getRecommendedLabels()
 	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
@@ -472,7 +465,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *h
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"k8s-app":           MultiPurposeHostPathProvisionerName,
-			storagePoolLabelKey: r.getStorageClassNameOrDefault(storagePool.PVCTemplate),
+			storagePoolLabelKey: getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength),
 		},
 	})
 	if err != nil {
@@ -501,7 +494,7 @@ func (r *ReconcileHostPathProvisioner) getClaimStatusesByStoragePool(storagePool
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"k8s-app":           MultiPurposeHostPathProvisionerName,
-			storagePoolLabelKey: r.getStorageClassNameOrDefault(storagePool.PVCTemplate),
+			storagePoolLabelKey: getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength),
 		},
 	})
 	if err != nil {
@@ -552,7 +545,11 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 				if err != nil {
 					return err
 				}
-
+				for _, s := range claimStatuses {
+					if phase := s.Status.Phase; phase != corev1.ClaimBound {
+						return fmt.Errorf("Error: Pool PVC %s is %s instead of %s", s.Name, phase, corev1.ClaimBound)
+					}
+				}
 				newStoragePoolStatuses = append(newStoragePoolStatuses, hostpathprovisionerv1.StoragePoolStatus{
 					Name:          storagePool.Name,
 					Phase:         hostpathprovisionerv1.StoragePoolReady,
