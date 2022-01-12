@@ -444,6 +444,38 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(res.Requeue).To(BeFalse())
 	})
 
+	It("Should update CR with FailedHealing", func() {
+		req := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      "test-name",
+				Namespace: testNamespace,
+			},
+		}
+		_, r, cl := createDeployedCr(createStoragePoolWithTemplateCr())
+		ds := &appsv1.DaemonSet{}
+		dsNN := types.NamespacedName{
+			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+			Namespace: testNamespace,
+		}
+		err := cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		err = cl.Delete(context.TODO(), ds, &client.DeleteOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		newCl := erroringFakeCtrlRuntimeClient{
+			Client: cl,
+			errMsg: "create failed",
+		}
+		r.client = newCl
+		_, err = r.Reconcile(context.TODO(), req)
+		Expect(err).To(HaveOccurred())
+		updatedCr := &hppv1.HostPathProvisioner{}
+		err = r.client.Get(context.TODO(), req.NamespacedName, updatedCr)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionAvailable)).To(BeFalse())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeTrue())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeTrue())
+		Expect(conditions.FindStatusCondition(updatedCr.Status.Conditions, conditions.ConditionDegraded).Message).To(Equal("Unable to successfully reconcile: create failed"))
+	})
 })
 
 func createLegacyCr() *hppv1.HostPathProvisioner {
@@ -539,7 +571,10 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	secv1.Install(s)
 
 	// Create a fake client to mock API calls.
-	cl := fake.NewFakeClientWithScheme(s, objs...)
+	cl := erroringFakeCtrlRuntimeClient{
+		Client: fake.NewFakeClientWithScheme(s, objs...),
+		errMsg: "",
+	}
 
 	// Create a ReconcileMemcached object with the scheme and fake client.
 	r := &ReconcileHostPathProvisioner{
@@ -1148,4 +1183,16 @@ func createServiceAccountWithNameThatDependsOnCr() *corev1.ServiceAccount {
 			},
 		},
 	}
+}
+
+type erroringFakeCtrlRuntimeClient struct {
+	client.Client
+	errMsg string
+}
+
+func (p erroringFakeCtrlRuntimeClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if len(p.errMsg) > 0 {
+		return fmt.Errorf(p.errMsg)
+	}
+	return p.Client.Create(ctx, obj, opts...)
 }
