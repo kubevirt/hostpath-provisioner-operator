@@ -163,24 +163,22 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 					{
 						"name": "local",
 						"pvcTemplate": {
-							"accessModes": {
-								"ReadWriteOnce"
-							},
+							"accessModes": "ReadWriteOnce",
 							"resources": {
 								"requests": {
 									"storage": "50Gi"
-								},
-							},
+								}
+							}
 						},
-						"path": "/var/hpvolumes",
-					},
+						"path": "/var/hpvolumes"
+					}
 				],
 				"workload": {
 					"nodeSelector": {
 						"kubernetes.io/os": "linux"
-					},
-				},
-			},
+					}
+				}
+			}
 		}
       ]`,
 				"description": "Creates and maintains hostpath provisioner deployments",
