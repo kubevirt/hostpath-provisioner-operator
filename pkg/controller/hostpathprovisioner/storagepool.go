@@ -104,24 +104,26 @@ func (r *ReconcileHostPathProvisioner) getStoragePoolForDeployment(cr *hostpathp
 func (r *ReconcileHostPathProvisioner) cleanDeployments(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) error {
 	logger.V(3).Info("Cleaning up storage pools")
 	for _, storagePool := range cr.Spec.StoragePools {
-		currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
-		if err != nil {
-			return err
-		}
-		for _, deployment := range currentStoragePoolDeployments {
-			node, err := r.createCleanupJobForDeployment(logger, cr, namespace, &deployment, &storagePool)
+		if storagePool.PVCTemplate != nil {
+			currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
 			if err != nil {
 				return err
 			}
-			desired := r.storagePoolDeploymentByNode(logger, cr, &storagePool, namespace, node)
-
-			// delete deployment
-			found := &appsv1.Deployment{}
-			if err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found); err != nil && !errors.IsNotFound(err) {
-				return err
-			} else if err == nil {
-				if err := r.client.Delete(context.TODO(), found); err != nil && !errors.IsNotFound(err) {
+			for _, deployment := range currentStoragePoolDeployments {
+				node, err := r.createCleanupJobForDeployment(logger, cr, namespace, &deployment, &storagePool)
+				if err != nil {
 					return err
+				}
+				desired := r.storagePoolDeploymentByNode(logger, cr, &storagePool, namespace, node)
+
+				// delete deployment
+				found := &appsv1.Deployment{}
+				if err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found); err != nil && !errors.IsNotFound(err) {
+					return err
+				} else if err == nil {
+					if err := r.client.Delete(context.TODO(), found); err != nil && !errors.IsNotFound(err) {
+						return err
+					}
 				}
 			}
 		}
