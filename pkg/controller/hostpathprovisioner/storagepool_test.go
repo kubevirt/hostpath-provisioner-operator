@@ -168,6 +168,49 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 			Expect(len(cr.Status.StoragePoolStatuses)).To(Equal(1))
 		})
+
+		It("should allow creation and deletion of mixed CR", func() {
+			blockMode := corev1.PersistentVolumeBlock
+			cr, r, cl := createDeployedCr(createStoragePoolWithTemplateVolumeModeAndBasicCr("template", &blockMode))
+			err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(cr.Status.StoragePoolStatuses)).To(Equal(2))
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "test-name",
+					Namespace: testNamespace,
+				},
+			}
+			Expect(len(cr.Status.StoragePoolStatuses)).To(Equal(2))
+			scaleClusterNodesAndDsUp(1, 6, cr, r, cl)
+			deployments := appsv1.DeploymentList{}
+			err = cl.List(context.TODO(), &deployments)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deployments.Items).ToNot(BeEmpty())
+			for _, deployment := range deployments.Items {
+				By("Setting deployment " + deployment.Name + " replicas to 1")
+				deployment.Status.ReadyReplicas = int32(1)
+				err = cl.Update(context.TODO(), &deployment)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			_, err = r.Reconcile(context.TODO(), req)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Delete the CR.
+			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+			Expect(err).ToNot(HaveOccurred())
+			now := metav1.NewTime(time.Now())
+			cr.DeletionTimestamp = &now
+			time.Sleep(time.Millisecond)
+			err = cl.Update(context.TODO(), cr)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = r.Reconcile(context.TODO(), req)
+			Expect(err).ToNot(HaveOccurred())
+			deployments = appsv1.DeploymentList{}
+			err = cl.List(context.TODO(), &deployments)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deployments.Items).To(BeEmpty())
+		})
 	})
 })
 
