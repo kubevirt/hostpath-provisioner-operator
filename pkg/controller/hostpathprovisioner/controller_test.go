@@ -560,6 +560,18 @@ func createStoragePoolWithTemplateVolumeModeCr(name string, volumeMode *corev1.P
 	}
 }
 
+func createStoragePoolWithTemplateVolumeModeAndBasicCr(name string, volumeMode *corev1.PersistentVolumeMode) *hppv1.HostPathProvisioner {
+	cr := createStoragePoolWithTemplateVolumeModeCr(name, volumeMode)
+	pvcTemplate := cr.Spec.StoragePools[0]
+	cr.Spec.StoragePools = make([]hppv1.StoragePool, 0)
+	cr.Spec.StoragePools = append(cr.Spec.StoragePools, hppv1.StoragePool{
+		Name: "basic",
+		Path: "/tmp/basic",
+	})
+	cr.Spec.StoragePools = append(cr.Spec.StoragePools, pvcTemplate)
+	return cr
+}
+
 // After this has run, the returned cr state should be available, not progressing and not degraded.
 func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner, *ReconcileHostPathProvisioner, client.Client) {
 	objs := []runtime.Object{cr}
