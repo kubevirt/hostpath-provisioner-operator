@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -200,8 +201,8 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolDeploymentByNode(logg
 	// allow users to add new annotations (but not change ours)
 	mergeLabelsAndAnnotations(desired, found)
 
+	desired = copyIgnoredStoragePoolFields(desired, found)
 	found.Spec = *desired.Spec.DeepCopy()
-
 	if !reflect.DeepEqual(currentRuntimeObjCopy, found) {
 		logJSONDiff(logger, currentRuntimeObjCopy, found)
 		// Current is different from desired, update.
@@ -214,6 +215,11 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolDeploymentByNode(logg
 		r.recorder.Event(cr, corev1.EventTypeNormal, updateResourceSuccess, fmt.Sprintf(updateMessageSucceeded, desired, desired.GetName()))
 	}
 	return nil
+}
+
+func copyIgnoredStoragePoolFields(desired, current *appsv1.Deployment) *appsv1.Deployment {
+	desired.Spec.Template.Spec.DeprecatedServiceAccount = current.Spec.Template.Spec.DeprecatedServiceAccount
+	return desired
 }
 
 func (r *ReconcileHostPathProvisioner) currentStoragePoolDeployments(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (map[string]appsv1.Deployment, error) {
@@ -567,6 +573,9 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 			}
 		}
 	}
+	sort.Slice(newStoragePoolStatuses, func(i, j int) bool {
+		return strings.Compare(newStoragePoolStatuses[i].Name, newStoragePoolStatuses[j].Name) == -1
+	})
 	cr.Status.StoragePoolStatuses = newStoragePoolStatuses
 	return nil
 }
