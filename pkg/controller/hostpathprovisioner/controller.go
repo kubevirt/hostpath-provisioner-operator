@@ -360,6 +360,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		return reconcile.Result{}, nil
 	}
 
+	currentCopy := cr.DeepCopy()
 	// Add finalizer for this CR
 	if err := r.addFinalizer(reqLogger, cr); err != nil {
 		return reconcile.Result{}, err
@@ -404,12 +405,26 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		MarkCrFailedHealing(cr, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 		r.recorder.Event(cr, corev1.EventTypeWarning, reconcileFailed, fmt.Sprintf("Unable to successfully reconcile: %v", err))
 	}
-	updateErr := r.client.Update(context, cr)
-	if updateErr != nil {
-		r.Log.Error(err, "Unable to successfully reconcile")
-		err = updateErr
+
+	r.ignoreHeartBeatTimestamp(currentCopy, cr)
+	if !reflect.DeepEqual(currentCopy, cr) {
+		logJSONDiff(reqLogger, currentCopy, cr)
+		updateErr := r.client.Update(context, cr)
+		if updateErr != nil {
+			r.Log.Error(err, "Unable to successfully reconcile")
+			err = updateErr
+		}
 	}
 	return res, err
+}
+
+func (r *ReconcileHostPathProvisioner) ignoreHeartBeatTimestamp(currentCopy, cr *hostpathprovisionerv1.HostPathProvisioner) {
+	for i, condition := range currentCopy.Status.Conditions {
+		crCond := conditions.FindStatusCondition(cr.Status.Conditions, condition.Type)
+		if crCond.Message == condition.Message && crCond.Reason == condition.Reason && crCond.Status == condition.Status {
+			currentCopy.Status.Conditions[i].LastHeartbeatTime = crCond.LastHeartbeatTime
+		}
+	}
 }
 
 func (r *ReconcileHostPathProvisioner) isLegacy(cr *hostpathprovisionerv1.HostPathProvisioner) bool {
