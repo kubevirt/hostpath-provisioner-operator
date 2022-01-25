@@ -57,6 +57,7 @@ func CreateOperatorDeployment(args *OperatorArgs) *appsv1.Deployment {
 		Value: kubevirtPriorityClassName,
 	})
 	setEnvVariable("VERBOSITY", args.Verbosity, deployment.Spec.Template.Spec.Containers[0].Env)
+	setEnvVariable("OPERATOR_IMAGE", args.OperatorImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("PROVISIONER_IMAGE", args.ProvisionerImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("CSI_PROVISIONER_IMAGE", args.CsiDriverImage, deployment.Spec.Template.Spec.Containers[0].Env)
 	setEnvVariable("NODE_DRIVER_REG_IMAGE", args.CsiNodeDriverRegistrarImage, deployment.Spec.Template.Spec.Containers[0].Env)
