@@ -218,6 +218,31 @@ var _ = Describe("Controller reconcile loop", func() {
 			table.Entry("longNamecr", createStoragePoolWithTemplateLongNameCr(), hashedLongStoragePoolNameDataDir),
 		)
 
+		table.DescribeTable("DaemonSet should have prometheus labels, port", func(cr *hppv1.HostPathProvisioner, volumeMountName string) {
+			cr, r, cl = createDeployedCr(cr)
+			ds := &appsv1.DaemonSet{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+					Namespace: testNamespace,
+				},
+			}
+			dsNN := client.ObjectKeyFromObject(ds)
+			err := cl.Get(context.TODO(), dsNN, ds)
+			Expect(err).NotTo(HaveOccurred())
+			port := corev1.ContainerPort{
+				ContainerPort: 8080,
+				Name:          "metrics",
+				Protocol:      corev1.ProtocolTCP,
+			}
+			Expect(ds.Spec.Template.Spec.Containers[0].Ports).To(ContainElement(port))
+			Expect(ds.Labels[PrometheusLabelKey]).To(Equal(PrometheusLabelValue))
+			Expect(ds.Spec.Template.Labels[PrometheusLabelKey]).To(Equal(PrometheusLabelValue))
+		},
+			table.Entry("legacyCr", createLegacyCr(), legacyDataDir),
+			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), legacyStoragePoolDataDir),
+			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), localDataDir),
+		)
+
 		table.DescribeTable("Should create daemonset with node placement", func(dsName string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{

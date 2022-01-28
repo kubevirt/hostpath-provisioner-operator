@@ -473,6 +473,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	pathMounts := buildVolumeMountsFromStoragePoolInfo(storagePoolPaths)
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := getRecommendedLabels()
+	labels[PrometheusLabelKey] = PrometheusLabelValue
 	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -555,6 +556,11 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								{
 									ContainerPort: 9898,
 									Name:          "healthz",
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									ContainerPort: 8080,
+									Name:          "metrics",
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},

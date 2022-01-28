@@ -235,6 +235,20 @@ func getAlertRules() []promv1.Rule {
 				componentAlertLabelKey: componentAlertLabelValue,
 			},
 		),
+		generateAlertRule(
+			"HPPSharingPoolPathWithOS",
+			"kubevirt_hpp_pool_path_shared_with_os == 1",
+			"1m",
+			map[string]string{
+				"summary":     "HPP pool path sharing a filesystem with OS, fix to prevent HPP PVs from causing disk pressure and affecting node operation",
+				"runbook_url": runbookURLBasePath + "HPPSharingPoolPathWithOS",
+			},
+			map[string]string{
+				severityAlertLabelKey:  "warning",
+				partOfAlertLabelKey:    partOfAlertLabelValue,
+				componentAlertLabelKey: componentAlertLabelValue,
+			},
+		),
 	}
 }
 
