@@ -1,0 +1,9 @@
+BugFix: Set SA on storage pool deployment
+BugFix: Fix replacement of images in CSV generator
+BugFix: Remove annotations from promtheus rules
+BugFix: MarkCrFailedHealing wasn't being updated in CR
+BugFix: Reflect PVC not being bound in HPP CR
+BugFix: Fix NPE when we had 2 storage pools, basic and pvcTemplate
+BugFix: Replace operator image in operator deployment ENV variable
+Enhancement: Make daemonset metrics scrapable.
+
