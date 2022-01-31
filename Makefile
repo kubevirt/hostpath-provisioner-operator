@@ -55,7 +55,7 @@ build: clean operator crd-generator csv-generator
 test:
 	hack/run-lint-checks.sh
 	hack/language.sh
-	go test -v ./pkg/... ./tools/... ./version/...
+	go test -v ./cmd/... ./pkg/... ./tools/... ./version/...
 
 generate-doc: build-docgen
 	_out/metricsdocs > docs/metrics.md

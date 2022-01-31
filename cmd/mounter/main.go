@@ -76,9 +76,7 @@ var (
 type DeviceInfo struct {
 	Name       string `json:"name"`
 	Majmin     string `json:"maj:min"`
-	Rm         bool   `json:"rm"`
 	Size       string `json:"size"`
-	Readonly   bool   `json:"ro"`
 	Type       string `json:"type"`
 	Mountpoint string `json:"mountpoint"`
 }
