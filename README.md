@@ -5,7 +5,12 @@ Leverages the [operator-sdk](https://github.com/operator-framework/operator-sdk/
 Any version after v0.9.0 requires Kubernetes version >= 1.21. This is because the operator manages the CSIDriver object and tries to update it with fields that only exist in kubernetes >= 1.21
 
 ## How to deploy
-Before deploying the operator, you need to create the hostpath provisioner namespace:
+As of version 0.11 the hostpath provisioner operator now requires [cert manager](https://github.com/cert-manager/cert-manager) to be installed before deploying the operator. This is because the operator now has a validating webhook that verifies the contents of the CR are valid.
+Before deploying the operator, you need to install cert manager:
+```bash
+$ kubevtl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+```
+Please ensure the cert manager is fully operational before installing the hostpath provisioner operator, next you need to create the hostpath provisioner namespace:
 ```bash
 $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/namespace.yaml
 ```
