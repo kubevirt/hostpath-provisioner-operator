@@ -8,7 +8,7 @@ Any version after v0.9.0 requires Kubernetes version >= 1.21. This is because th
 As of version 0.11 the hostpath provisioner operator now requires [cert manager](https://github.com/cert-manager/cert-manager) to be installed before deploying the operator. This is because the operator now has a validating webhook that verifies the contents of the CR are valid.
 Before deploying the operator, you need to install cert manager:
 ```bash
-$ kubevtl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+$ kubectl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
 ```
 Please ensure the cert manager is fully operational before installing the hostpath provisioner operator, next you need to create the hostpath provisioner namespace:
 ```bash
