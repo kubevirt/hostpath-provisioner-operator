@@ -182,6 +182,7 @@ type RecordRulesDesc struct {
 	Name        string
 	Expr        string
 	Description string
+	Type        string
 }
 
 // GetRecordRulesDesc returns HPPgst Prometheus Record Rules
@@ -191,6 +192,7 @@ func GetRecordRulesDesc(namespace string) []RecordRulesDesc {
 			"kubevirt_hpp_operator_up_total",
 			fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
 			"The total number of running hostpath-provisioner-operator pods",
+			"Gauge",
 		},
 	}
 }
