@@ -42,6 +42,7 @@ func writeToFile(metricsList metricList) {
 type metric struct {
 	name        string
 	description string
+	mtype       string
 }
 
 func recordRulesDescToMetricList(mdl []hostpathprovisioner.RecordRulesDesc) metricList {
@@ -57,12 +58,13 @@ func metricDescriptionToMetric(rrd hostpathprovisioner.RecordRulesDesc) metric {
 	return metric{
 		name:        rrd.Name,
 		description: rrd.Description,
+		mtype:       rrd.Type,
 	}
 }
 
 func (m metric) writeOut() {
 	fmt.Println("###", m.name)
-	fmt.Println(m.description)
+	fmt.Println(m.description + ". Type: " + m.mtype + ".")
 }
 
 type metricList []metric
