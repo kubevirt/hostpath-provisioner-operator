@@ -76,7 +76,10 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // HostpathprovisionerV1alpha1 retrieves the HostpathprovisionerV1alpha1Client
 func (c *Clientset) HostpathprovisionerV1alpha1() hostpathprovisionerv1alpha1.HostpathprovisionerV1alpha1Interface {
