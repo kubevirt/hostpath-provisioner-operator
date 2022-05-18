@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/klog"
 	"k8s.io/utils/pointer"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -427,7 +426,6 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 	}
 	bytes, err := json.Marshal(storagePools)
 	if err != nil {
-		klog.V(1).Infof("Failed to build storage pool arguments %s", err)
 		return ""
 	}
 	return string(bytes)
@@ -570,7 +568,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								TimeoutSeconds:      3,
 								PeriodSeconds:       2,
 								SuccessThreshold:    1,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/healthz",
 										Port: intstr.IntOrString{
