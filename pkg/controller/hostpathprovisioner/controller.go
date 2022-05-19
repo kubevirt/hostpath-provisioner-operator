@@ -188,6 +188,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	if err := c.Watch(&source.Kind{Type: &rbacv1.Role{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		return err
+	}
+	if err := c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		return err
+	}
+	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		return err
+	}
+
 	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used || isErrCacheNotStarted(err) {
 		if err := c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			if meta.IsNoMatchError(err) {
@@ -211,15 +221,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				log.Info("Not watching ServiceMonitors")
 				return nil
 			}
-			return err
-		}
-		if err := c.Watch(&source.Kind{Type: &rbacv1.Role{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
-			return err
-		}
-		if err := c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
-			return err
-		}
-		if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			return err
 		}
 	}
