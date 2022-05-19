@@ -308,21 +308,8 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		if err := r.cleanDeployments(reqLogger, cr, namespace); err != nil {
 			return reconcile.Result{}, err
 		}
-		deployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		reqLogger.Info("Number of deployments still active", "count", len(deployments))
-		cleanupFinished, err := r.hasCleanUpFinished()
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if len(deployments) == 0 && cleanupFinished {
-			if err := r.removeCleanUpJobs(reqLogger); err != nil {
-				return reconcile.Result{}, err
-			}
-		} else {
-			return reconcile.Result{RequeueAfter: time.Second}, nil
+		if res, err := r.reconcileCleanup(reqLogger, cr, namespace, 0); err != nil || res.RequeueAfter == time.Second {
+			return res, err
 		}
 		reqLogger.Info("Deleting SecurityContextConstraint", "SecurityContextConstraints", MultiPurposeHostPathProvisionerName)
 		if err := r.deleteSCC(MultiPurposeHostPathProvisionerName); err != nil {
@@ -416,6 +403,26 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		}
 	}
 	return res, err
+}
+
+func (r *ReconcileHostPathProvisioner) reconcileCleanup(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, deploymentCount int) (reconcile.Result, error) {
+	spDeployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	reqLogger.Info("Number of storage pool deployments still active", "count", len(spDeployments))
+	cleanupFinished, err := r.hasCleanUpFinished()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(spDeployments) == deploymentCount && cleanupFinished {
+		if err := r.removeCleanUpJobs(reqLogger); err != nil {
+			return reconcile.Result{}, err
+		}
+	} else {
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileHostPathProvisioner) ignoreHeartBeatTimestamp(currentCopy, cr *hostpathprovisionerv1.HostPathProvisioner) {
@@ -566,6 +573,10 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		MarkCrHealthyMessage(cr, "Complete", "Application Available")
 		r.recorder.Event(cr, corev1.EventTypeNormal, provisionerHealthy, provisionerHealthyMessage)
 	}
+	if res, err := r.reconcileCleanup(reqLogger, cr, namespace, int(daemonSetCsi.Status.DesiredNumberScheduled)); err != nil || res.RequeueAfter == time.Second {
+		return res, err
+	}
+
 	return res, nil
 }
 
