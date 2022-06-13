@@ -47,6 +47,7 @@ const (
 	partOfAlertLabelValue    = "kubevirt"
 	componentAlertLabelKey   = "kubernetes_operator_component"
 	componentAlertLabelValue = "hostpath-provisioner-operator"
+	infraAlertLabelKey       = "infra_alert"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -221,6 +222,7 @@ func getAlertRules() []promv1.Rule {
 				severityAlertLabelKey:  "warning",
 				partOfAlertLabelKey:    partOfAlertLabelValue,
 				componentAlertLabelKey: componentAlertLabelValue,
+				infraAlertLabelKey:     "true",
 			},
 		),
 		generateAlertRule(
@@ -235,6 +237,7 @@ func getAlertRules() []promv1.Rule {
 				severityAlertLabelKey:  "warning",
 				partOfAlertLabelKey:    partOfAlertLabelValue,
 				componentAlertLabelKey: componentAlertLabelValue,
+				infraAlertLabelKey:     "true",
 			},
 		),
 		generateAlertRule(
@@ -249,6 +252,7 @@ func getAlertRules() []promv1.Rule {
 				severityAlertLabelKey:  "warning",
 				partOfAlertLabelKey:    partOfAlertLabelValue,
 				componentAlertLabelKey: componentAlertLabelValue,
+				infraAlertLabelKey:     "true",
 			},
 		),
 	}
