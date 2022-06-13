@@ -163,7 +163,9 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 					{
 						"name": "local",
 						"pvcTemplate": {
-							"accessModes": "ReadWriteOnce",
+							"accessModes": [
+								"ReadWriteOnce"
+							],
 							"resources": {
 								"requests": {
 									"storage": "50Gi"
