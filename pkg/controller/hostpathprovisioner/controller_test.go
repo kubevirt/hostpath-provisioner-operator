@@ -1107,7 +1107,6 @@ func verifyCreatePrometheusResources(cl client.Client) {
 			"severity":                      "warning",
 			"kubernetes_operator_part_of":   "kubevirt",
 			"kubernetes_operator_component": "hostpath-provisioner-operator",
-			"infra_alert":                   "true",
 		},
 	}
 	Expect(rule.Spec.Groups[0].Rules).To(ContainElement(hppDownAlert))
