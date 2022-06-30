@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -581,6 +582,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
 	promv1.AddToScheme(s)
 	secv1.Install(s)
+	ocpconfigv1.Install(s)
 
 	// Create a fake client to mock API calls.
 	cl := erroringFakeCtrlRuntimeClient{

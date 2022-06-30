@@ -162,3 +162,18 @@ Another way to configure SELinux when using OpenShift is using a [MachineConfig]
 ## Deployment in OpenShift
 
 The operator will create the appropriate SecurityContextConstraints for the hostpath provisioner to work and assign the ServiceAccount to that SCC. This operator will only work on OpenShift 4 and later (Kubernetes >= 1.12).
+
+## TLS Crypto Configuration
+
+The operator deploys a webhook server;  
+Security-minded cluster administrators might want to set specific TLS ciphers/minimum version that clients may use when connecting to this server.  
+The operator will poll for cluster-wide crypto policy (via OpenShift's APIServer) and comply to those.  
+On non-OpenShift installs this is allowed via environment variables on the operator deployment, for example for [Modern TLS spec](https://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility):
+```yaml
+        - name: TLS_CIPHERS_OVERRIDE
+          value: TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256
+        - name: TLS_MIN_VERSION_OVERRIDE
+          value: VersionTLS13
+```
+
+OVERRIDEs will take precedence.

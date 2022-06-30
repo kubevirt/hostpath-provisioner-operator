@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -95,6 +96,7 @@ func main() {
 		LivenessEndpointName:   "/livez",
 		LeaderElection:         true,
 		LeaderElectionID:       "hostpath-provisioner-operator-lock",
+		WebhookServer:          cryptopolicy.GetWebhookServerSpec(),
 	})
 	if err != nil {
 		log.Error(err, "")
