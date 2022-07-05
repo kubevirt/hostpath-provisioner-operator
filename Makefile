@@ -15,9 +15,14 @@
 OPERATOR_IMAGE?=hostpath-provisioner-operator
 TAG?=latest
 DOCKER_REPO?=quay.io/kubevirt
+GOOS?=linux
+GOARCH?=amd64
+BUILDAH_PLATFORM_FLAG?=--platform $(GOOS)/$(GOARCH)
 
 export GOLANG_VER
 export TAG
+export GOOS
+export GOARCH
 
 all: test build
 
@@ -36,10 +41,16 @@ crd-generator: generate-crd
 
 image: operator mounter csv-generator
 	./hack/version.sh ./_out; \
-	docker build -t $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG) -f Dockerfile .
+	buildah build $(BUILDAH_PLATFORM_FLAG) -t $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(GOARCH) -f Dockerfile .
 
-push: image
-	docker push $(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
+manifest: image
+	-buildah manifest create $(DOCKER_REPO)/$(OPERATOR_IMAGE):local
+	buildah manifest add --arch $(GOARCH) $(DOCKER_REPO)/$(OPERATOR_IMAGE):local containers-storage:$(DOCKER_REPO)/$(OPERATOR_IMAGE):$(GOARCH)
+
+push: clean manifest manifest-push
+
+manifest-push:
+	buildah manifest push $(BUILDAH_PUSH_FLAGS) --all $(DOCKER_REPO)/$(OPERATOR_IMAGE):local docker://$(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
 
 generate:
 	./hack/update-codegen.sh
@@ -47,7 +58,10 @@ generate:
 generate-crd:
 	./hack/generate-crd.sh
 
-clean:
+manifest-clean:
+	-buildah manifest rm $(DOCKER_REPO)/$(OPERATOR_IMAGE):local
+
+clean: manifest-clean
 	GO111MODULE=on; \
 	go mod tidy; \
 	go mod vendor; \
