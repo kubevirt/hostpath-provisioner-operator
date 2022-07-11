@@ -19,6 +19,10 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
 setGoInProw $GOLANG_VER
 
+# Validate
+make generate-doc
+git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
+
 # Install dependencies for the test run
 if [[ -v PROW_JOB_ID ]] ; then
   cd /home/prow/go/src/github.com/kubevirt/hostpath-provisioner-operator
