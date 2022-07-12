@@ -23,6 +23,7 @@ import (
 	"runtime"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
@@ -114,6 +115,11 @@ func main() {
 	}
 
 	if err := secv1.Install(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if err := ocpconfigv1.Install(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

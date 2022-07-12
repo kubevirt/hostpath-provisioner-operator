@@ -130,8 +130,9 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad
+# github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible => github.com/openshift/api v0.0.0-20211217221424-8779abfbd571
 ## explicit
+github.com/openshift/api/config/v1
 github.com/openshift/api/security/v1
 # github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 ## explicit
@@ -692,6 +693,6 @@ sigs.k8s.io/yaml
 # k8s.io/metrics => k8s.io/metrics v0.24.2
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.2
 # github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309
-# github.com/openshift/api => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad
+# github.com/openshift/api => github.com/openshift/api v0.0.0-20211217221424-8779abfbd571
 # github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
 # github.com/spf13/pflag => github.com/spf13/pflag v1.0.5
