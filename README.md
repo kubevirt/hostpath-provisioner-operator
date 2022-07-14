@@ -14,10 +14,21 @@ Before deploying the operator, you need to install cert manager:
 $ kubectl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
 ```
 
-Please ensure the cert manager is fully operational before installing the hostpath provisioner operator, next you need to create the hostpath provisioner namespace:
+Please ensure the cert manager is fully operational before installing the hostpath provisioner operator:  
+
+```bash
+$ kubectl wait --for=condition=Available -n cert-manager --timeout=120s --all deployments
+```
+
+Next, you need to create the hostpath provisioner namespace:
 
 ```bash
 $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/namespace.yaml
+```
+
+Followed by the webhook:
+```bash
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/webhook.yaml -n hostpath-provisioner
 ```
 
 And then you can create the operator:
