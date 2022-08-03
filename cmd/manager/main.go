@@ -23,11 +23,13 @@ import (
 	"runtime"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -94,6 +96,7 @@ func main() {
 		LivenessEndpointName:   "/livez",
 		LeaderElection:         true,
 		LeaderElectionID:       "hostpath-provisioner-operator-lock",
+		WebhookServer:          cryptopolicy.GetWebhookServerSpec(),
 	})
 	if err != nil {
 		log.Error(err, "")
@@ -114,6 +117,11 @@ func main() {
 	}
 
 	if err := secv1.Install(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if err := ocpconfigv1.Install(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

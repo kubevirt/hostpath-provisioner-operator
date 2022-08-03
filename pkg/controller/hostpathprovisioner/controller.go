@@ -19,11 +19,14 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -39,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -123,12 +127,19 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				return nil
 			}
 
-			return []reconcile.Request{{
-				NamespacedName: types.NamespacedName{Name: hppList.Items[0].Name},
-			}}
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name: hppList.Items[0].Name,
+					},
+				},
+			}
 		}
 		return nil
 	})
+
+	// handleApiServer will be used to handle APIServer Watch triggering
+	handleApiServer := handler.MapFunc(handleApiServerFunc)
 
 	// Watch for changes to primary resource HostPathProvisioner
 	err = c.Watch(&source.Kind{Type: &hostpathprovisionerv1.HostPathProvisioner{}}, &handler.EnqueueRequestForObject{})
@@ -202,6 +213,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err := c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching SecurityContextConstraints")
+				return nil
+			}
+			return err
+		}
+		if err := c.Watch(&source.Kind{Type: &ocpconfigv1.APIServer{}}, handler.EnqueueRequestsFromMapFunc(handleApiServer)); err != nil {
+			if meta.IsNoMatchError(err) {
+				log.Info("Not watching APIServer")
 				return nil
 			}
 			return err
@@ -699,4 +717,16 @@ func HasFinalizer(object metav1.Object, value string) bool {
 		}
 	}
 	return false
+}
+
+func handleApiServerFunc(o client.Object) []reconcile.Request {
+	apiServer := o.(*ocpconfigv1.APIServer)
+	cipherNames, minTypedTLSVersion := cryptopolicy.SelectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
+	if err := os.Setenv("TLS_CIPHERS", strings.Join(cipherNames, ",")); err != nil {
+		log.Error(err, "Error setting environment variable TLS_CIPHERS")
+	}
+	if err := os.Setenv("TLS_MIN_VERSION", string(minTypedTLSVersion)); err != nil {
+		log.Error(err, "Error setting environment variable TLS_MIN_VERSION")
+	}
+	return nil
 }
