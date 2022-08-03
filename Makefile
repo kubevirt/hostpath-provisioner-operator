@@ -50,7 +50,7 @@ manifest: image
 push: clean manifest manifest-push
 
 manifest-push:
-	buildah manifest push $(BUILDAH_PUSH_FLAGS) --all $(DOCKER_REPO)/$(OPERATOR_IMAGE):local docker://$(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
+	buildah manifest push --all $(DOCKER_REPO)/$(OPERATOR_IMAGE):local docker://$(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
 
 generate:
 	./hack/update-codegen.sh
