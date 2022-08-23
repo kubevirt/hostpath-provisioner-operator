@@ -74,7 +74,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 
 			// Mimic the watch handle func being called
-			handleApiServerFunc(apiServer)
+			handleAPIServerFunc(apiServer)
 			// Verify that crypto config is respected
 			Expect(os.Getenv("TLS_MIN_VERSION")).To(Equal("VersionTLS13"))
 			Expect(os.Getenv("TLS_CIPHERS")).To(Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileModernType].Ciphers, ",")))
@@ -88,7 +88,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			err = cl.Update(context.TODO(), apiServer)
 			Expect(err).NotTo(HaveOccurred())
 			// Mimic the watch handle func being called
-			handleApiServerFunc(apiServer)
+			handleAPIServerFunc(apiServer)
 			// Verify changes are respected
 			Expect(os.Getenv("TLS_MIN_VERSION")).To(Equal("VersionTLS10"))
 			Expect(os.Getenv("TLS_CIPHERS")).To(Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ",")))

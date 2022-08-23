@@ -17,6 +17,9 @@
 # NOTE: Not using pipefail because gofmt returns 0 when it finds
 # suggestions and 1 when files are clean
 
+#install revive if it is not there yet
+go install github.com/mgechev/revive@latest
+
 SOURCE_DIRS="pkg cmd version"
 LINTABLE=(cmd pkg version)
 ec=0
@@ -28,7 +31,7 @@ if [[ ${out} ]]; then
 fi
 for p in "${LINTABLE[@]}"; do
   echo "running revive on directory: ${p}"
-  out="$(revive -formatter friendly -exclude pkg/apis/hostpathprovisioner/v1beta1/zz_generated.openapi.go ${p}/...)"
+  out="$($GOPATH/bin/revive -formatter friendly -exclude pkg/apis/hostpathprovisioner/v1beta1/zz_generated.openapi.go ${p}/...)"
   if [[ ${out} ]]; then
     echo "FAIL: following revive errors found:"
     echo "${out}"
