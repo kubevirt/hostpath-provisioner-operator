@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package cryptopolicy contains function to manage the crypto policy
 package cryptopolicy
 
 import (
@@ -26,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+// GetWebhookServerSpec sets the GetConfigForClient to always check for ciphers and minimum TLS version
 func GetWebhookServerSpec() *webhook.Server {
 	ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS_OVERRIDE"), ",")
 	ciphers := cipherSuitesIDs(ciphersNames)
@@ -122,6 +124,7 @@ func cipherSuitesIDs(names []string) []uint16 {
 	return ids
 }
 
+// SelectCipherSuitesAndMinTLSVersion selects the cipher suite and minimum TLS version based on the passed in security profile
 func SelectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile) ([]string, ocpconfigv1.TLSProtocolVersion) {
 	if profile == nil {
 		profile = &ocpconfigv1.TLSSecurityProfile{

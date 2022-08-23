@@ -138,8 +138,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return nil
 	})
 
-	// handleApiServer will be used to handle APIServer Watch triggering
-	handleApiServer := handler.MapFunc(handleApiServerFunc)
+	// handleAPIServer will be used to handle APIServer Watch triggering
+	handleAPIServer := handler.MapFunc(handleAPIServerFunc)
 
 	// Watch for changes to primary resource HostPathProvisioner
 	err = c.Watch(&source.Kind{Type: &hostpathprovisionerv1.HostPathProvisioner{}}, &handler.EnqueueRequestForObject{})
@@ -217,7 +217,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			}
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &ocpconfigv1.APIServer{}}, handler.EnqueueRequestsFromMapFunc(handleApiServer)); err != nil {
+		if err := c.Watch(&source.Kind{Type: &ocpconfigv1.APIServer{}}, handler.EnqueueRequestsFromMapFunc(handleAPIServer)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching APIServer")
 				return nil
@@ -719,7 +719,7 @@ func HasFinalizer(object metav1.Object, value string) bool {
 	return false
 }
 
-func handleApiServerFunc(o client.Object) []reconcile.Request {
+func handleAPIServerFunc(o client.Object) []reconcile.Request {
 	apiServer := o.(*ocpconfigv1.APIServer)
 	cipherNames, minTypedTLSVersion := cryptopolicy.SelectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
 	if err := os.Setenv("TLS_CIPHERS", strings.Join(cipherNames, ",")); err != nil {
