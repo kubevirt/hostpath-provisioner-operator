@@ -28,12 +28,11 @@ rm -rf "${SCRIPT_ROOT}/pkg/client"
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   kubevirt.io/hostpath-provisioner-operator/pkg/client \
   kubevirt.io/hostpath-provisioner-operator/pkg/apis \
-  "hostpathprovisioner:v1alpha1 hostpathprovisioner:v1beta1" \
+  "hostpathprovisioner:v1beta1" \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt \
   --output-base $GOPATH
 
 
 go install ${CODEGEN_PKG}/cmd/openapi-gen
-openapi-gen --logtostderr=true -o "" -i kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1alpha1 -O zz_generated.openapi -p ./pkg/apis/hostpathprovisioner/v1alpha1 -h ./hack/boilerplate.go.txt -r "-"
 openapi-gen --logtostderr=true -o "" -i kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 -O zz_generated.openapi -p ./pkg/apis/hostpathprovisioner/v1beta1 -h ./hack/boilerplate.go.txt -r "-"
 
