@@ -16,7 +16,7 @@
 
 function ensureControllerGen() {
   if ! type controller-gen ; then
-    go get sigs.k8s.io/controller-tools/cmd/controller-gen
+    go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
   fi
 }
 
