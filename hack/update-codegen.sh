@@ -29,7 +29,8 @@ bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
   kubevirt.io/hostpath-provisioner-operator/pkg/client \
   kubevirt.io/hostpath-provisioner-operator/pkg/apis \
   "hostpathprovisioner:v1alpha1 hostpathprovisioner:v1beta1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt
+  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt \
+  --output-base $GOPATH
 
 
 go install ${CODEGEN_PKG}/cmd/openapi-gen
