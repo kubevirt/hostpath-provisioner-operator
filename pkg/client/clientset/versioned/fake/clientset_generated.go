@@ -25,8 +25,6 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned"
-	hostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/typed/hostpathprovisioner/v1alpha1"
-	fakehostpathprovisionerv1alpha1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/typed/hostpathprovisioner/v1alpha1/fake"
 	hostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/typed/hostpathprovisioner/v1beta1"
 	fakehostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/typed/hostpathprovisioner/v1beta1/fake"
 )
@@ -80,11 +78,6 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
-
-// HostpathprovisionerV1alpha1 retrieves the HostpathprovisionerV1alpha1Client
-func (c *Clientset) HostpathprovisionerV1alpha1() hostpathprovisionerv1alpha1.HostpathprovisionerV1alpha1Interface {
-	return &fakehostpathprovisionerv1alpha1.FakeHostpathprovisionerV1alpha1{Fake: &c.Fake}
-}
 
 // HostpathprovisionerV1beta1 retrieves the HostpathprovisionerV1beta1Client
 func (c *Clientset) HostpathprovisionerV1beta1() hostpathprovisionerv1beta1.HostpathprovisionerV1beta1Interface {
