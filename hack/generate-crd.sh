@@ -16,7 +16,7 @@
 
 function ensureControllerGen() {
   if ! type controller-gen ; then
-    go get sigs.k8s.io/controller-tools/cmd/controller-gen
+    go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
   fi
 }
 
@@ -28,7 +28,7 @@ sed -z 's/---\napiVersion: apiextensions\.k8s\.io\/v1\nkind: CustomResourceDefin
 # Second take the generated file from the command above and insert it right after the marker, the /r<filename> is what does the insert
 sed -ie '/######/rdeploy/hostpathprovisioner.kubevirt.io_hostpathprovisioners.yaml' ./deploy/operator.tmp.yaml
 # Third remove the marker from the file. The generated file has some newlines at the top that should also get removed.
-sed -z 's/######\n\n//' ./deploy/operator.tmp.yaml > ./deploy/operator.yaml
+sed -z 's/######\n//' ./deploy/operator.tmp.yaml > ./deploy/operator.yaml
 # Clean up any temporary files left over.
 rm deploy/operator.tmp.yaml*
 rm deploy/hostpathprovisioner.kubevirt.io_hostpathprovisioners.yaml
