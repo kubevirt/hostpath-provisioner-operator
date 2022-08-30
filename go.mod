@@ -13,7 +13,7 @@ require (
 	github.com/onsi/gomega v1.20.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
-	github.com/operator-framework/api v0.16.0
+	github.com/operator-framework/api v0.17.0
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.13.0
