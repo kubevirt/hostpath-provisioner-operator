@@ -1807,6 +1807,13 @@ spec:
           command:
           - hostpath-provisioner-operator
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           livenessProbe:
             failureThreshold: 1
             httpGet:
