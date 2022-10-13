@@ -17,6 +17,7 @@ TAG?=latest
 DOCKER_REPO?=quay.io/kubevirt
 GOOS?=linux
 GOARCH?=amd64
+BUILDAH_TLS_VERIFY?=true
 BUILDAH_PLATFORM_FLAG?=--platform $(GOOS)/$(GOARCH)
 
 export GOLANG_VER
@@ -50,7 +51,7 @@ manifest: image
 push: clean manifest manifest-push
 
 manifest-push:
-	buildah manifest push --all $(DOCKER_REPO)/$(OPERATOR_IMAGE):local docker://$(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
+	buildah manifest push --tls-verify=${BUILDAH_TLS_VERIFY} --all $(DOCKER_REPO)/$(OPERATOR_IMAGE):local docker://$(DOCKER_REPO)/$(OPERATOR_IMAGE):$(TAG)
 
 generate:
 	./hack/update-codegen.sh
