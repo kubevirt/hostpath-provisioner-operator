@@ -80,3 +80,12 @@ generate-doc: build-docgen
 
 build-docgen:
 	go build -ldflags="-s -w" -o _out/metricsdocs ./tools/metricsdocs
+
+cluster-up:
+	./cluster/up.sh
+
+cluster-sync:
+	./cluster/sync.sh
+
+cluster-down:
+	./cluster/down.sh
