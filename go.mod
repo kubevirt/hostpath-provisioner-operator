@@ -26,7 +26,7 @@ require (
 	k8s.io/code-generator v0.24.2
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
-	sigs.k8s.io/controller-runtime v0.13.0
+	sigs.k8s.io/controller-runtime v0.13.1
 )
 
 require (
