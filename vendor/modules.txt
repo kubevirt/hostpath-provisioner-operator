@@ -166,7 +166,7 @@ github.com/openshift/api/security/v1
 # github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 ## explicit; go 1.12
 github.com/openshift/custom-resource-status/conditions/v1
-# github.com/operator-framework/api v0.17.2
+# github.com/operator-framework/api v0.17.3
 ## explicit; go 1.19
 github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/operators
