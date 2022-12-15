@@ -48,7 +48,7 @@ const (
 	maxNameLength           = 63
 )
 
-//StoragePoolInfo contains the name and path of a hostpath storage pool.
+// StoragePoolInfo contains the name and path of a hostpath storage pool.
 type StoragePoolInfo struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
