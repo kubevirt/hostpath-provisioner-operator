@@ -37,16 +37,17 @@ import (
 )
 
 const (
-	ruleName                 = "prometheus-hpp-rules"
-	rbacName                 = "hostpath-provisioner-monitoring"
-	monitorName              = "service-monitor-hpp"
-	defaultMonitoringNs      = "monitoring"
-	runbookURLBasePath       = "https://kubevirt.io/monitoring/runbooks/"
-	severityAlertLabelKey    = "severity"
-	partOfAlertLabelKey      = "kubernetes_operator_part_of"
-	partOfAlertLabelValue    = "kubevirt"
-	componentAlertLabelKey   = "kubernetes_operator_component"
-	componentAlertLabelValue = "hostpath-provisioner-operator"
+	ruleName                  = "prometheus-hpp-rules"
+	rbacName                  = "hostpath-provisioner-monitoring"
+	monitorName               = "service-monitor-hpp"
+	defaultMonitoringNs       = "monitoring"
+	runbookURLBasePath        = "https://kubevirt.io/monitoring/runbooks/"
+	severityAlertLabelKey     = "severity"
+	healthImpactAlertLabelKey = "operator_health_impact"
+	partOfAlertLabelKey       = "kubernetes_operator_part_of"
+	partOfAlertLabelValue     = "kubevirt"
+	componentAlertLabelKey    = "kubernetes_operator_component"
+	componentAlertLabelValue  = "hostpath-provisioner-operator"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -218,9 +219,10 @@ func getAlertRules() []promv1.Rule {
 				"runbook_url": runbookURLBasePath + "HPPOperatorDown",
 			},
 			map[string]string{
-				severityAlertLabelKey:  "warning",
-				partOfAlertLabelKey:    partOfAlertLabelValue,
-				componentAlertLabelKey: componentAlertLabelValue,
+				severityAlertLabelKey:     "warning",
+				healthImpactAlertLabelKey: "critical",
+				partOfAlertLabelKey:       partOfAlertLabelValue,
+				componentAlertLabelKey:    componentAlertLabelValue,
 			},
 		),
 		generateAlertRule(
@@ -232,9 +234,10 @@ func getAlertRules() []promv1.Rule {
 				"runbook_url": runbookURLBasePath + "HPPNotReady",
 			},
 			map[string]string{
-				severityAlertLabelKey:  "warning",
-				partOfAlertLabelKey:    partOfAlertLabelValue,
-				componentAlertLabelKey: componentAlertLabelValue,
+				severityAlertLabelKey:     "warning",
+				healthImpactAlertLabelKey: "critical",
+				partOfAlertLabelKey:       partOfAlertLabelValue,
+				componentAlertLabelKey:    componentAlertLabelValue,
 			},
 		),
 		generateAlertRule(
@@ -246,9 +249,10 @@ func getAlertRules() []promv1.Rule {
 				"runbook_url": runbookURLBasePath + "HPPSharingPoolPathWithOS",
 			},
 			map[string]string{
-				severityAlertLabelKey:  "warning",
-				partOfAlertLabelKey:    partOfAlertLabelValue,
-				componentAlertLabelKey: componentAlertLabelValue,
+				severityAlertLabelKey:     "warning",
+				healthImpactAlertLabelKey: "warning",
+				partOfAlertLabelKey:       partOfAlertLabelValue,
+				componentAlertLabelKey:    componentAlertLabelValue,
 			},
 		),
 	}

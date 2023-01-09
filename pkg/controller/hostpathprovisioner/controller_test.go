@@ -1107,6 +1107,7 @@ func verifyCreatePrometheusResources(cl client.Client) {
 		},
 		Labels: map[string]string{
 			"severity":                      "warning",
+			"operator_health_impact":        "critical",
 			"kubernetes_operator_part_of":   "kubevirt",
 			"kubernetes_operator_component": "hostpath-provisioner-operator",
 		},
