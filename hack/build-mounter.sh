@@ -15,6 +15,6 @@
 #limitations under the License.
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
-setGoInProw $GOLANG_VER
+ensureArmAvailable
 
 CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/mounter cmd/mounter/*.go
