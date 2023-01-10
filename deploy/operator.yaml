@@ -610,7 +610,6 @@ spec:
                                 - name
                                 type: object
                               type: array
-                              x-kubernetes-list-type: set
                             limits:
                               additionalProperties:
                                 anyOf:
