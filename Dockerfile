@@ -1,6 +1,6 @@
 FROM registry.fedoraproject.org/fedora-minimal:36
 
-RUN microdnf install -y xfsprogs
+RUN microdnf install -y xfsprogs util-linux
 
 COPY _out/hostpath-provisioner-operator /usr/bin/hostpath-provisioner-operator
 COPY _out/csv-generator /usr/bin/csv-generator
