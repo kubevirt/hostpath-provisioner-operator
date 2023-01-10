@@ -88,6 +88,14 @@ spec:
           requests:
             cpu: 10m
             memory: 150Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: apiservice-cert
