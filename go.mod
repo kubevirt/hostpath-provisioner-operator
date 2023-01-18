@@ -86,7 +86,9 @@ require (
 )
 
 replace (
-	k8s.io/api => k8s.io/api v0.26.0
+	// FIX: workaround for https://github.com/kubernetes/kubernetes/pull/114617
+	// remove once we can properly consume v1.26.1
+	k8s.io/api => k8s.io/api v0.0.0-20221219160202-52655b9cecb4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.26.0
 	k8s.io/apimachinery => k8s.io/apimachinery v0.26.0
 	k8s.io/apiserver => k8s.io/apiserver v0.26.0
