@@ -1097,13 +1097,16 @@ func verifyCreatePrometheusResources(cl client.Client) {
 			Expect(r.Annotations).To(BeNil())
 		}
 	}
+
+	runbookURLTemplate := getRunbookURLTemplate()
+
 	hppDownAlert := promv1.Rule{
 		Alert: "HPPOperatorDown",
 		Expr:  intstr.FromString("kubevirt_hpp_operator_up_total == 0"),
 		For:   "5m",
 		Annotations: map[string]string{
 			"summary":     "Hostpath Provisioner operator is down",
-			"runbook_url": runbookURLBasePath + "HPPOperatorDown",
+			"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPOperatorDown"),
 		},
 		Labels: map[string]string{
 			"severity":                      "warning",
