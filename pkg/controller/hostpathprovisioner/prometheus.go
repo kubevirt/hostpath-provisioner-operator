@@ -56,19 +56,19 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.L
 	} else if used == false {
 		return reconcile.Result{}, nil
 	}
-	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRule(cr, namespace), createPrometheusRule(cr, namespace)); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRule(namespace), createPrometheusRule(namespace)); err != nil {
 		return res, err
 	}
-	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRole(cr, namespace), createPrometheusRole(cr, namespace)); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRole(namespace), createPrometheusRole(namespace)); err != nil {
 		return res, err
 	}
-	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRoleBinding(cr, namespace), createPrometheusRoleBinding(cr, namespace)); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRoleBinding(namespace), createPrometheusRoleBinding(namespace)); err != nil {
 		return res, err
 	}
-	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusService(cr, namespace), createPrometheusService(cr, namespace)); err != nil {
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusService(namespace), createPrometheusService(namespace)); err != nil {
 		return res, err
 	}
-	return r.reconcilePrometheusResource(reqLogger, cr, createPrometheusServiceMonitor(cr, namespace), createPrometheusServiceMonitor(cr, namespace))
+	return r.reconcilePrometheusResource(reqLogger, cr, createPrometheusServiceMonitor(namespace), createPrometheusServiceMonitor(namespace))
 }
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusResource(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired, found client.Object) (reconcile.Result, error) {
@@ -258,7 +258,7 @@ func getAlertRules() []promv1.Rule {
 	}
 }
 
-func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *promv1.PrometheusRule {
+func createPrometheusRule(namespace string) *promv1.PrometheusRule {
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
@@ -283,7 +283,7 @@ func createPrometheusRule(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 	}
 }
 
-func createPrometheusRole(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *rbacv1.Role {
+func createPrometheusRole(namespace string) *rbacv1.Role {
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
@@ -311,7 +311,7 @@ func createPrometheusRole(cr *hostpathprovisionerv1.HostPathProvisioner, namespa
 	}
 }
 
-func createPrometheusRoleBinding(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *rbacv1.RoleBinding {
+func createPrometheusRoleBinding(namespace string) *rbacv1.RoleBinding {
 	monitoringNamespace := getMonitoringNamespace()
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
@@ -337,7 +337,7 @@ func createPrometheusRoleBinding(cr *hostpathprovisionerv1.HostPathProvisioner, 
 	}
 }
 
-func createPrometheusServiceMonitor(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *promv1.ServiceMonitor {
+func createPrometheusServiceMonitor(namespace string) *promv1.ServiceMonitor {
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 	labels["openshift.io/cluster-monitoring"] = ""
@@ -374,7 +374,7 @@ func createPrometheusServiceMonitor(cr *hostpathprovisionerv1.HostPathProvisione
 	}
 }
 
-func createPrometheusService(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *corev1.Service {
+func createPrometheusService(namespace string) *corev1.Service {
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
