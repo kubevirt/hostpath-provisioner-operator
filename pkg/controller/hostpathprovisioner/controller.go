@@ -404,7 +404,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		reqLogger.Info("Started upgrading")
 	}
 
-	res, err := r.reconcileUpdate(reqLogger, request, cr, namespace)
+	res, err := r.reconcileUpdate(reqLogger, cr, namespace)
 	if err == nil {
 		res, err = r.reconcileStatus(context, reqLogger, cr, namespace, versionString)
 	} else {
@@ -425,17 +425,17 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileCleanup(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, deploymentCount int) (reconcile.Result, error) {
-	spDeployments, err := r.currentStoragePoolDeployments(reqLogger, cr, namespace)
+	spDeployments, err := r.currentStoragePoolDeployments(cr, namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Number of storage pool deployments still active", "count", len(spDeployments))
-	cleanupFinished, err := r.hasCleanUpFinished()
+	cleanupFinished, err := r.hasCleanUpFinished(namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(spDeployments) == deploymentCount && cleanupFinished {
-		if err := r.removeCleanUpJobs(reqLogger); err != nil {
+		if err := r.removeCleanUpJobs(reqLogger, namespace); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
@@ -457,7 +457,7 @@ func (r *ReconcileHostPathProvisioner) isLegacy(cr *hostpathprovisionerv1.HostPa
 	return cr.Spec.PathConfig != nil
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileStatus(context context.Context, reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace, versionString string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileStatus(_ context.Context, reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace, versionString string) (reconcile.Result, error) {
 	// Check if all requested pods are available.
 	degraded, err := r.checkDegraded(reqLogger, cr, namespace)
 	if err != nil {
@@ -525,7 +525,7 @@ func canUpgrade(current, target string) (bool, error) {
 	return result, nil
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, request reconcile.Request, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	// Reconcile the objects this operator manages.
 	res, err := r.reconcileDaemonSet(reqLogger, cr, namespace)
 	if err != nil {
@@ -563,7 +563,7 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, re
 		reqLogger.Error(err, "unable to create RoleBinding")
 		return res, err
 	}
-	res, err = r.reconcileCSIDriver(reqLogger, cr, namespace)
+	res, err = r.reconcileCSIDriver(reqLogger, cr)
 	if err != nil {
 		reqLogger.Error(err, "unable to create CSIDriver")
 		return res, err

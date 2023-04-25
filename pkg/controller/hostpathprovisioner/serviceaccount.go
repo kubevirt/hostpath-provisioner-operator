@@ -130,10 +130,7 @@ func (r *ReconcileHostPathProvisioner) deleteRunningPodsWithSa(name, namespace s
 		return err
 	}
 	r.Log.WithValues("Service Account Name", name, "Namespace", namespace).Info("Checking for deployments")
-	if err := r.deleteDeploymentsWithSa(name, namespace); err != nil {
-		return err
-	}
-	return nil
+	return r.deleteDeploymentsWithSa(name, namespace)
 }
 
 func (r *ReconcileHostPathProvisioner) deleteDaemonSetWithSa(name, namespace string) error {
