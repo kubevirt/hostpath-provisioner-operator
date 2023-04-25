@@ -86,7 +86,7 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	if r.isLegacy(cr) {
 		// provisioner
 		args.version = cr.Status.TargetVersion
-		if res, err := r.reconcileDaemonSetForSa(reqLogger, createDaemonSetObject(cr, reqLogger, args), cr, namespace); err != nil {
+		if res, err := r.reconcileDaemonSetForSa(reqLogger, createDaemonSetObject(cr, reqLogger, args), cr); err != nil {
 			return res, err
 		}
 	} else {
@@ -98,10 +98,10 @@ func (r *ReconcileHostPathProvisioner) reconcileDaemonSet(reqLogger logr.Logger,
 	// csi driver
 	args = getDaemonSetArgs(reqLogger.WithName("daemonset args"), namespace, false)
 	args.version = cr.Status.TargetVersion
-	return r.reconcileDaemonSetForSa(reqLogger, r.createCSIDaemonSetObject(cr, reqLogger, args), cr, namespace)
+	return r.reconcileDaemonSetForSa(reqLogger, r.createCSIDaemonSetObject(cr, reqLogger, args), cr)
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Logger, desired *appsv1.DaemonSet, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileDaemonSetForSa(reqLogger logr.Logger, desired *appsv1.DaemonSet, cr *hostpathprovisionerv1.HostPathProvisioner) (reconcile.Result, error) {
 	// Define a new DaemonSet object
 	setLastAppliedConfiguration(desired)
 
