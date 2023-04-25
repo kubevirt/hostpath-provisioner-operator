@@ -61,7 +61,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 		return reconcile.Result{}, err
 	}
 	logger.V(3).Info("Checking if storage pools are configured", "current nodes number of used nodes", len(usedNodes))
-	currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
+	currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(cr, namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -87,7 +87,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 		sp := r.getStoragePoolForDeployment(cr, &ds)
 		if sp != nil {
 			if _, err := r.createCleanupJobForDeployment(logger, cr, namespace, &ds, sp); err != nil {
-
+				return reconcile.Result{}, err
 			}
 		}
 	}
@@ -107,7 +107,7 @@ func (r *ReconcileHostPathProvisioner) cleanDeployments(logger logr.Logger, cr *
 	logger.V(3).Info("Cleaning up storage pools")
 	for _, storagePool := range cr.Spec.StoragePools {
 		if storagePool.PVCTemplate != nil {
-			currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(logger, cr, namespace)
+			currentStoragePoolDeployments, err := r.currentStoragePoolDeployments(cr, namespace)
 			if err != nil {
 				return err
 			}
@@ -140,6 +140,9 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr
 		},
 	}
 	if err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(node), node); err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	logger.V(3).Info("for node", "name", node.Name)
@@ -223,7 +226,7 @@ func copyIgnoredStoragePoolFields(desired, current *appsv1.Deployment) *appsv1.D
 	return desired
 }
 
-func (r *ReconcileHostPathProvisioner) currentStoragePoolDeployments(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (map[string]appsv1.Deployment, error) {
+func (r *ReconcileHostPathProvisioner) currentStoragePoolDeployments(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (map[string]appsv1.Deployment, error) {
 	res := make(map[string]appsv1.Deployment)
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -234,11 +237,14 @@ func (r *ReconcileHostPathProvisioner) currentStoragePoolDeployments(logger logr
 		return res, err
 	}
 	deploymentList := &appsv1.DeploymentList{}
-	r.client.List(context.TODO(), deploymentList, &client.ListOptions{
+	if err := r.client.List(context.TODO(), deploymentList, &client.ListOptions{
 		LabelSelector: client.MatchingLabelsSelector{
 			Selector: selector,
 		},
-	})
+		Namespace: namespace,
+	}); err != nil {
+		return res, err
+	}
 	for _, deployment := range deploymentList.Items {
 		if metav1.IsControlledBy(&deployment, cr) {
 			res[deployment.GetName()] = deployment
@@ -279,6 +285,7 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 		LabelSelector: client.MatchingLabelsSelector{
 			Selector: selector,
 		},
+		Namespace: dsArgs.namespace,
 	}); err != nil {
 		return res, err
 	}
@@ -486,6 +493,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *h
 		LabelSelector: client.MatchingLabelsSelector{
 			Selector: selector,
 		},
+		Namespace: namespace,
 	}); err != nil {
 		return res, err
 	}
@@ -515,6 +523,7 @@ func (r *ReconcileHostPathProvisioner) getClaimStatusesByStoragePool(storagePool
 		LabelSelector: client.MatchingLabelsSelector{
 			Selector: selector,
 		},
+		Namespace: namespace,
 	}); err != nil {
 		return res, err
 	}
@@ -582,8 +591,8 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 	return nil
 }
 
-func (r *ReconcileHostPathProvisioner) hasCleanUpFinished() (bool, error) {
-	jobs, err := r.getCleanUpJobs()
+func (r *ReconcileHostPathProvisioner) hasCleanUpFinished(namespace string) (bool, error) {
+	jobs, err := r.getCleanUpJobs(namespace)
 	if err != nil {
 		return false, err
 	}
@@ -596,9 +605,9 @@ func (r *ReconcileHostPathProvisioner) hasCleanUpFinished() (bool, error) {
 	return finished, nil
 }
 
-func (r *ReconcileHostPathProvisioner) removeCleanUpJobs(logger logr.Logger) error {
+func (r *ReconcileHostPathProvisioner) removeCleanUpJobs(logger logr.Logger, namespace string) error {
 	deletePropagationBackground := metav1.DeletePropagationBackground
-	jobs, err := r.getCleanUpJobs()
+	jobs, err := r.getCleanUpJobs(namespace)
 	if err != nil {
 		return err
 	}
@@ -614,7 +623,7 @@ func (r *ReconcileHostPathProvisioner) removeCleanUpJobs(logger logr.Logger) err
 	return nil
 }
 
-func (r *ReconcileHostPathProvisioner) getCleanUpJobs() ([]batchv1.Job, error) {
+func (r *ReconcileHostPathProvisioner) getCleanUpJobs(namespace string) ([]batchv1.Job, error) {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			AppKubernetesManagedByLabel: "hostpath-provisioner-operator",
@@ -626,6 +635,7 @@ func (r *ReconcileHostPathProvisioner) getCleanUpJobs() ([]batchv1.Job, error) {
 	jobList := &batchv1.JobList{}
 	if err := r.client.List(context.TODO(), jobList, &client.ListOptions{
 		LabelSelector: selector,
+		Namespace:     namespace,
 	}); err != nil {
 		return make([]batchv1.Job, 0), err
 	}
