@@ -18,9 +18,11 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
@@ -29,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -41,7 +43,8 @@ const (
 	rbacName                  = "hostpath-provisioner-monitoring"
 	monitorName               = "service-monitor-hpp"
 	defaultMonitoringNs       = "monitoring"
-	runbookURLBasePath        = "https://kubevirt.io/monitoring/runbooks/"
+	defaultRunbookURLTemplate = "https://kubevirt.io/monitoring/runbooks/%s"
+	runbookURLTemplateEnv     = "RUNBOOK_URL_TEMPLATE"
 	severityAlertLabelKey     = "severity"
 	healthImpactAlertLabelKey = "operator_health_impact"
 	partOfAlertLabelKey       = "kubernetes_operator_part_of"
@@ -76,7 +79,7 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusResource(reqLogger log
 	setLastAppliedConfiguration(desired)
 	// Check if this PrometheusRule already exists
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(found), found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8serrors.IsNotFound(err) {
 		reqLogger.Info("Creating a new PrometheusResource", "Name", found.GetName())
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
@@ -131,7 +134,7 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 			Namespace: namespace,
 		},
 	}
-	if err := r.client.Delete(context.TODO(), rule); err != nil && !errors.IsNotFound(err) {
+	if err := r.client.Delete(context.TODO(), rule); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -141,7 +144,7 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 			Namespace: namespace,
 		},
 	}
-	if err := r.client.Delete(context.TODO(), role); err != nil && !errors.IsNotFound(err) {
+	if err := r.client.Delete(context.TODO(), role); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -151,7 +154,7 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 			Namespace: namespace,
 		},
 	}
-	if err := r.client.Delete(context.TODO(), roleBinding); err != nil && !errors.IsNotFound(err) {
+	if err := r.client.Delete(context.TODO(), roleBinding); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -161,7 +164,7 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 			Namespace: namespace,
 		},
 	}
-	if err := r.client.Delete(context.TODO(), monitor); err != nil && !errors.IsNotFound(err) {
+	if err := r.client.Delete(context.TODO(), monitor); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -171,7 +174,7 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 			Namespace: namespace,
 		},
 	}
-	if err := r.client.Delete(context.TODO(), service); err != nil && !errors.IsNotFound(err) {
+	if err := r.client.Delete(context.TODO(), service); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -208,7 +211,7 @@ func getRecordRules(namespace string) []promv1.Rule {
 	return recordRules
 }
 
-func getAlertRules() []promv1.Rule {
+func getAlertRules(runbookURLTemplate string) []promv1.Rule {
 	return []promv1.Rule{
 		generateAlertRule(
 			"HPPOperatorDown",
@@ -216,7 +219,7 @@ func getAlertRules() []promv1.Rule {
 			"5m",
 			map[string]string{
 				"summary":     "Hostpath Provisioner operator is down",
-				"runbook_url": runbookURLBasePath + "HPPOperatorDown",
+				"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPOperatorDown"),
 			},
 			map[string]string{
 				severityAlertLabelKey:     "warning",
@@ -231,7 +234,7 @@ func getAlertRules() []promv1.Rule {
 			"5m",
 			map[string]string{
 				"summary":     "Hostpath Provisioner is not available to use",
-				"runbook_url": runbookURLBasePath + "HPPNotReady",
+				"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPNotReady"),
 			},
 			map[string]string{
 				severityAlertLabelKey:     "warning",
@@ -246,7 +249,7 @@ func getAlertRules() []promv1.Rule {
 			"1m",
 			map[string]string{
 				"summary":     "HPP pool path sharing a filesystem with OS, fix to prevent HPP PVs from causing disk pressure and affecting node operation",
-				"runbook_url": runbookURLBasePath + "HPPSharingPoolPathWithOS",
+				"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPSharingPoolPathWithOS"),
 			},
 			map[string]string{
 				severityAlertLabelKey:     "warning",
@@ -262,6 +265,8 @@ func createPrometheusRule(namespace string) *promv1.PrometheusRule {
 	labels := getRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
+	runbookURLTemplate := getRunbookURLTemplate()
+
 	return &promv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: promv1.SchemeGroupVersion.String(),
@@ -276,7 +281,7 @@ func createPrometheusRule(namespace string) *promv1.PrometheusRule {
 			Groups: []promv1.RuleGroup{
 				{
 					Name:  "hpp.rules",
-					Rules: append(getRecordRules(namespace), getAlertRules()...),
+					Rules: append(getRecordRules(namespace), getAlertRules(runbookURLTemplate)...),
 				},
 			},
 		},
@@ -437,4 +442,17 @@ func (r *ReconcileHostPathProvisioner) checkPrometheusUsed() (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func getRunbookURLTemplate() string {
+	runbookURLTemplate, exists := os.LookupEnv(runbookURLTemplateEnv)
+	if !exists {
+		runbookURLTemplate = defaultRunbookURLTemplate
+	}
+
+	if strings.Count(runbookURLTemplate, "%s") != 1 {
+		panic(errors.New("runbook URL template must have exactly 1 %s substring"))
+	}
+
+	return runbookURLTemplate
 }
