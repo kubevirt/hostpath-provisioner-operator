@@ -262,7 +262,7 @@ func scaleClusterNodesAndDsUp(start, end int, cr *hppv1.HostPathProvisioner, r *
 	Expect(IsHppAvailable(cr)).To(BeTrue())
 }
 
-func scaleClusterNodesAndDsDown(start, end, newCount int, cr *hppv1.HostPathProvisioner, r *ReconcileHostPathProvisioner, cl client.Client) {
+func scaleClusterNodesAndDsDown(start, end, newCount int, _ *hppv1.HostPathProvisioner, r *ReconcileHostPathProvisioner, cl client.Client) {
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      "test-name",
@@ -292,7 +292,7 @@ func scaleClusterNodesAndDsDown(start, end, newCount int, cr *hppv1.HostPathProv
 
 }
 
-func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisioner, r *ReconcileHostPathProvisioner, cl client.Client) {
+func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisioner, _ *ReconcileHostPathProvisioner, cl client.Client) {
 	deploymentList := &appsv1.DeploymentList{}
 	err := cl.List(context.TODO(), deploymentList, &client.ListOptions{
 		Namespace: testNamespace,
@@ -383,7 +383,7 @@ func createCsiDsPods(start, end int, ds *appsv1.DaemonSet, cl client.Client) {
 	}
 }
 
-func deleteCsiDsPods(start, end int, ds *appsv1.DaemonSet, cl client.Client) {
+func deleteCsiDsPods(start, end int, _ *appsv1.DaemonSet, cl client.Client) {
 	for i := start; i <= end; i++ {
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
