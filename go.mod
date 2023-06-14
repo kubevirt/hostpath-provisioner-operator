@@ -8,7 +8,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v1.2.4
-	github.com/go-logr/zapr v1.2.3
+	github.com/go-logr/zapr v1.2.4
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
