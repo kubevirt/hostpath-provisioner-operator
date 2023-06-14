@@ -17,4 +17,4 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
 ensureArmAvailable
 
-CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o _out/crd-generator tools/crd-generator/crd-generator.go
+CGO_ENABLED=1 go build -a -tags strictfipsruntime -ldflags '-extldflags' -o _out/crd-generator tools/crd-generator/crd-generator.go
