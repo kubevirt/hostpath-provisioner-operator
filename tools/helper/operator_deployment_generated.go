@@ -51,13 +51,13 @@ spec:
         - name: CSI_PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-csi-driver:latest
         - name: NODE_DRIVER_REG_IMAGE
-          value: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
+          value: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.2.0
         - name: LIVENESS_PROBE_IMAGE
-          value: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
+          value: registry.k8s.io/sig-storage/livenessprobe:v2.3.0
         - name: CSI_SNAPSHOT_IMAGE
-          value: k8s.gcr.io/sig-storage/csi-snapshotter:v4.2.1
+          value: registry.k8s.io/sig-storage/csi-snapshotter:v4.2.1
         - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
-          value: k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1
+          value: registry.k8s.io/sig-storage/csi-provisioner:v3.4.1
         - name: VERBOSITY
           value: "3"
         - name: MONITORING_NAMESPACE
