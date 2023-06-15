@@ -36,7 +36,7 @@ import (
 func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	if used, err := r.checkSCCUsed(); err != nil {
 		return reconcile.Result{}, err
-	} else if used == false {
+	} else if !used {
 		return reconcile.Result{}, nil
 	}
 	if r.isLegacy(cr) {
@@ -45,7 +45,8 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 		}
 	} else {
 		if err := r.deleteSCC(MultiPurposeHostPathProvisionerName); err != nil {
-			return reconcile.Result{}, err
+			reqLogger.Error(err, "unable to delete SCC")
+			return reconcile.Result{}, nil
 		}
 	}
 	return r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createCsiSecurityContextConstraintsObject(namespace))
@@ -103,7 +104,7 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesire
 }
 
 func (r *ReconcileHostPathProvisioner) deleteSCC(name string) error {
-	if used, err := r.checkSCCUsed(); used == false {
+	if used, err := r.checkSCCUsed(); !used {
 		return err
 	}
 	// Check if this SecurityContextConstraints already exists
@@ -213,7 +214,7 @@ func (r *ReconcileHostPathProvisioner) checkSCCUsed() (bool, error) {
 			// not using SCCs
 			return false, nil
 		}
-		return false, err
+		return false, nil
 	}
 	return true, nil
 }

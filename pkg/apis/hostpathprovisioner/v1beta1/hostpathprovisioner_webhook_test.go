@@ -20,7 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -49,21 +48,6 @@ var (
 	invalidPathConfigCR = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
 			PathConfig: &PathConfig{},
-		},
-	}
-
-	multiSourceVolumeCR = HostPathProvisioner{
-		Spec: HostPathProvisionerSpec{
-			StoragePools: []StoragePool{
-				{
-					Name: "test",
-					Path: "test",
-				},
-				{
-					Name: "test2",
-					Path: "test2",
-				},
-			},
 		},
 	}
 
@@ -143,17 +127,6 @@ var (
 			},
 		},
 	}
-	storageClassCr = HostPathProvisioner{
-		Spec: HostPathProvisionerSpec{
-			StoragePools: []StoragePool{
-				{
-					Name:        "test",
-					Path:        "test",
-					PVCTemplate: &corev1.PersistentVolumeClaimSpec{},
-				},
-			},
-		},
-	}
 	longNameCr = HostPathProvisioner{
 		Spec: HostPathProvisionerSpec{
 			StoragePools: []StoragePool{
@@ -188,63 +161,126 @@ var _ = Describe("validating webhook", func() {
 	Context("admission", func() {
 		It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			Expect(hppCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
+			warning, err := hppCr.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("either pathConfig or storage pools must be set"))
 		})
 		It("Both legacy or volume sources cannot to be set.", func() {
-			Expect(bothLegacyAndVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
+			warning, err := bothLegacyAndVolumeCR.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("pathConfig and storage pools cannot be both set"))
 		})
 		It("Cannot have blank kind in volume source", func() {
-			Expect(blankNameCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
-			Expect(blankNameCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			warning, err := blankNameCr1.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.name cannot be blank"))
+			warning, err = blankNameCr2.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.name cannot be blank"))
 		})
 		It("Cannot have blank path in volume source", func() {
-			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
-			Expect(blankPathCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			warning, err := blankPathCr1.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.path cannot be blank"))
+			warning, err = blankPathCr2.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.path cannot be blank"))
 		})
 		It("If pathConfig exists, path must be set", func() {
-			Expect(invalidPathConfigCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
+			warning, err := invalidPathConfigCR.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("pathconfig path must be set"))
 		})
 		It("Should not allow duplicate paths", func() {
-			Expect(multiSourceVolumeDuplicatePathCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+			warning, err := multiSourceVolumeDuplicatePathCR.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths"))
 		})
 		It("Should not allow duplicate names", func() {
-			Expect(multiSourceVolumeDuplicateNameCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+			warning, err := multiSourceVolumeDuplicateNameCR.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names"))
 		})
 		It("Should not allow storagepool.name length > 50", func() {
-			Expect(longNameCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+			warning, err := longNameCr.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.name cannot have a length greater than 50"))
 		})
 		It("Should not allow storagepool.path length > 255", func() {
-			Expect(longPathCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+			warning, err := longPathCr.ValidateCreate()
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.path cannot have a length greater than 255"))
 		})
 	})
 
 	Context("update", func() {
 		It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			Expect(hppCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
+			warning, err := hppCr.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("either pathConfig or storage pools must be set"))
 		})
 		It("Both legacy or volume sources cannot to be set.", func() {
-			Expect(bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
+			warning, err := bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("pathConfig and storage pools cannot be both set"))
 		})
 		It("Cannot have blank kind in volume source", func() {
-			Expect(blankNameCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
-			Expect(blankNameCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			warning, err := blankNameCr1.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.name cannot be blank"))
+			warning, err = blankNameCr2.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.name cannot be blank"))
 		})
 		It("Cannot have blank path in volume source", func() {
-			Expect(blankPathCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
-			Expect(blankPathCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			warning, err := blankPathCr1.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.path cannot be blank"))
+			warning, err = blankPathCr2.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.path cannot be blank"))
 		})
 		It("Should not allow duplicate paths", func() {
-			Expect(multiSourceVolumeDuplicatePathCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+			warning, err := multiSourceVolumeDuplicatePathCR.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths"))
 		})
 		It("Should not allow duplicate names", func() {
-			Expect(multiSourceVolumeDuplicateNameCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+			warning, err := multiSourceVolumeDuplicateNameCR.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names"))
 		})
 		It("Should not allow storagepool.name length > 50", func() {
-			Expect(longNameCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+			warning, err := longNameCr.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.name cannot have a length greater than 50"))
 		})
 		It("Should not allow storagepool.path length > 255", func() {
-			Expect(longPathCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+			warning, err := longPathCr.ValidateUpdate(&HostPathProvisioner{})
+			Expect(err).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+			Expect(warning).To(HaveLen(1))
+			Expect(warning[0]).To(BeEquivalentTo("storagePool.path cannot have a length greater than 255"))
 		})
 	})
 })

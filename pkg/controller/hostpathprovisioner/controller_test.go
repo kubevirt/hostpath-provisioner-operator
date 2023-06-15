@@ -78,7 +78,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			},
 		}
 		args := getDaemonSetArgs(logf.Log.WithName("hostpath-provisioner-operator-controller-test"), testNamespace, false)
-		cr, r, cl := createDeployedCr(cr)
+		_, r, cl := createDeployedCr(cr)
 		ds := &appsv1.DaemonSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      args.name,
@@ -164,7 +164,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
-		cl := fake.NewFakeClient(objs...)
+		cl := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
 
 		// Create a ReconcileMemcached object with the scheme and fake client.
 		r := &ReconcileHostPathProvisioner{
@@ -196,7 +196,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
-		cl := fake.NewFakeClient(objs...)
+		cl := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build()
 
 		// Create a ReconcileMemcached object with the scheme and fake client.
 		r := &ReconcileHostPathProvisioner{
@@ -285,9 +285,16 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 		Expect(err).NotTo(HaveOccurred())
-		dsCsi.Status.NumberReady = 1
-		dsCsi.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), dsCsi)
+		// core types with status subresources cannot have their status updated
+		// so instead we delete the object and create a new one with the updated
+		// status
+		dsCsiUnready := dsCsi.DeepCopy()
+		dsCsiUnready.Status.NumberReady = 1
+		dsCsiUnready.Status.DesiredNumberScheduled = 2
+		dsCsiUnready.ResourceVersion = ""
+		err = cl.Delete(context.TODO(), dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		err = cl.Create(context.TODO(), dsCsiUnready)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -320,9 +327,16 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 		Expect(err).NotTo(HaveOccurred())
-		dsCsi.Status.NumberReady = 2
-		dsCsi.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), dsCsi)
+		// core types with status subresources cannot have their status updated
+		// so instead we delete the object and create a new one with the updated
+		// status
+		dsCsiReady := dsCsi.DeepCopy()
+		dsCsiReady.Status.NumberReady = 2
+		dsCsiReady.Status.DesiredNumberScheduled = 2
+		dsCsiReady.ResourceVersion = ""
+		err = cl.Delete(context.TODO(), dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		err = cl.Create(context.TODO(), dsCsiReady)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -408,7 +422,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		secv1.Install(s)
 
 		// Create a fake client to mock API calls.
-		cl := fake.NewFakeClient(objs...)
+		cl := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
 
 		// Create a ReconcileMemcached object with the scheme and fake client.
 		r := &ReconcileHostPathProvisioner{
@@ -586,7 +600,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 
 	// Create a fake client to mock API calls.
 	cl := erroringFakeCtrlRuntimeClient{
-		Client: fake.NewFakeClientWithScheme(s, objs...),
+		Client: fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build(),
 		errMsg: "",
 	}
 
@@ -644,9 +658,16 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 		}
 		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
-		ds.Status.NumberReady = 2
-		ds.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), ds)
+		// core types with status subresources cannot have their status updated
+		// so instead we delete the object and create a new one with the updated
+		// status
+		dsReady := ds.DeepCopy()
+		dsReady.Status.NumberReady = 2
+		dsReady.Status.DesiredNumberScheduled = 2
+		dsReady.ResourceVersion = ""
+		err = cl.Delete(context.TODO(), ds)
+		Expect(err).NotTo(HaveOccurred())
+		err = cl.Create(context.TODO(), dsReady)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	// Now make the csi daemonSet available, and reconcile again.
@@ -657,11 +678,22 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	}
 	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 	Expect(err).NotTo(HaveOccurred())
-	dsCsi.Status.NumberReady = 2
-	dsCsi.Status.DesiredNumberScheduled = 2
-	err = cl.Update(context.TODO(), dsCsi)
+
+	// core types with status subresources cannot have their status updated
+	// so instead we delete the object and create a new one with the updated
+	// status
+	dsCsiReady := dsCsi.DeepCopy()
+	dsCsiReady.Status.NumberReady = 2
+	dsCsiReady.Status.DesiredNumberScheduled = 2
+	dsCsiReady.ResourceVersion = ""
+	err = cl.Delete(context.TODO(), dsCsi)
+	Expect(err).NotTo(HaveOccurred())
+	err = cl.Create(context.TODO(), dsCsiReady)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(dsCsi.Status.NumberReady).To(Equal(int32(2)))
 	// daemonSet is ready, now reconcile again. We should have condition changes and observed version should be set.
 	res, err = r.Reconcile(context.TODO(), req)
 	Expect(err).NotTo(HaveOccurred())

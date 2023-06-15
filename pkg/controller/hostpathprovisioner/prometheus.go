@@ -56,7 +56,7 @@ const (
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
 	if used, err := r.checkPrometheusUsed(); err != nil {
 		return reconcile.Result{}, err
-	} else if used == false {
+	} else if !used {
 		return reconcile.Result{}, nil
 	}
 	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRule(namespace), createPrometheusRule(namespace)); err != nil {
@@ -124,7 +124,7 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusResource(reqLogger log
 }
 
 func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace string) error {
-	if used, err := r.checkPrometheusUsed(); used == false {
+	if used, err := r.checkPrometheusUsed(); !used {
 		return err
 	}
 
@@ -439,7 +439,7 @@ func (r *ReconcileHostPathProvisioner) checkPrometheusUsed() (bool, error) {
 			// prometheus not deployed
 			return false, nil
 		}
-		return false, err
+		return false, nil
 	}
 	return true, nil
 }

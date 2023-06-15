@@ -18,7 +18,6 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -126,13 +125,11 @@ var _ = Describe("Controller reconcile loop", func() {
 			scaleClusterNodesAndDsUp(1, 1, cr, r, cl)
 			// Expect 1 pods and 1 pvcs
 			verifyDeploymentsAndPVCs(1, 1, cr, r, cl)
-			deletionTime := metav1.NewTime(time.Now())
 
 			By("Marking CR as deleted, it should generate cleanup jobs after reconcile")
 			err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
 			Expect(err).ToNot(HaveOccurred())
-			cr.DeletionTimestamp = &deletionTime
-			err = cl.Update(context.TODO(), cr)
+			err = cl.Delete(context.TODO(), cr)
 			Expect(err).ToNot(HaveOccurred())
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -199,10 +196,8 @@ var _ = Describe("Controller reconcile loop", func() {
 			// Delete the CR.
 			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
 			Expect(err).ToNot(HaveOccurred())
-			now := metav1.NewTime(time.Now())
-			cr.DeletionTimestamp = &now
-			time.Sleep(time.Millisecond)
-			err = cl.Update(context.TODO(), cr)
+			cr.Finalizers = []string{}
+			err = cl.Delete(context.TODO(), cr)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = r.Reconcile(context.TODO(), req)
 			Expect(err).ToNot(HaveOccurred())

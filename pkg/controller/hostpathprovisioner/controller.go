@@ -115,7 +115,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// mapFn will be used to map reconcile requests to the HPP for resources that don't have an ownerRef
-	mapFn := handler.MapFunc(func(o client.Object) []reconcile.Request {
+	mapFn := handler.MapFunc(func(context context.Context, o client.Object) []reconcile.Request {
 		if val, ok := o.GetLabels()["k8s-app"]; ok && val == MultiPurposeHostPathProvisionerName {
 			hppList, err := getHppList(mgr.GetClient())
 			if err != nil {
@@ -142,82 +142,68 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	handleAPIServer := handler.MapFunc(handleAPIServerFunc)
 
 	// Watch for changes to primary resource HostPathProvisioner
-	err = c.Watch(&source.Kind{Type: &hostpathprovisionerv1.HostPathProvisioner{}}, &handler.EnqueueRequestForObject{})
+
+	err = c.Watch(source.Kind(mgr.GetCache(), &hostpathprovisionerv1.HostPathProvisioner{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &appsv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.DaemonSet{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ServiceAccount{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &rbacv1.Role{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hostpathprovisionerv1.HostPathProvisioner{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &rbacv1.Role{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
 	if err != nil {
 		return err
 	}
 
-	if err := c.Watch(&source.Kind{Type: &storagev1.CSIDriver{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &storagev1.CSIDriver{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
-	if err := c.Watch(&source.Kind{Type: &rbacv1.ClusterRoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.ClusterRoleBinding{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
-	if err := c.Watch(&source.Kind{Type: &rbacv1.ClusterRole{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.ClusterRole{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
-	if err := c.Watch(&source.Kind{Type: &rbacv1.Role{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.Role{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 		return err
 	}
 
 	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used || isErrCacheNotStarted(err) {
-		if err := c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &secv1.SecurityContextConstraints{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching SecurityContextConstraints")
 				return nil
 			}
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &ocpconfigv1.APIServer{}}, handler.EnqueueRequestsFromMapFunc(handleAPIServer)); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &ocpconfigv1.APIServer{}), handler.EnqueueRequestsFromMapFunc(handleAPIServer)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching APIServer")
 				return nil
@@ -227,14 +213,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	if used, err := r.(*ReconcileHostPathProvisioner).checkPrometheusUsed(); used || isErrCacheNotStarted(err) {
-		if err := c.Watch(&source.Kind{Type: &promv1.PrometheusRule{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &promv1.PrometheusRule{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching PrometheusRules")
 				return nil
 			}
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &promv1.ServiceMonitor{}}, handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &promv1.ServiceMonitor{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching ServiceMonitors")
 				return nil
@@ -459,7 +445,7 @@ func (r *ReconcileHostPathProvisioner) isLegacy(cr *hostpathprovisionerv1.HostPa
 
 func (r *ReconcileHostPathProvisioner) reconcileStatus(_ context.Context, reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace, versionString string) (reconcile.Result, error) {
 	// Check if all requested pods are available.
-	degraded, err := r.checkDegraded(reqLogger, cr, namespace)
+	degraded, err := r.checkDegraded(cr, namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -467,9 +453,11 @@ func (r *ReconcileHostPathProvisioner) reconcileStatus(_ context.Context, reqLog
 		MarkCrFailedHealing(cr, "StoragePoolNotReady", err.Error())
 		return reconcile.Result{}, err
 	}
+	r.Log.Info("observed?", "degraded", degraded, "versionString", versionString, "observed version", cr.Status.ObservedVersion)
 	if !degraded && cr.Status.ObservedVersion != versionString {
 		cr.Status.ObservedVersion = versionString
 	}
+	r.Log.Info("New observed", "observed", cr.Status.ObservedVersion)
 	return reconcile.Result{}, nil
 }
 
@@ -599,7 +587,7 @@ func (r *ReconcileHostPathProvisioner) reconcileUpdate(reqLogger logr.Logger, cr
 	return res, nil
 }
 
-func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (bool, error) {
+func (r *ReconcileHostPathProvisioner) checkDegraded(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (bool, error) {
 	degraded := false
 
 	daemonSet := &appsv1.DaemonSet{}
@@ -615,11 +603,12 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 		return true, err
 	}
 
+	r.Log.Info("Degraded check", "is legacy", r.isLegacy(cr), "ready", checkDaemonSetReady(daemonSet), "ready csi", checkDaemonSetReady(daemonSetCsi))
 	if !((!r.isLegacy(cr) || checkDaemonSetReady(daemonSet)) && checkDaemonSetReady(daemonSetCsi)) {
 		degraded = true
 	}
 
-	logger.V(3).Info("Degraded check", "Degraded", degraded)
+	r.Log.V(3).Info("Degraded check", "Degraded", degraded)
 
 	// If deployed and degraded, mark degraded, otherwise we are still deploying or not degraded.
 	if degraded && !r.isDeploying(cr) {
@@ -634,7 +623,7 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 		})
 	}
 
-	logger.V(3).Info("Finished degraded check", "conditions", cr.Status.Conditions)
+	r.Log.V(3).Info("Finished degraded check", "conditions", cr.Status.Conditions)
 	return degraded, nil
 }
 
@@ -719,7 +708,7 @@ func HasFinalizer(object metav1.Object, value string) bool {
 	return false
 }
 
-func handleAPIServerFunc(o client.Object) []reconcile.Request {
+func handleAPIServerFunc(_ context.Context, o client.Object) []reconcile.Request {
 	apiServer := o.(*ocpconfigv1.APIServer)
 	cipherNames, minTypedTLSVersion := cryptopolicy.SelectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
 	if err := os.Setenv("TLS_CIPHERS", strings.Join(cipherNames, ",")); err != nil {
