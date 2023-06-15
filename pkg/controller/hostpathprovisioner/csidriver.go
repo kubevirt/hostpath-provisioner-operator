@@ -36,9 +36,9 @@ const (
 	driverName = "kubevirt.io.hostpath-provisioner"
 )
 
-func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileCSIDriver(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner) (reconcile.Result, error) {
 	// Define a new CSIDriver object
-	desired := createCSIDriverObject(namespace)
+	desired := createCSIDriverObject()
 
 	setLastAppliedConfiguration(desired)
 
@@ -115,7 +115,7 @@ func copyImmutableFields(desired, current *storagev1.CSIDriver) *storagev1.CSIDr
 	return desired
 }
 
-func createCSIDriverObject(namespace string) *storagev1.CSIDriver {
+func createCSIDriverObject() *storagev1.CSIDriver {
 	labels := getRecommendedLabels()
 	podInfoOnMount := true
 	attachRequired := false
