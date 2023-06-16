@@ -285,16 +285,9 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 		Expect(err).NotTo(HaveOccurred())
-		// core types with status subresources cannot have their status updated
-		// so instead we delete the object and create a new one with the updated
-		// status
-		dsCsiUnready := dsCsi.DeepCopy()
-		dsCsiUnready.Status.NumberReady = 1
-		dsCsiUnready.Status.DesiredNumberScheduled = 2
-		dsCsiUnready.ResourceVersion = ""
-		err = cl.Delete(context.TODO(), dsCsi)
-		Expect(err).NotTo(HaveOccurred())
-		err = cl.Create(context.TODO(), dsCsiUnready)
+		dsCsi.Status.NumberReady = 1
+		dsCsi.Status.DesiredNumberScheduled = 2
+		err = cl.Status().Update(context.TODO(), dsCsi)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -327,16 +320,9 @@ var _ = Describe("Controller reconcile loop", func() {
 		}
 		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 		Expect(err).NotTo(HaveOccurred())
-		// core types with status subresources cannot have their status updated
-		// so instead we delete the object and create a new one with the updated
-		// status
-		dsCsiReady := dsCsi.DeepCopy()
-		dsCsiReady.Status.NumberReady = 2
-		dsCsiReady.Status.DesiredNumberScheduled = 2
-		dsCsiReady.ResourceVersion = ""
-		err = cl.Delete(context.TODO(), dsCsi)
-		Expect(err).NotTo(HaveOccurred())
-		err = cl.Create(context.TODO(), dsCsiReady)
+		dsCsi.Status.NumberReady = 2
+		dsCsi.Status.DesiredNumberScheduled = 2
+		err = cl.Status().Update(context.TODO(), dsCsi)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -658,16 +644,9 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 		}
 		err = cl.Get(context.TODO(), dsNN, ds)
 		Expect(err).NotTo(HaveOccurred())
-		// core types with status subresources cannot have their status updated
-		// so instead we delete the object and create a new one with the updated
-		// status
-		dsReady := ds.DeepCopy()
-		dsReady.Status.NumberReady = 2
-		dsReady.Status.DesiredNumberScheduled = 2
-		dsReady.ResourceVersion = ""
-		err = cl.Delete(context.TODO(), ds)
-		Expect(err).NotTo(HaveOccurred())
-		err = cl.Create(context.TODO(), dsReady)
+		ds.Status.NumberReady = 2
+		ds.Status.DesiredNumberScheduled = 2
+		err = cl.Status().Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	// Now make the csi daemonSet available, and reconcile again.
@@ -679,16 +658,9 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
 	Expect(err).NotTo(HaveOccurred())
 
-	// core types with status subresources cannot have their status updated
-	// so instead we delete the object and create a new one with the updated
-	// status
-	dsCsiReady := dsCsi.DeepCopy()
-	dsCsiReady.Status.NumberReady = 2
-	dsCsiReady.Status.DesiredNumberScheduled = 2
-	dsCsiReady.ResourceVersion = ""
-	err = cl.Delete(context.TODO(), dsCsi)
-	Expect(err).NotTo(HaveOccurred())
-	err = cl.Create(context.TODO(), dsCsiReady)
+	dsCsi.Status.NumberReady = 2
+	dsCsi.Status.DesiredNumberScheduled = 2
+	err = cl.Status().Update(context.TODO(), dsCsi)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
