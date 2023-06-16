@@ -40,7 +40,7 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 		return reconcile.Result{}, nil
 	}
 	if r.isLegacy(cr) {
-		if res, err := r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createSecurityContextConstraintsObject(cr, namespace), namespace); err != nil {
+		if res, err := r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createSecurityContextConstraintsObject(namespace)); err != nil {
 			return res, err
 		}
 	} else {
@@ -48,10 +48,10 @@ func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLo
 			return reconcile.Result{}, err
 		}
 	}
-	return r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createCsiSecurityContextConstraintsObject(cr, namespace), namespace)
+	return r.reconcileSecurityContextConstraintsDesired(reqLogger, cr, createCsiSecurityContextConstraintsObject(namespace))
 }
 
-func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *secv1.SecurityContextConstraints, namespace string) (reconcile.Result, error) {
+func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraintsDesired(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired *secv1.SecurityContextConstraints) (reconcile.Result, error) {
 	// Define a new SecurityContextConstraints object
 	setLastAppliedConfiguration(desired)
 
@@ -120,7 +120,7 @@ func (r *ReconcileHostPathProvisioner) deleteSCC(name string) error {
 	return nil
 }
 
-func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
+func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityContextConstraints {
 	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ProvisionerServiceAccountName)
 	res := &secv1.SecurityContextConstraints{
 		Groups: []string{},
@@ -164,7 +164,7 @@ func createSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathPr
 	return res
 }
 
-func createCsiSecurityContextConstraintsObject(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) *secv1.SecurityContextConstraints {
+func createCsiSecurityContextConstraintsObject(namespace string) *secv1.SecurityContextConstraints {
 	saName := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, ProvisionerServiceAccountNameCsi)
 	return &secv1.SecurityContextConstraints{
 		Groups: []string{},

@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package apis provides hostpathprovisioner operator api
 package apis
 
 import (
