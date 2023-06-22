@@ -17,4 +17,4 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
 setGoInProw $GOLANG_VER
 
-CGO_ENABLED=1 go build -a -tags strictfipsruntime -ldflags '-extldflags' -o _out/mounter cmd/mounter/*.go
+CGO_ENABLED=1 go build -a -tags strictfipsruntime -o _out/mounter cmd/mounter/*.go
