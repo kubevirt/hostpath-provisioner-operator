@@ -17,4 +17,4 @@ script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
 ensureArmAvailable
 
-CGO_ENABLED=1 go build -a -tags strictfipsruntime -ldflags '-extldflags' -o _out/hostpath-provisioner-operator cmd/manager/main.go
+CGO_ENABLED=1 go build -a -tags strictfipsruntime -o _out/hostpath-provisioner-operator cmd/manager/main.go
