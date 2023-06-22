@@ -18,145 +18,137 @@ package apiutil
 
 import (
 	"fmt"
-	"net/http"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 )
 
-// NewDynamicRESTMapper returns a dynamic RESTMapper for cfg. The dynamic
-// RESTMapper dynamically discovers resource types at runtime.
-func NewDynamicRESTMapper(cfg *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
-	if httpClient == nil {
-		return nil, fmt.Errorf("httpClient must not be nil, consider using rest.HTTPClientFor(c) to create a client")
-	}
-
-	client, err := discovery.NewDiscoveryClientForConfigAndClient(cfg, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	return &mapper{
-		mapper:      restmapper.NewDiscoveryRESTMapper([]*restmapper.APIGroupResources{}),
-		client:      client,
-		knownGroups: map[string]*restmapper.APIGroupResources{},
-		apiGroups:   map[string]*metav1.APIGroup{},
-	}, nil
-}
-
-// mapper is a RESTMapper that will lazily query the provided
+// lazyRESTMapper is a RESTMapper that will lazily query the provided
 // client for discovery information to do REST mappings.
-type mapper struct {
+type lazyRESTMapper struct {
 	mapper      meta.RESTMapper
 	client      *discovery.DiscoveryClient
 	knownGroups map[string]*restmapper.APIGroupResources
-	apiGroups   map[string]*metav1.APIGroup
+	apiGroups   []metav1.APIGroup
 
 	// mutex to provide thread-safe mapper reloading.
-	mu sync.RWMutex
+	mu sync.Mutex
+}
+
+// newLazyRESTMapperWithClient initializes a LazyRESTMapper with a custom discovery client.
+func newLazyRESTMapperWithClient(discoveryClient *discovery.DiscoveryClient) (meta.RESTMapper, error) {
+	return &lazyRESTMapper{
+		mapper:      restmapper.NewDiscoveryRESTMapper([]*restmapper.APIGroupResources{}),
+		client:      discoveryClient,
+		knownGroups: map[string]*restmapper.APIGroupResources{},
+		apiGroups:   []metav1.APIGroup{},
+	}, nil
 }
 
 // KindFor implements Mapper.KindFor.
-func (m *mapper) KindFor(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
-	res, err := m.getMapper().KindFor(resource)
+func (m *lazyRESTMapper) KindFor(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	res, err := m.mapper.KindFor(resource)
 	if meta.IsNoMatchError(err) {
-		if err := m.addKnownGroupAndReload(resource.Group, resource.Version); err != nil {
-			return schema.GroupVersionKind{}, err
+		if err = m.addKnownGroupAndReload(resource.Group, resource.Version); err != nil {
+			return res, err
 		}
-		res, err = m.getMapper().KindFor(resource)
+
+		res, err = m.mapper.KindFor(resource)
 	}
 
 	return res, err
 }
 
 // KindsFor implements Mapper.KindsFor.
-func (m *mapper) KindsFor(resource schema.GroupVersionResource) ([]schema.GroupVersionKind, error) {
-	res, err := m.getMapper().KindsFor(resource)
+func (m *lazyRESTMapper) KindsFor(resource schema.GroupVersionResource) ([]schema.GroupVersionKind, error) {
+	res, err := m.mapper.KindsFor(resource)
 	if meta.IsNoMatchError(err) {
-		if err := m.addKnownGroupAndReload(resource.Group, resource.Version); err != nil {
-			return nil, err
+		if err = m.addKnownGroupAndReload(resource.Group, resource.Version); err != nil {
+			return res, err
 		}
-		res, err = m.getMapper().KindsFor(resource)
+
+		res, err = m.mapper.KindsFor(resource)
 	}
 
 	return res, err
 }
 
 // ResourceFor implements Mapper.ResourceFor.
-func (m *mapper) ResourceFor(input schema.GroupVersionResource) (schema.GroupVersionResource, error) {
-	res, err := m.getMapper().ResourceFor(input)
+func (m *lazyRESTMapper) ResourceFor(input schema.GroupVersionResource) (schema.GroupVersionResource, error) {
+	res, err := m.mapper.ResourceFor(input)
 	if meta.IsNoMatchError(err) {
-		if err := m.addKnownGroupAndReload(input.Group, input.Version); err != nil {
-			return schema.GroupVersionResource{}, err
+		if err = m.addKnownGroupAndReload(input.Group, input.Version); err != nil {
+			return res, err
 		}
-		res, err = m.getMapper().ResourceFor(input)
+
+		res, err = m.mapper.ResourceFor(input)
 	}
 
 	return res, err
 }
 
 // ResourcesFor implements Mapper.ResourcesFor.
-func (m *mapper) ResourcesFor(input schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
-	res, err := m.getMapper().ResourcesFor(input)
+func (m *lazyRESTMapper) ResourcesFor(input schema.GroupVersionResource) ([]schema.GroupVersionResource, error) {
+	res, err := m.mapper.ResourcesFor(input)
 	if meta.IsNoMatchError(err) {
-		if err := m.addKnownGroupAndReload(input.Group, input.Version); err != nil {
-			return nil, err
+		if err = m.addKnownGroupAndReload(input.Group, input.Version); err != nil {
+			return res, err
 		}
-		res, err = m.getMapper().ResourcesFor(input)
+
+		res, err = m.mapper.ResourcesFor(input)
 	}
 
 	return res, err
 }
 
 // RESTMapping implements Mapper.RESTMapping.
-func (m *mapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
-	res, err := m.getMapper().RESTMapping(gk, versions...)
+func (m *lazyRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*meta.RESTMapping, error) {
+	res, err := m.mapper.RESTMapping(gk, versions...)
 	if meta.IsNoMatchError(err) {
-		if err := m.addKnownGroupAndReload(gk.Group, versions...); err != nil {
-			return nil, err
+		if err = m.addKnownGroupAndReload(gk.Group, versions...); err != nil {
+			return res, err
 		}
-		res, err = m.getMapper().RESTMapping(gk, versions...)
+
+		res, err = m.mapper.RESTMapping(gk, versions...)
 	}
 
 	return res, err
 }
 
 // RESTMappings implements Mapper.RESTMappings.
-func (m *mapper) RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error) {
-	res, err := m.getMapper().RESTMappings(gk, versions...)
+func (m *lazyRESTMapper) RESTMappings(gk schema.GroupKind, versions ...string) ([]*meta.RESTMapping, error) {
+	res, err := m.mapper.RESTMappings(gk, versions...)
 	if meta.IsNoMatchError(err) {
-		if err := m.addKnownGroupAndReload(gk.Group, versions...); err != nil {
-			return nil, err
+		if err = m.addKnownGroupAndReload(gk.Group, versions...); err != nil {
+			return res, err
 		}
-		res, err = m.getMapper().RESTMappings(gk, versions...)
+
+		res, err = m.mapper.RESTMappings(gk, versions...)
 	}
 
 	return res, err
 }
 
 // ResourceSingularizer implements Mapper.ResourceSingularizer.
-func (m *mapper) ResourceSingularizer(resource string) (string, error) {
-	return m.getMapper().ResourceSingularizer(resource)
-}
-
-func (m *mapper) getMapper() meta.RESTMapper {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.mapper
+func (m *lazyRESTMapper) ResourceSingularizer(resource string) (string, error) {
+	return m.mapper.ResourceSingularizer(resource)
 }
 
 // addKnownGroupAndReload reloads the mapper with updated information about missing API group.
 // versions can be specified for partial updates, for instance for v1beta1 version only.
-func (m *mapper) addKnownGroupAndReload(groupName string, versions ...string) error {
+func (m *lazyRESTMapper) addKnownGroupAndReload(groupName string, versions ...string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// If no specific versions are set by user, we will scan all available ones for the API group.
 	// This operation requires 2 requests: /api and /apis, but only once. For all subsequent calls
 	// this data will be taken from cache.
 	if len(versions) == 0 {
-		apiGroup, err := m.findAPIGroupByName(groupName)
+		apiGroup, err := m.findAPIGroupByNameLocked(groupName)
 		if err != nil {
 			return err
 		}
@@ -164,9 +156,6 @@ func (m *mapper) addKnownGroupAndReload(groupName string, versions ...string) er
 			versions = append(versions, version.Version)
 		}
 	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	// Create or fetch group resources from cache.
 	groupResources := &restmapper.APIGroupResources{
@@ -216,53 +205,43 @@ func (m *mapper) addKnownGroupAndReload(groupName string, versions ...string) er
 	}
 
 	m.mapper = restmapper.NewDiscoveryRESTMapper(updatedGroupResources)
+
 	return nil
 }
 
 // findAPIGroupByNameLocked returns API group by its name.
-func (m *mapper) findAPIGroupByName(groupName string) (*metav1.APIGroup, error) {
+func (m *lazyRESTMapper) findAPIGroupByNameLocked(groupName string) (metav1.APIGroup, error) {
 	// Looking in the cache first.
-	{
-		m.mu.RLock()
-		group, ok := m.apiGroups[groupName]
-		m.mu.RUnlock()
-		if ok {
-			return group, nil
+	for _, apiGroup := range m.apiGroups {
+		if groupName == apiGroup.Name {
+			return apiGroup, nil
 		}
 	}
 
 	// Update the cache if nothing was found.
 	apiGroups, err := m.client.ServerGroups()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get server groups: %w", err)
+		return metav1.APIGroup{}, fmt.Errorf("failed to get server groups: %w", err)
 	}
 	if len(apiGroups.Groups) == 0 {
-		return nil, fmt.Errorf("received an empty API groups list")
+		return metav1.APIGroup{}, fmt.Errorf("received an empty API groups list")
 	}
 
-	m.mu.Lock()
-	for i := range apiGroups.Groups {
-		group := &apiGroups.Groups[i]
-		m.apiGroups[group.Name] = group
-	}
-	m.mu.Unlock()
+	m.apiGroups = apiGroups.Groups
 
 	// Looking in the cache again.
-	{
-		m.mu.RLock()
-		group, ok := m.apiGroups[groupName]
-		m.mu.RUnlock()
-		if ok {
-			return group, nil
+	for _, apiGroup := range m.apiGroups {
+		if groupName == apiGroup.Name {
+			return apiGroup, nil
 		}
 	}
 
 	// If there is still nothing, return an error.
-	return nil, fmt.Errorf("failed to find API group %q", groupName)
+	return metav1.APIGroup{}, fmt.Errorf("failed to find API group %s", groupName)
 }
 
 // fetchGroupVersionResources fetches the resources for the specified group and its versions.
-func (m *mapper) fetchGroupVersionResources(groupName string, versions ...string) (map[schema.GroupVersion]*metav1.APIResourceList, error) {
+func (m *lazyRESTMapper) fetchGroupVersionResources(groupName string, versions ...string) (map[schema.GroupVersion]*metav1.APIResourceList, error) {
 	groupVersionResources := make(map[schema.GroupVersion]*metav1.APIResourceList)
 	failedGroups := make(map[schema.GroupVersion]error)
 
