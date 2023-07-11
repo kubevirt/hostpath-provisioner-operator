@@ -45,15 +45,15 @@ var (
 	logoBase64 = flag.String("logo-base64", "", "")
 	verbosity  = flag.String("verbosity", "1", "")
 
-	operatorImage    = flag.String("operator-image-name", hostpathprovisioner.OperatorImageDefault, "optional")
-	provisionerImage = flag.String("provisioner-image-name", hostpathprovisioner.ProvisionerImageDefault, "optional")
-	csiDriverImage   = flag.String("csi-driver-image-name", hostpathprovisioner.CsiProvisionerImageDefault, "optional")
-	csiNodeDriverRegistrarImage   = flag.String("csi-node-driver-image-name", hostpathprovisioner.CsiNodeDriverRegistrationImageDefault, "optional")
-	csiLivenessProbeImage   = flag.String("csi-liveness-probe-image-name", hostpathprovisioner.LivenessProbeImageDefault, "optional")
-	csiExternalProvisionerImage   = flag.String("csi-external-provisioner-image-name", hostpathprovisioner.CsiSigStorageProvisionerImageDefault, "optional")
-	csiSnapshotterImage   = flag.String("csi-snapshotter-image-name", hostpathprovisioner.SnapshotterImageDefault, "optional")
-	
-	dumpCRDs         = flag.Bool("dump-crds", false, "optional - dumps operator related crd manifests to stdout")
+	operatorImage               = flag.String("operator-image-name", hostpathprovisioner.OperatorImageDefault, "optional")
+	provisionerImage            = flag.String("provisioner-image-name", hostpathprovisioner.ProvisionerImageDefault, "optional")
+	csiDriverImage              = flag.String("csi-driver-image-name", hostpathprovisioner.CsiProvisionerImageDefault, "optional")
+	csiNodeDriverRegistrarImage = flag.String("csi-node-driver-image-name", hostpathprovisioner.CsiNodeDriverRegistrationImageDefault, "optional")
+	csiLivenessProbeImage       = flag.String("csi-liveness-probe-image-name", hostpathprovisioner.LivenessProbeImageDefault, "optional")
+	csiExternalProvisionerImage = flag.String("csi-external-provisioner-image-name", hostpathprovisioner.CsiSigStorageProvisionerImageDefault, "optional")
+	csiSnapshotterImage         = flag.String("csi-snapshotter-image-name", hostpathprovisioner.SnapshotterImageDefault, "optional")
+
+	dumpCRDs = flag.Bool("dump-crds", false, "optional - dumps operator related crd manifests to stdout")
 )
 
 func main() {
@@ -64,18 +64,18 @@ func main() {
 		ReplacesCsvVersion: *replacesCsvVersion,
 		IconBase64:         *logoBase64,
 	}
-	data.OperatorArgs = helper.OperatorArgs {
-		Namespace:          *namespace,
-		ImagePullPolicy:    *pullPolicy,
-		Verbosity:          *verbosity,
+	data.OperatorArgs = helper.OperatorArgs{
+		Namespace:       *namespace,
+		ImagePullPolicy: *pullPolicy,
+		Verbosity:       *verbosity,
 
-		OperatorImage:    *operatorImage,
-		ProvisionerImage: *provisionerImage,
-		CsiDriverImage: *csiDriverImage,
+		OperatorImage:               *operatorImage,
+		ProvisionerImage:            *provisionerImage,
+		CsiDriverImage:              *csiDriverImage,
 		CsiNodeDriverRegistrarImage: *csiNodeDriverRegistrarImage,
-		CsiLivenessProbeImage: *csiLivenessProbeImage,
+		CsiLivenessProbeImage:       *csiLivenessProbeImage,
 		CsiExternalProvisionerImage: *csiExternalProvisionerImage,
-		CsiSnapshotterImage: *csiSnapshotterImage,
+		CsiSnapshotterImage:         *csiSnapshotterImage,
 	}
 
 	csv, err := createClusterServiceVersion(&data)
@@ -89,12 +89,12 @@ func main() {
 	}
 }
 
-//NewClusterServiceVersionData - Data arguments used to create hostpath provisioner's CSV manifest
+// NewClusterServiceVersionData - Data arguments used to create hostpath provisioner's CSV manifest
 type NewClusterServiceVersionData struct {
 	CsvVersion         string
 	ReplacesCsvVersion string
 	IconBase64         string
-	OperatorArgs helper.OperatorArgs
+	OperatorArgs       helper.OperatorArgs
 }
 
 type csvPermissions struct {
@@ -198,11 +198,11 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 						IntVal: int32(9443),
 					},
 					DeploymentName: deployment.Name,
-					GenerateName: "validate-hostpath-provisioner.kubevirt.io",
-					FailurePolicy: &failPolicy,
-					Type: csvv1.ValidatingAdmissionWebhook,
-					SideEffects: &sideEffectNone,
-					WebhookPath: &webhookPath,
+					GenerateName:   "validate-hostpath-provisioner.kubevirt.io",
+					FailurePolicy:  &failPolicy,
+					Type:           csvv1.ValidatingAdmissionWebhook,
+					SideEffects:    &sideEffectNone,
+					WebhookPath:    &webhookPath,
 					Rules: []admissionregistrationv1.RuleWithOperations{
 						{
 							Operations: []admissionregistrationv1.OperationType{
@@ -228,11 +228,11 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 			DisplayName: "Hostpath Provisioner",
 			Description: description,
 			Keywords:    []string{"Hostpath Provisioner", "Storage"},
-			Version:     version.OperatorVersion{
+			Version: version.OperatorVersion{
 				Version: *csvVersion,
 			},
-			Maturity:    "beta",
-			Replaces:    data.ReplacesCsvVersion,
+			Maturity: "beta",
+			Replaces: data.ReplacesCsvVersion,
 			Maintainers: []csvv1.Maintainer{{
 				Name:  "KubeVirt project",
 				Email: "kubevirt-dev@googlegroups.com",
@@ -283,7 +283,7 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 				},
 			},
 			InstallStrategy: csvv1.NamedInstallStrategy{
-				StrategyName:    "deployment",
+				StrategyName: "deployment",
 				StrategySpec: csvv1.StrategyDetailsDeployment{
 					DeploymentSpecs: []csvv1.StrategyDeploymentSpec{
 						{
@@ -312,8 +312,8 @@ Hostpath provisioner is a local storage provisioner that uses kubernetes hostpat
 						Name:        "hostpathprovisioners.hostpathprovisioner.kubevirt.io",
 						Version:     "v1beta1",
 						Kind:        "HostPathProvisioner",
-						DisplayName: "HostPathProvisioner deployment",
-						Description: "Represents a HostPathProvisioner deployment",
+						DisplayName: "HostPathProvisioner Deployment",
+						Description: "Represents the deployment of HostPathProvisioner",
 					},
 				},
 			},
