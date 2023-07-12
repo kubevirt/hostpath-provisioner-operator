@@ -18,6 +18,7 @@ set -e
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 
 # Validate
+make lint-metrics
 make generate-doc
 git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 
