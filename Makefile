@@ -75,6 +75,9 @@ test:
 	hack/language.sh
 	go test -v ./cmd/... ./pkg/... ./tools/... ./version/...
 
+lint-metrics:
+	./hack/prom_metric_linter.sh --operator-name="kubevirt" --sub-operator-name="hpp"
+
 generate-doc: build-docgen
 	_out/metricsdocs > docs/metrics.md
 
