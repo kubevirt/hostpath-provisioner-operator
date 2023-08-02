@@ -193,9 +193,9 @@ type RecordRulesDesc struct {
 func GetRecordRulesDesc(namespace string) []RecordRulesDesc {
 	return []RecordRulesDesc{
 		{
-			"kubevirt_hpp_operator_up_total",
+			"kubevirt_hpp_operator_up",
 			fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
-			"The total number of running hostpath-provisioner-operator pods",
+			"The number of running hostpath-provisioner-operator pods",
 			"Gauge",
 		},
 	}
@@ -215,7 +215,7 @@ func getAlertRules(runbookURLTemplate string) []promv1.Rule {
 	return []promv1.Rule{
 		generateAlertRule(
 			"HPPOperatorDown",
-			"kubevirt_hpp_operator_up_total == 0",
+			"kubevirt_hpp_operator_up == 0",
 			"5m",
 			map[string]string{
 				"summary":     "Hostpath Provisioner operator is down",

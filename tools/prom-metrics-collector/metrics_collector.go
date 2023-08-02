@@ -7,12 +7,10 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// excludedMetrics defines the metrics to ignore,
-// open bug: https://bugzilla.redhat.com/show_bug.cgi?id=2219763
-// Do not add metrics to this list!
-var excludedMetrics = map[string]struct{}{
-	"kubevirt_hpp_operator_up_total": {},
-}
+// This should be used only for very rare cases where the naming conventions that are explained in the best practices:
+// https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
+// should be ignored.
+var excludedMetrics = map[string]struct{}{}
 
 func readMetrics() []*dto.MetricFamily {
 	var metricFamilies []*dto.MetricFamily
