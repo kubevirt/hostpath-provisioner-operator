@@ -20,7 +20,7 @@ ensureArmAvailable
 if [ "${GOARCH}" != "amd64" ]; then
   #disable dynamic linking for non amd64 architectures. Don't have a proper cross compiler to make this
   #work. In particular can't find a glibc that can be installed.
-  CGO_ENABLED=0 go build -a -o _out/csv-generator tools/csv-generator.g
+  CGO_ENABLED=0 go build -a -o _out/csv-generator tools/csv-generator.go
 else
-  CGO_ENABLED=1 go build -a -tags strictfipsruntime -o _out/csv-generator tools/csv-generator.g
+  CGO_ENABLED=1 go build -a -tags strictfipsruntime -o _out/csv-generator tools/csv-generator.go
 fi
