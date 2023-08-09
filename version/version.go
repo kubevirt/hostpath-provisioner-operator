@@ -24,12 +24,12 @@ import (
 	"github.com/blang/semver"
 )
 
-//VersionStringFunc is the function that feeds the version string into GetVersion
+// VersionStringFunc is the function that feeds the version string into GetVersion
 var (
 	VersionStringFunc = getStringFromVersionTxt
 )
 
-//GetVersion reads the version.txt and returns the version as a semver.Version.
+// GetVersion reads the version.txt and returns the version as a semver.Version.
 func GetVersion() (*semver.Version, error) {
 	versionString, err := VersionStringFunc()
 	if err != nil {
@@ -38,7 +38,7 @@ func GetVersion() (*semver.Version, error) {
 	return GetVersionFromString(versionString)
 }
 
-//GetVersionFromString takes the passed in string and attempts to make semver.Version out of it.
+// GetVersionFromString takes the passed in string and attempts to make semver.Version out of it.
 func GetVersionFromString(versionString string) (*semver.Version, error) {
 	trimmedVersion := strings.TrimPrefix(versionString, "v")
 	version, err := semver.Make(trimmedVersion)
