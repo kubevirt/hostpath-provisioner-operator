@@ -621,17 +621,8 @@ func (r *ReconcileHostPathProvisioner) checkDegraded(logger logr.Logger, cr *hos
 
 	logger.V(3).Info("Degraded check", "Degraded", degraded)
 
-	// If deployed and degraded, mark degraded, otherwise we are still deploying or not degraded.
 	if degraded && !r.isDeploying(cr) {
-		conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
-			Type:   conditions.ConditionDegraded,
-			Status: corev1.ConditionTrue,
-		})
-	} else {
-		conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
-			Type:   conditions.ConditionDegraded,
-			Status: corev1.ConditionFalse,
-		})
+		MarkCrFailed(cr, "Degraded", "CR is deployed but DaemonSets are not ready")
 	}
 
 	logger.V(3).Info("Finished degraded check", "conditions", cr.Status.Conditions)
