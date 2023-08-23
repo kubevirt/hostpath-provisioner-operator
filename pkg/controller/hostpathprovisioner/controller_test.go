@@ -300,10 +300,9 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(updatedCr.Status.OperatorVersion).To(Equal("1.0.3"))
 		Expect(updatedCr.Status.ObservedVersion).To(Equal("1.0.2"))
 		Expect(updatedCr.Status.TargetVersion).To(Equal("1.0.3"))
-		// Didn't make daemonset unavailable, so should be fully healthy
-		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionAvailable)).To(BeTrue())
-		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeTrue())
-		// It should be degraded
+		// Deployed, but NumberReady < DesiredNumberScheduled, so should be Available:False,Progressing:False,Degraded:True
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionAvailable)).To(BeFalse())
+		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionProgressing)).To(BeFalse())
 		Expect(conditions.IsStatusConditionTrue(updatedCr.Status.Conditions, conditions.ConditionDegraded)).To(BeTrue())
 
 		ds = &appsv1.DaemonSet{}
