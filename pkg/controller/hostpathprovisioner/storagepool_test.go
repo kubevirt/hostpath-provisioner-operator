@@ -103,6 +103,8 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 			err := cl.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(deployment.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+			Expect(deployment.Spec.Template.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 			deployment.Spec.Template.Spec.Containers[0].Name = "failure"
 			cl.Update(context.TODO(), deployment)
 			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment)
@@ -147,6 +149,8 @@ var _ = Describe("Controller reconcile loop", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(jobList.Items)).To(Equal(1))
 			Expect(jobList.Items[0].GetName()).To(Equal("cleanup-pool-local-node1"))
+			Expect(jobList.Items[0].Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
+			Expect(jobList.Items[0].Spec.Template.Labels[AppKubernetesPartOfLabel]).To(Equal("testing"))
 		})
 
 		It("Status length should remain at one with legacy CR", func() {
