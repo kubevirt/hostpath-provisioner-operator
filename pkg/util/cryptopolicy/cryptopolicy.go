@@ -28,7 +28,7 @@ import (
 )
 
 // GetWebhookServerSpec sets the GetConfigForClient to always check for ciphers and minimum TLS version
-func GetWebhookServerSpec() *webhook.Server {
+func GetWebhookServerSpec() webhook.Server {
 	ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS_OVERRIDE"), ",")
 	ciphers := cipherSuitesIDs(ciphersNames)
 	minTLSVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION_OVERRIDE"))
@@ -62,9 +62,11 @@ func GetWebhookServerSpec() *webhook.Server {
 		}
 	}
 
-	return &webhook.Server{
-		TLSOpts: []func(*tls.Config){
-			tlsCfgMutateFunc,
+	return &webhook.DefaultServer{
+		Options: webhook.Options{
+			TLSOpts: []func(*tls.Config){
+				tlsCfgMutateFunc,
+			},
 		},
 	}
 }

@@ -25,7 +25,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
 find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
 rm -rf "${SCRIPT_ROOT}/pkg/client"
 
-bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
+bash "${CODEGEN_PKG}"/kube_codegen.sh  "deepcopy,client,informer,lister" \
   kubevirt.io/hostpath-provisioner-operator/pkg/client \
   kubevirt.io/hostpath-provisioner-operator/pkg/apis \
   "hostpathprovisioner:v1beta1" \

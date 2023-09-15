@@ -18,7 +18,6 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -128,13 +127,11 @@ var _ = Describe("Controller reconcile loop", func() {
 			scaleClusterNodesAndDsUp(1, 1, cr, r, cl)
 			// Expect 1 pods and 1 pvcs
 			verifyDeploymentsAndPVCs(1, 1, cr, r, cl)
-			deletionTime := metav1.NewTime(time.Now())
 
 			By("Marking CR as deleted, it should generate cleanup jobs after reconcile")
 			err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
 			Expect(err).ToNot(HaveOccurred())
-			cr.DeletionTimestamp = &deletionTime
-			err = cl.Update(context.TODO(), cr)
+			err = cl.Delete(context.TODO(), cr)
 			Expect(err).ToNot(HaveOccurred())
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -194,7 +191,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			for _, deployment := range deployments.Items {
 				By("Setting deployment " + deployment.Name + " replicas to 1")
 				deployment.Status.ReadyReplicas = int32(1)
-				err = cl.Update(context.TODO(), &deployment)
+				err = cl.Status().Update(context.TODO(), &deployment)
 				Expect(err).ToNot(HaveOccurred())
 			}
 			_, err = r.Reconcile(context.TODO(), req)
@@ -203,10 +200,8 @@ var _ = Describe("Controller reconcile loop", func() {
 			// Delete the CR.
 			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
 			Expect(err).ToNot(HaveOccurred())
-			now := metav1.NewTime(time.Now())
-			cr.DeletionTimestamp = &now
-			time.Sleep(time.Millisecond)
-			err = cl.Update(context.TODO(), cr)
+			cr.Finalizers = append(cr.Finalizers, "test")
+			err = cl.Delete(context.TODO(), cr)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = r.Reconcile(context.TODO(), req)
 			Expect(err).ToNot(HaveOccurred())
@@ -214,6 +209,11 @@ var _ = Describe("Controller reconcile loop", func() {
 			err = cl.List(context.TODO(), &deployments)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(deployments.Items).To(BeEmpty())
+			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+			Expect(err).ToNot(HaveOccurred())
+			cr.Finalizers = nil
+			err = cl.Update(context.TODO(), cr)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
@@ -238,7 +238,7 @@ func scaleClusterNodesAndDsUp(start, end int, cr *hppv1.HostPathProvisioner, r *
 	csiDs.Status.DesiredNumberScheduled = int32(end)
 	csiDs.Status.NumberAvailable = int32(end)
 	csiDs.Status.NumberReady = int32(end)
-	err = cl.Update(context.TODO(), csiDs)
+	err = cl.Status().Update(context.TODO(), csiDs)
 	Expect(err).ToNot(HaveOccurred())
 	createCsiDsPods(start, end, csiDs, cl)
 
@@ -256,7 +256,7 @@ func scaleClusterNodesAndDsUp(start, end int, cr *hppv1.HostPathProvisioner, r *
 	Expect(err).ToNot(HaveOccurred())
 	for _, pvc := range pvcList.Items {
 		pvc.Status.Phase = corev1.ClaimBound
-		err = cl.Update(context.TODO(), &pvc)
+		err = cl.Status().Update(context.TODO(), &pvc)
 		Expect(err).ToNot(HaveOccurred())
 	}
 	_, err = r.Reconcile(context.TODO(), req)
@@ -286,7 +286,7 @@ func scaleClusterNodesAndDsDown(start, end, newCount int, _ *hppv1.HostPathProvi
 	csiDs.Status.DesiredNumberScheduled = int32(newCount)
 	csiDs.Status.NumberAvailable = int32(newCount)
 	csiDs.Status.NumberReady = int32(newCount)
-	err = cl.Update(context.TODO(), csiDs)
+	err = cl.Status().Update(context.TODO(), csiDs)
 	Expect(err).ToNot(HaveOccurred())
 	deleteCsiDsPods(start, end, csiDs, cl)
 

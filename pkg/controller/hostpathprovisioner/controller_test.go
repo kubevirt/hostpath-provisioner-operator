@@ -275,7 +275,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		ds.Status.NumberReady = 1
 		ds.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), ds)
+		err = cl.Status().Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
 		// Now make the csi daemonSet unavailable, and reconcile again.
 		dsCsi := &appsv1.DaemonSet{}
@@ -287,7 +287,7 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		dsCsi.Status.NumberReady = 1
 		dsCsi.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), dsCsi)
+		err = cl.Status().Update(context.TODO(), dsCsi)
 		Expect(err).NotTo(HaveOccurred())
 
 		res, err = r.Reconcile(context.TODO(), req)
@@ -310,8 +310,12 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		ds.Status.NumberReady = 2
 		ds.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), ds)
+		err = cl.Status().Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
+		err = cl.Get(context.TODO(), dsNN, ds)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ds.Status.NumberReady).To(Equal(int32(2)))
+		Expect(ds.Status.DesiredNumberScheduled).To(Equal(int32(2)))
 		dsCsi = &appsv1.DaemonSet{}
 		dsNNCsi = types.NamespacedName{
 			Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
@@ -321,8 +325,12 @@ var _ = Describe("Controller reconcile loop", func() {
 		Expect(err).NotTo(HaveOccurred())
 		dsCsi.Status.NumberReady = 2
 		dsCsi.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), dsCsi)
+		err = cl.Status().Update(context.TODO(), dsCsi)
 		Expect(err).NotTo(HaveOccurred())
+		err = cl.Get(context.TODO(), dsNNCsi, dsCsi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dsCsi.Status.NumberReady).To(Equal(int32(2)))
+		Expect(dsCsi.Status.DesiredNumberScheduled).To(Equal(int32(2)))
 
 		res, err = r.Reconcile(context.TODO(), req)
 		Expect(err).NotTo(HaveOccurred())
@@ -585,7 +593,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 
 	// Create a fake client to mock API calls.
 	cl := erroringFakeCtrlRuntimeClient{
-		Client: fake.NewFakeClientWithScheme(s, objs...),
+		Client: fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(objs...).Build(),
 		errMsg: "",
 	}
 
@@ -645,7 +653,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 		Expect(err).NotTo(HaveOccurred())
 		ds.Status.NumberReady = 2
 		ds.Status.DesiredNumberScheduled = 2
-		err = cl.Update(context.TODO(), ds)
+		err = cl.Status().Update(context.TODO(), ds)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	// Now make the csi daemonSet available, and reconcile again.
@@ -658,7 +666,7 @@ func createDeployedCr(cr *hppv1.HostPathProvisioner) (*hppv1.HostPathProvisioner
 	Expect(err).NotTo(HaveOccurred())
 	dsCsi.Status.NumberReady = 2
 	dsCsi.Status.DesiredNumberScheduled = 2
-	err = cl.Update(context.TODO(), dsCsi)
+	err = cl.Status().Update(context.TODO(), dsCsi)
 	Expect(err).NotTo(HaveOccurred())
 
 	// daemonSet is ready, now reconcile again. We should have condition changes and observed version should be set.
