@@ -25,14 +25,13 @@ import (
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
-var _ = Describe("Controller reconcile loop", func() {
-	Context("rbac", func() {
-		BeforeEach(func() {
+var _ = ginkgo.Describe("Controller reconcile loop", func() {
+	ginkgo.Context("rbac", func() {
+		ginkgo.BeforeEach(func() {
 			watchNamespaceFunc = func() (string, error) {
 				return testNamespace, nil
 			}
@@ -41,7 +40,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		table.DescribeTable("Should fix a changed ClusterRole", func(cr *hppv1.HostPathProvisioner) {
+		ginkgo.DescribeTable("Should fix a changed ClusterRole", func(cr *hppv1.HostPathProvisioner) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -56,33 +55,33 @@ var _ = Describe("Controller reconcile loop", func() {
 			// Now modify the ClusterRole to something not desired.
 			crole := &rbacv1.ClusterRole{}
 			err := cl.Get(context.TODO(), croleNN, crole)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(len(crole.Rules[1].Verbs)).To(gomega.Equal(4))
 			// Add delete to persistentvolumeclaims rule
 			crole.Rules[1].Verbs = append(crole.Rules[1].Verbs, "delete")
 			err = cl.Update(context.TODO(), crole)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			crole = &rbacv1.ClusterRole{}
 			err = cl.Get(context.TODO(), croleNN, crole)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// Verify the extra ability is there.
-			Expect(len(crole.Rules[1].Verbs)).To(Equal(5))
-			Expect(crole.Rules[1].Verbs[4]).To(Equal("delete"))
+			gomega.Expect(len(crole.Rules[1].Verbs)).To(gomega.Equal(5))
+			gomega.Expect(crole.Rules[1].Verbs[4]).To(gomega.Equal("delete"))
 			// Run the reconcile loop
 			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(res.Requeue).To(gomega.BeFalse())
 			// Verify its gone now
 			err = cl.Get(context.TODO(), croleNN, crole)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(crole.Rules[1].Verbs)).To(Equal(4))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(len(crole.Rules[1].Verbs)).To(gomega.Equal(4))
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 
-		table.DescribeTable("Should modify ClusterRole if snapshot enabled", func(cr *hppv1.HostPathProvisioner) {
+		ginkgo.DescribeTable("Should modify ClusterRole if snapshot enabled", func(cr *hppv1.HostPathProvisioner) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -93,25 +92,25 @@ var _ = Describe("Controller reconcile loop", func() {
 
 			cr = &hppv1.HostPathProvisioner{}
 			err := r.client.Get(context.TODO(), req.NamespacedName, cr)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			// Update the CR to enable the snapshotting feature gate.
 			cr.Spec.FeatureGates = append(cr.Spec.FeatureGates, snapshotFeatureGate)
 			err = cl.Update(context.TODO(), cr)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// Run the reconcile loop
 			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(res.Requeue).To(gomega.BeFalse())
 
 			verifyCreateCSIClusterRole(cl, true)
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 
-		table.DescribeTable("Should fix a changed ClusterRoleBinding", func(cr *hppv1.HostPathProvisioner) {
+		ginkgo.DescribeTable("Should fix a changed ClusterRoleBinding", func(cr *hppv1.HostPathProvisioner) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -127,28 +126,28 @@ var _ = Describe("Controller reconcile loop", func() {
 			// Now modify the CRB to something not desired.
 			crb := &rbacv1.ClusterRoleBinding{}
 			err := cl.Get(context.TODO(), crbNN, crb)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			crb.Subjects[0].Name = "invalid"
 			err = cl.Update(context.TODO(), crb)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// Verify the name is wrong
 			crb = &rbacv1.ClusterRoleBinding{}
 			err = cl.Get(context.TODO(), crbNN, crb)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(crb.Subjects[0].Name).To(Equal("invalid"))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(crb.Subjects[0].Name).To(gomega.Equal("invalid"))
 			// Run the reconcile loop
 			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(res.Requeue).To(gomega.BeFalse())
 			// Verify the name is correct again.
 			crb = &rbacv1.ClusterRoleBinding{}
 			err = cl.Get(context.TODO(), crbNN, crb)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(crb.Subjects[0].Name).To(Equal(ProvisionerServiceAccountNameCsi))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(crb.Subjects[0].Name).To(gomega.Equal(ProvisionerServiceAccountNameCsi))
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 	})
 })

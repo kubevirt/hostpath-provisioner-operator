@@ -20,14 +20,16 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
 	v1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	hostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/applyconfiguration/hostpathprovisioner/v1beta1"
 )
 
 // FakeHostPathProvisioners implements HostPathProvisionerInterface
@@ -35,9 +37,9 @@ type FakeHostPathProvisioners struct {
 	Fake *FakeHostpathprovisionerV1beta1
 }
 
-var hostpathprovisionersResource = schema.GroupVersionResource{Group: "hostpathprovisioner.kubevirt.io", Version: "v1beta1", Resource: "hostpathprovisioners"}
+var hostpathprovisionersResource = v1beta1.SchemeGroupVersion.WithResource("hostpathprovisioners")
 
-var hostpathprovisionersKind = schema.GroupVersionKind{Group: "hostpathprovisioner.kubevirt.io", Version: "v1beta1", Kind: "HostPathProvisioner"}
+var hostpathprovisionersKind = v1beta1.SchemeGroupVersion.WithKind("HostPathProvisioner")
 
 // Get takes name of the hostPathProvisioner, and returns the corresponding hostPathProvisioner object, and an error if there is any.
 func (c *FakeHostPathProvisioners) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.HostPathProvisioner, err error) {
@@ -126,6 +128,49 @@ func (c *FakeHostPathProvisioners) DeleteCollection(ctx context.Context, opts v1
 func (c *FakeHostPathProvisioners) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.HostPathProvisioner, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewRootPatchSubresourceAction(hostpathprovisionersResource, name, pt, data, subresources...), &v1beta1.HostPathProvisioner{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1beta1.HostPathProvisioner), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied hostPathProvisioner.
+func (c *FakeHostPathProvisioners) Apply(ctx context.Context, hostPathProvisioner *hostpathprovisionerv1beta1.HostPathProvisionerApplyConfiguration, opts v1.ApplyOptions) (result *v1beta1.HostPathProvisioner, err error) {
+	if hostPathProvisioner == nil {
+		return nil, fmt.Errorf("hostPathProvisioner provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(hostPathProvisioner)
+	if err != nil {
+		return nil, err
+	}
+	name := hostPathProvisioner.Name
+	if name == nil {
+		return nil, fmt.Errorf("hostPathProvisioner.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(hostpathprovisionersResource, *name, types.ApplyPatchType, data), &v1beta1.HostPathProvisioner{})
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v1beta1.HostPathProvisioner), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeHostPathProvisioners) ApplyStatus(ctx context.Context, hostPathProvisioner *hostpathprovisionerv1beta1.HostPathProvisionerApplyConfiguration, opts v1.ApplyOptions) (result *v1beta1.HostPathProvisioner, err error) {
+	if hostPathProvisioner == nil {
+		return nil, fmt.Errorf("hostPathProvisioner provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(hostPathProvisioner)
+	if err != nil {
+		return nil, err
+	}
+	name := hostPathProvisioner.Name
+	if name == nil {
+		return nil, fmt.Errorf("hostPathProvisioner.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewRootPatchSubresourceAction(hostpathprovisionersResource, *name, types.ApplyPatchType, data, "status"), &v1beta1.HostPathProvisioner{})
 	if obj == nil {
 		return nil, err
 	}

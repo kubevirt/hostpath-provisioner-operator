@@ -18,8 +18,8 @@ package v1beta1
 import (
 	"fmt"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -184,67 +184,88 @@ var (
 	}
 )
 
-var _ = Describe("validating webhook", func() {
-	Context("admission", func() {
-		It("Either legacy or volume sources have to be set.", func() {
+var _ = ginkgo.Describe("validating webhook", func() {
+	ginkgo.Context("admission", func() {
+		ginkgo.It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			Expect(hppCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
+			_, err := hppCr.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
 		})
-		It("Both legacy or volume sources cannot to be set.", func() {
-			Expect(bothLegacyAndVolumeCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
+		ginkgo.It("Both legacy or volume sources cannot to be set.", func() {
+			_, err := bothLegacyAndVolumeCR.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
-		It("Cannot have blank kind in volume source", func() {
-			Expect(blankNameCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
-			Expect(blankNameCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+		ginkgo.It("Cannot have blank kind in volume source", func() {
+			_, err := blankNameCr1.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			_, err = blankNameCr2.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
 		})
-		It("Cannot have blank path in volume source", func() {
-			Expect(blankPathCr1.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
-			Expect(blankPathCr2.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+		ginkgo.It("Cannot have blank path in volume source", func() {
+			_, err := blankPathCr1.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			_, err = blankPathCr2.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
-		It("If pathConfig exists, path must be set", func() {
-			Expect(invalidPathConfigCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
+		ginkgo.It("If pathConfig exists, path must be set", func() {
+			_, err := invalidPathConfigCR.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
 		})
-		It("Should not allow duplicate paths", func() {
-			Expect(multiSourceVolumeDuplicatePathCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+		ginkgo.It("Should not allow duplicate paths", func() {
+			_, err := multiSourceVolumeDuplicatePathCR.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
 		})
-		It("Should not allow duplicate names", func() {
-			Expect(multiSourceVolumeDuplicateNameCR.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+		ginkgo.It("Should not allow duplicate names", func() {
+			_, err := multiSourceVolumeDuplicateNameCR.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
-		It("Should not allow storagepool.name length > 50", func() {
-			Expect(longNameCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+		ginkgo.It("Should not allow storagepool.name length > 50", func() {
+			_, err := longNameCr.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
 		})
-		It("Should not allow storagepool.path length > 255", func() {
-			Expect(longPathCr.ValidateCreate()).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+		ginkgo.It("Should not allow storagepool.path length > 255", func() {
+			_, err := longPathCr.ValidateCreate()
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
 		})
 	})
 
-	Context("update", func() {
-		It("Either legacy or volume sources have to be set.", func() {
+	ginkgo.Context("update", func() {
+		ginkgo.It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			Expect(hppCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
+			_, err := hppCr.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
 		})
-		It("Both legacy or volume sources cannot to be set.", func() {
-			Expect(bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
+		ginkgo.It("Both legacy or volume sources cannot to be set.", func() {
+			_, err := bothLegacyAndVolumeCR.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
-		It("Cannot have blank kind in volume source", func() {
-			Expect(blankNameCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
-			Expect(blankNameCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+		ginkgo.It("Cannot have blank kind in volume source", func() {
+			_, err := blankNameCr1.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
+			_, err = blankNameCr2.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
 		})
-		It("Cannot have blank path in volume source", func() {
-			Expect(blankPathCr1.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
-			Expect(blankPathCr2.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+		ginkgo.It("Cannot have blank path in volume source", func() {
+			_, err := blankPathCr1.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
+			_, err = blankPathCr2.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
-		It("Should not allow duplicate paths", func() {
-			Expect(multiSourceVolumeDuplicatePathCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
+		ginkgo.It("Should not allow duplicate paths", func() {
+			_, err := multiSourceVolumeDuplicatePathCR.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
 		})
-		It("Should not allow duplicate names", func() {
-			Expect(multiSourceVolumeDuplicateNameCR.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
+		ginkgo.It("Should not allow duplicate names", func() {
+			_, err := multiSourceVolumeDuplicateNameCR.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
-		It("Should not allow storagepool.name length > 50", func() {
-			Expect(longNameCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
+		ginkgo.It("Should not allow storagepool.name length > 50", func() {
+			_, err := longNameCr.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
 		})
-		It("Should not allow storagepool.path length > 255", func() {
-			Expect(longPathCr.ValidateUpdate(&HostPathProvisioner{})).To(BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
+		ginkgo.It("Should not allow storagepool.path length > 255", func() {
+			_, err := longPathCr.ValidateUpdate(&HostPathProvisioner{})
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
 		})
 	})
 })

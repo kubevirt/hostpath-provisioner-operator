@@ -16,13 +16,12 @@ limitations under the License.
 package main
 
 import (
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
-var _ = Describe("Mounter tests", func() {
-	Context("lsblk JSON parsing", func() {
+var _ = ginkgo.Describe("Mounter tests", func() {
+	ginkgo.Context("lsblk JSON parsing", func() {
 		intJSON := `{
 			"blockdevices": [
 			   {"name": "vdb", "maj:min": "252:16", "rm": "1", "size": "120G", "ro": "0", "type": "disk", "mountpoint": "/host/var/hpvolumes/csi"}
@@ -34,19 +33,19 @@ var _ = Describe("Mounter tests", func() {
 			]
 		 }`
 
-		table.DescribeTable("should not panic over json booleans with", func(jsonStr string) {
+		ginkgo.DescribeTable("should not panic over json booleans with", func(jsonStr string) {
 			// Override lsblk cmd
 			lsblkCommand = func(source string) ([]byte, error) {
-				Expect(source).To(Equal("test"))
+				gomega.Expect(source).To(gomega.Equal("test"))
 				return []byte(jsonStr), nil
 			}
 
 			deviceInfos, err := lookupDeviceInfoByVolume("test")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(deviceInfos[0].Size).To(Equal("120G"))
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(deviceInfos[0].Size).To(gomega.Equal("120G"))
 		},
-			table.Entry("integer value", intJSON),
-			table.Entry("actual boolean", boolJSON),
+			ginkgo.Entry("integer value", intJSON),
+			ginkgo.Entry("actual boolean", boolJSON),
 		)
 	})
 })

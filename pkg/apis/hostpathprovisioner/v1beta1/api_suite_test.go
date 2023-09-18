@@ -19,19 +19,19 @@ import (
 	"testing"
 
 	"github.com/go-logr/zapr"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zapr.NewLogger(zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), zapcore.AddSync(GinkgoWriter), zap.DebugLevel))))
+var _ = ginkgo.BeforeSuite(func() {
+	logf.SetLogger(zapr.NewLogger(zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), zapcore.AddSync(ginkgo.GinkgoWriter), zap.DebugLevel))))
 })
 
 func TestHostpathProvisioners(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Hostpath Provisioner Suite")
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "Hostpath Provisioner Suite")
 }

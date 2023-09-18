@@ -27,14 +27,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
-var _ = Describe("Controller reconcile loop", func() {
-	Context("service account", func() {
-		BeforeEach(func() {
+var _ = ginkgo.Describe("Controller reconcile loop", func() {
+	ginkgo.Context("service account", func() {
+		ginkgo.BeforeEach(func() {
 			watchNamespaceFunc = func() (string, error) {
 				return testNamespace, nil
 			}
@@ -43,14 +42,14 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		table.DescribeTable("Should fix a changed service account", func(cr *hppv1.HostPathProvisioner, saNames ...string) {
+		ginkgo.DescribeTable("Should fix a changed service account", func(cr *hppv1.HostPathProvisioner, saNames ...string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
 					Namespace: testNamespace,
 				},
 			}
-			cr, r, cl := createDeployedCr(cr)
+			_, r, cl := createDeployedCr(cr)
 			for _, saName := range saNames {
 				// Now modify the service account to something not desired.
 				sa := &corev1.ServiceAccount{
@@ -60,11 +59,11 @@ var _ = Describe("Controller reconcile loop", func() {
 					},
 				}
 				err := cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(sa.ObjectMeta.Labels["k8s-app"]).To(gomega.Equal(MultiPurposeHostPathProvisionerName))
 				sa.ObjectMeta.Labels["k8s-app"] = "invalid"
 				err = cl.Update(context.TODO(), sa)
-				Expect(err).NotTo(HaveOccurred())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				sa = &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      saName,
@@ -72,12 +71,12 @@ var _ = Describe("Controller reconcile loop", func() {
 					},
 				}
 				err = cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal("invalid"))
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(sa.ObjectMeta.Labels["k8s-app"]).To(gomega.Equal("invalid"))
 				// Run the reconcile loop
 				res, err := r.Reconcile(context.TODO(), req)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(res.Requeue).To(BeFalse())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(res.Requeue).To(gomega.BeFalse())
 				// Verify the label has been changed back.
 				sa = &corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
@@ -86,13 +85,13 @@ var _ = Describe("Controller reconcile loop", func() {
 					},
 				}
 				err = cl.Get(context.TODO(), client.ObjectKeyFromObject(sa), sa)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(sa.ObjectMeta.Labels["k8s-app"]).To(Equal(MultiPurposeHostPathProvisionerName))
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(sa.ObjectMeta.Labels["k8s-app"]).To(gomega.Equal(MultiPurposeHostPathProvisionerName))
 			}
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 	})
 })

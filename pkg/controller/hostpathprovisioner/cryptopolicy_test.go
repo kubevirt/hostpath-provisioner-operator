@@ -31,13 +31,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
-var _ = Describe("Controller reconcile loop", func() {
-	Context("crypto policy", func() {
-		BeforeEach(func() {
+var _ = ginkgo.Describe("Controller reconcile loop", func() {
+	ginkgo.Context("crypto policy", func() {
+		ginkgo.BeforeEach(func() {
 			watchNamespaceFunc = func() (string, error) {
 				return testNamespace, nil
 			}
@@ -46,7 +46,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		It("Should respect cluster-wide crypto config", func() {
+		ginkgo.It("Should respect cluster-wide crypto config", func() {
 			apiServer := &ocpconfigv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster",
@@ -69,29 +69,29 @@ var _ = Describe("Controller reconcile loop", func() {
 
 			// Create a fake client to mock API calls.
 			cl := erroringFakeCtrlRuntimeClient{
-				Client: fake.NewFakeClientWithScheme(s, apiServer),
+				Client: fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(apiServer).Build(),
 				errMsg: "",
 			}
 
 			// Mimic the watch handle func being called
-			handleAPIServerFunc(apiServer)
+			handleAPIServerFunc(context.TODO(), apiServer)
 			// Verify that crypto config is respected
-			Expect(os.Getenv("TLS_MIN_VERSION")).To(Equal("VersionTLS13"))
-			Expect(os.Getenv("TLS_CIPHERS")).To(Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileModernType].Ciphers, ",")))
+			gomega.Expect(os.Getenv("TLS_MIN_VERSION")).To(gomega.Equal("VersionTLS13"))
+			gomega.Expect(os.Getenv("TLS_CIPHERS")).To(gomega.Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileModernType].Ciphers, ",")))
 			// Now modify the crypto config to something else
 			err := cl.Get(context.TODO(), nn, apiServer)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			apiServer.Spec.TLSSecurityProfile = &ocpconfigv1.TLSSecurityProfile{
 				Type: ocpconfigv1.TLSProfileOldType,
 				Old:  &ocpconfigv1.OldTLSProfile{},
 			}
 			err = cl.Update(context.TODO(), apiServer)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// Mimic the watch handle func being called
-			handleAPIServerFunc(apiServer)
+			handleAPIServerFunc(context.TODO(), apiServer)
 			// Verify changes are respected
-			Expect(os.Getenv("TLS_MIN_VERSION")).To(Equal("VersionTLS10"))
-			Expect(os.Getenv("TLS_CIPHERS")).To(Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ",")))
+			gomega.Expect(os.Getenv("TLS_MIN_VERSION")).To(gomega.Equal("VersionTLS10"))
+			gomega.Expect(os.Getenv("TLS_CIPHERS")).To(gomega.Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ",")))
 		})
 	})
 })
