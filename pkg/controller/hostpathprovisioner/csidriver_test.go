@@ -25,14 +25,13 @@ import (
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
-var _ = Describe("Controller reconcile loop", func() {
-	Context("csidriver", func() {
-		BeforeEach(func() {
+var _ = ginkgo.Describe("Controller reconcile loop", func() {
+	ginkgo.Context("csidriver", func() {
+		ginkgo.BeforeEach(func() {
 			watchNamespaceFunc = func() (string, error) {
 				return testNamespace, nil
 			}
@@ -41,7 +40,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		table.DescribeTable("Should not reconcile over immutable csidriver fields", func(cr *hppv1.HostPathProvisioner) {
+		ginkgo.DescribeTable("Should not reconcile over immutable csidriver fields", func(cr *hppv1.HostPathProvisioner) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -55,32 +54,32 @@ var _ = Describe("Controller reconcile loop", func() {
 			// Now modify the CSIDriver to something not desired.
 			csiDriver := &storagev1.CSIDriver{}
 			err := cl.Get(context.TODO(), csiDriverNN, csiDriver)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			changedFSGroupPolicy := storagev1.FileFSGroupPolicy
 			csiDriver.Spec.FSGroupPolicy = &changedFSGroupPolicy
 			err = cl.Update(context.TODO(), csiDriver)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// Verify FSGroupPolicy is "File"
 			csiDriver = &storagev1.CSIDriver{}
 			err = cl.Get(context.TODO(), csiDriverNN, csiDriver)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(*csiDriver.Spec.FSGroupPolicy).To(Equal(storagev1.FileFSGroupPolicy))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(*csiDriver.Spec.FSGroupPolicy).To(gomega.Equal(storagev1.FileFSGroupPolicy))
 			// Run the reconcile loop
 			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(res.Requeue).To(gomega.BeFalse())
 			// Verify FSGroupPolicy stays the same, as it is an immutable field and we don't have to reconcile it
 			csiDriver = &storagev1.CSIDriver{}
 			err = cl.Get(context.TODO(), csiDriverNN, csiDriver)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(*csiDriver.Spec.FSGroupPolicy).To(Equal(storagev1.FileFSGroupPolicy))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(*csiDriver.Spec.FSGroupPolicy).To(gomega.Equal(storagev1.FileFSGroupPolicy))
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 
-		table.DescribeTable("Should fix a changed CSIDriver", func(cr *hppv1.HostPathProvisioner) {
+		ginkgo.DescribeTable("Should fix a changed CSIDriver", func(cr *hppv1.HostPathProvisioner) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -94,29 +93,29 @@ var _ = Describe("Controller reconcile loop", func() {
 			// Now modify one of the mutable CSIDriver fields to something not desired.
 			csiDriver := &storagev1.CSIDriver{}
 			err := cl.Get(context.TODO(), csiDriverNN, csiDriver)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			requiresRepublish := true
 			csiDriver.Spec.RequiresRepublish = &requiresRepublish
 			err = cl.Update(context.TODO(), csiDriver)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			// Verify requiresRepublish is true
 			csiDriver = &storagev1.CSIDriver{}
 			err = cl.Get(context.TODO(), csiDriverNN, csiDriver)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(*csiDriver.Spec.RequiresRepublish).To(BeTrue())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(*csiDriver.Spec.RequiresRepublish).To(gomega.BeTrue())
 			// Run the reconcile loop
 			res, err := r.Reconcile(context.TODO(), req)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.Requeue).To(BeFalse())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(res.Requeue).To(gomega.BeFalse())
 			// Verify requiresRepublish is false (default)
 			csiDriver = &storagev1.CSIDriver{}
 			err = cl.Get(context.TODO(), csiDriverNN, csiDriver)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(*csiDriver.Spec.RequiresRepublish).To(BeFalse())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(*csiDriver.Spec.RequiresRepublish).To(gomega.BeFalse())
 		},
-			table.Entry("legacyCr", createLegacyCr()),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 	})
 })

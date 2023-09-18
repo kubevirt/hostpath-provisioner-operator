@@ -21,6 +21,7 @@ function ensureControllerGen() {
 }
 
 ensureControllerGen
+controller-gen --version
 controller-gen crd:crdVersions=v1 output:dir=./deploy/ paths=./pkg/apis/hostpathprovisioner/...
 
 # First remove the CRD from operator.yaml and replace it with a marker #######

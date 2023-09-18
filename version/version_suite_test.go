@@ -18,11 +18,11 @@ package version
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
 func TestVersions(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Version Suite")
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "Version Suite")
 }

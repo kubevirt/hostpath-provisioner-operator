@@ -19,20 +19,39 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_ROOT="${SCRIPT_DIR}/.."
+CODEGEN_PKG="${CODEGEN_PKG:-"${SCRIPT_ROOT}/vendor/k8s.io/code-generator"}"
+
+echo "SCRIPT_DIR $SCRIPT_DIR, SCRIPT_ROOT $SCRIPT_ROOT, CODEGEN_PKG $CODEGEN_PKG"
 
 find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
 rm -rf "${SCRIPT_ROOT}/pkg/client"
 
-bash "${CODEGEN_PKG}"/kube_codegen.sh  "deepcopy,client,informer,lister" \
-  kubevirt.io/hostpath-provisioner-operator/pkg/client \
-  kubevirt.io/hostpath-provisioner-operator/pkg/apis \
-  "hostpathprovisioner:v1beta1" \
-  --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt \
-  --output-base $GOPATH
+source "$CODEGEN_PKG/kube_codegen.sh"
 
+report_filename="${SCRIPT_DIR}/codegen_violation_exceptions.list"
+update_report="--update-report"
 
-go install ${CODEGEN_PKG}/cmd/openapi-gen
-openapi-gen --logtostderr=true -o "" -i kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 -O zz_generated.openapi -p ./pkg/apis/hostpathprovisioner/v1beta1 -h ./hack/boilerplate.go.txt -r "-"
+kube::codegen::gen_helpers \
+	--input-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
+	--output-base "${SCRIPT_ROOT}/../.." \
+        --boilerplate "${SCRIPT_DIR}"/boilerplate.go.txt
+
+kube::codegen::gen_openapi \
+    --input-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
+    --output-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
+    --output-base "${SCRIPT_ROOT}/../.." \
+    --openapi-name "" \
+    --report-filename "${report_filename:-"/dev/null"}" \
+    --update-report \
+    --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt"
+
+kube::codegen::gen_client \
+    --with-watch \
+    --with-applyconfig \
+    --input-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis \
+    --output-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/client \
+    --output-base "${SCRIPT_ROOT}/../.." \
+    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 

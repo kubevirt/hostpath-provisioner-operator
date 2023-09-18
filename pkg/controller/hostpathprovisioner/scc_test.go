@@ -25,15 +25,14 @@ import (
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 	secv1 "github.com/openshift/api/security/v1"
 )
 
-var _ = Describe("Controller reconcile loop", func() {
-	Context("scc", func() {
-		BeforeEach(func() {
+var _ = ginkgo.Describe("Controller reconcile loop", func() {
+	ginkgo.Context("scc", func() {
+		ginkgo.BeforeEach(func() {
 			watchNamespaceFunc = func() (string, error) {
 				return testNamespace, nil
 			}
@@ -42,7 +41,7 @@ var _ = Describe("Controller reconcile loop", func() {
 			}
 		})
 
-		table.DescribeTable("Should fix a changed SecurityContextConstraints", func(cr *hppv1.HostPathProvisioner, names ...string) {
+		ginkgo.DescribeTable("Should fix a changed SecurityContextConstraints", func(cr *hppv1.HostPathProvisioner, names ...string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
@@ -57,34 +56,34 @@ var _ = Describe("Controller reconcile loop", func() {
 				// Now modify the SCC to something not desired.
 				scc := &secv1.SecurityContextConstraints{}
 				err := cl.Get(context.TODO(), sccNN, scc)
-				Expect(err).NotTo(HaveOccurred())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				scc.AllowPrivilegedContainer = true
 				err = cl.Update(context.TODO(), scc)
-				Expect(err).NotTo(HaveOccurred())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				// Verify allowPrivileged is true
 				scc = &secv1.SecurityContextConstraints{}
 				err = cl.Get(context.TODO(), sccNN, scc)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(scc.AllowPrivilegedContainer).To(BeTrue())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(scc.AllowPrivilegedContainer).To(gomega.BeTrue())
 				// Run the reconcile loop
 				res, err := r.Reconcile(context.TODO(), req)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(res.Requeue).To(BeFalse())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(res.Requeue).To(gomega.BeFalse())
 				// Verify allowPrivileged is false
 				scc = &secv1.SecurityContextConstraints{}
 				err = cl.Get(context.TODO(), sccNN, scc)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(scc.AllowPrivilegedContainer).To(Equal(MultiPurposeHostPathProvisionerName != name))
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Expect(scc.AllowPrivilegedContainer).To(gomega.Equal(MultiPurposeHostPathProvisionerName != name))
 				if name == MultiPurposeHostPathProvisionerName {
-					Expect(scc.Volumes).To(ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
+					gomega.Expect(scc.Volumes).To(gomega.ContainElements(secv1.FSTypeHostPath, secv1.FSTypeSecret, secv1.FSProjected))
 				} else {
-					Expect(scc.Volumes).To(ContainElements(secv1.FSTypeAll))
+					gomega.Expect(scc.Volumes).To(gomega.ContainElements(secv1.FSTypeAll))
 				}
 			}
 		},
-			table.Entry("legacyCr", createLegacyCr(), MultiPurposeHostPathProvisionerName, fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
-			table.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
-			table.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
+			ginkgo.Entry("legacyCr", createLegacyCr(), MultiPurposeHostPathProvisionerName, fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
 		)
 	})
 })

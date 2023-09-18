@@ -6,7 +6,7 @@ var hppCRD string =
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
+    controller-gen.kubebuilder.io/version: v0.13.0
   creationTimestamp: null
   name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
 spec:

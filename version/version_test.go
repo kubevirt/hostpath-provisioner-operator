@@ -16,65 +16,65 @@ limitations under the License.
 package version
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 )
 
-var _ = Describe("Version", func() {
+var _ = ginkgo.Describe("Version", func() {
 	var orgFunc func() (string, error)
 
-	BeforeEach(func() {
+	ginkgo.BeforeEach(func() {
 		orgFunc = VersionStringFunc
 	})
 
-	AfterEach(func() {
+	ginkgo.AfterEach(func() {
 		VersionStringFunc = orgFunc
 	})
 
-	It("should return error on invalid string", func() {
+	ginkgo.It("should return error on invalid string", func() {
 		VersionStringFunc = func() (string, error) {
 			return "latest", nil
 		}
 		_, err := GetVersion()
-		Expect(err).To(HaveOccurred())
+		gomega.Expect(err).To(gomega.HaveOccurred())
 	})
 
-	It("should return 0.0.1 on v0.0.1", func() {
+	ginkgo.It("should return 0.0.1 on v0.0.1", func() {
 		VersionStringFunc = func() (string, error) {
 			return "v0.0.1", nil
 		}
 		result, err := GetVersion()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(result.String()).To(Equal("0.0.1"))
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		gomega.Expect(result.String()).To(gomega.Equal("0.0.1"))
 	})
 
-	It("should return 1.0.1 on 1.0.1", func() {
+	ginkgo.It("should return 1.0.1 on 1.0.1", func() {
 		VersionStringFunc = func() (string, error) {
 			return "1.0.1", nil
 		}
 		result, err := GetVersion()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(result.String()).To(Equal("1.0.1"))
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		gomega.Expect(result.String()).To(gomega.Equal("1.0.1"))
 	})
 })
 
-var _ = Describe("GetStringFromFile", func() {
-	It("should return nil on invalid file", func() {
+var _ = ginkgo.Describe("GetStringFromFile", func() {
+	ginkgo.It("should return nil on invalid file", func() {
 		result, err := GetStringFromFile("invalid")
-		Expect(err).To(HaveOccurred())
-		Expect(result).To(Equal(""))
+		gomega.Expect(err).To(gomega.HaveOccurred())
+		gomega.Expect(result).To(gomega.Equal(""))
 	})
 
-	It("Should return valid string", func() {
-		tmpDir, err := ioutil.TempDir("", "version")
-		Expect(err).ToNot(HaveOccurred())
+	ginkgo.It("Should return valid string", func() {
+		tmpDir, err := os.MkdirTemp("", "version")
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		testFile := filepath.Join(tmpDir, "version.txt")
-		ioutil.WriteFile(testFile, []byte("v1.1.1"), 0644)
+		os.WriteFile(testFile, []byte("v1.1.1"), 0644)
 		result, err := GetStringFromFile(testFile)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(result).To(Equal("v1.1.1"))
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		gomega.Expect(result).To(gomega.Equal("v1.1.1"))
 	})
 })

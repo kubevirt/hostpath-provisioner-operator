@@ -16,13 +16,13 @@ limitations under the License.
 package main
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
 
 	"testing"
 )
 
 func TestMounter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mounter Test Suite")
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "Mounter Test Suite")
 }
