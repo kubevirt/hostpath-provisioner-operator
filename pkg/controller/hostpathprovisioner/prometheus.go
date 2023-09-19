@@ -435,7 +435,7 @@ func (r *ReconcileHostPathProvisioner) checkPrometheusUsed() (bool, error) {
 	// Check if we are using prometheus, if not return false.
 	listObj := &promv1.PrometheusRuleList{}
 	if err := r.client.List(context.TODO(), listObj); err != nil {
-		if meta.IsNoMatchError(err) {
+		if meta.IsNoMatchError(err) || strings.Contains(err.Error(), "failed to find API group") {
 			// prometheus not deployed
 			return false, nil
 		}

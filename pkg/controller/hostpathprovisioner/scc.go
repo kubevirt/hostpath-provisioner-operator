@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
@@ -209,7 +210,7 @@ func (r *ReconcileHostPathProvisioner) checkSCCUsed() (bool, error) {
 	// Check if we are using security context constraints, if not return false.
 	listObj := &secv1.SecurityContextConstraintsList{}
 	if err := r.client.List(context.TODO(), listObj); err != nil {
-		if meta.IsNoMatchError(err) {
+		if meta.IsNoMatchError(err) || strings.Contains(err.Error(), "failed to find API group") {
 			// not using SCCs
 			return false, nil
 		}
