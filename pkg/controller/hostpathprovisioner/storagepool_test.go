@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/version"
@@ -147,6 +148,10 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			gomega.Expect(jobList.Items[0].GetName()).To(gomega.Equal("cleanup-pool-local-node1"))
 			gomega.Expect(jobList.Items[0].Labels[AppKubernetesPartOfLabel]).To(gomega.Equal("testing"))
 			gomega.Expect(jobList.Items[0].Spec.Template.Labels[AppKubernetesPartOfLabel]).To(gomega.Equal("testing"))
+			gomega.Expect(jobList.Items[0].Spec.Template.Spec.Containers).To(gomega.HaveLen(1))
+			gomega.Expect(jobList.Items[0].Spec.Template.Spec.Containers[0].SecurityContext).ToNot(gomega.BeNil())
+			gomega.Expect(jobList.Items[0].Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser).To(gomega.Equal(pointer.Int64(0)))
+			gomega.Expect(jobList.Items[0].Spec.Template.Spec.Containers[0].SecurityContext.Privileged).To(gomega.Equal(pointer.Bool(true)))
 		})
 
 		ginkgo.It("Status length should remain at one with legacy CR", func() {

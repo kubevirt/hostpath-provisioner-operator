@@ -47,6 +47,10 @@ var (
 		return exec.Command("/usr/bin/findmnt", "-T", fmt.Sprintf("/%s", volumeName), "-J").CombinedOutput()
 	}
 
+	findMntBySource = func(source string) ([]byte, error) {
+		return exec.Command("/usr/bin/findmnt", "-S", source, "-J").CombinedOutput()
+	}
+
 	bindMountCommand = func(source, target string) ([]byte, error) {
 		return exec.Command("/usr/bin/mount", "-o", "bind", source, target).CombinedOutput()
 	}
@@ -266,6 +270,23 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 		log.Info("Found mount info", "source path on host", hostMountPath)
 		log.Info("Target path", "path", targetPath)
 		log.Info("host path", "path", hostPath)
+		_, err := os.Stat(hostMountPath)
+		if os.IsNotExist(err) {
+			mountInfo, err := findMntBySource(hostMountPath)
+			if err != nil {
+				panic(err)
+			}
+			infos, err := parseMntInfoJSON(mountInfo)
+			if err != nil {
+				panic(err)
+			}
+			if len(infos) != 1 {
+				log.Info("Number of infos is not 1", "count", len(infos))
+				os.Exit(1)
+			}
+			log.Info("Found host path by source", "path", infos[0].Target)
+			hostMountPath = string(infos[0].Target)
+		}
 		pathInfo, err := os.Stat(hostMountPath)
 		if err != nil {
 			panic(err)

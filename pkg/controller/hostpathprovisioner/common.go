@@ -24,13 +24,13 @@ const (
 	// CsiProvisionerImageDefault is the default value of the hostpath provisioner csi container image name.
 	CsiProvisionerImageDefault = "hostpath-provisioner-csi"
 	// CsiNodeDriverRegistrationImageDefault is the default value of the sig storage csi node registration side car container image name.
-	CsiNodeDriverRegistrationImageDefault = "k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0"
+	CsiNodeDriverRegistrationImageDefault = "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.2.0"
 	// LivenessProbeImageDefault is the default value of the liveness probe side car container image name.
-	LivenessProbeImageDefault = "k8s.gcr.io/sig-storage/livenessprobe:v2.3.0"
+	LivenessProbeImageDefault = "registry.k8s.io/sig-storage/livenessprobe:v2.3.0"
 	// SnapshotterImageDefault is the default value of the csi snapshotter side car container image name.
-	SnapshotterImageDefault = "k8s.gcr.io/sig-storage/csi-snapshotter:v4.2.1"
+	SnapshotterImageDefault = "registry.k8s.io/sig-storage/csi-snapshotter:v4.2.1"
 	// CsiSigStorageProvisionerImageDefault is the default value of the sig storage csi provisioner side car container image name.
-	CsiSigStorageProvisionerImageDefault = "k8s.gcr.io/sig-storage/csi-provisioner:v2.2.1"
+	CsiSigStorageProvisionerImageDefault = "registry.k8s.io/sig-storage/csi-provisioner:v3.4.1"
 
 	operatorImageEnvVarName                 = "OPERATOR_IMAGE"
 	provisionerImageEnvVarName              = "PROVISIONER_IMAGE"

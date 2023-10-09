@@ -417,7 +417,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
-								RunAsUser:  pointer.Int64Ptr(0),
+								RunAsUser:  pointer.Int64(0),
 							},
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
@@ -567,7 +567,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolStatus(logger logr.Lo
 				}
 				for _, s := range claimStatuses {
 					if phase := s.Status.Phase; phase != corev1.ClaimBound {
-						return fmt.Errorf("Error: Pool PVC %s is %s instead of %s", s.Name, phase, corev1.ClaimBound)
+						return fmt.Errorf("error: Pool PVC %s is %s instead of %s", s.Name, phase, corev1.ClaimBound)
 					}
 				}
 				newStoragePoolStatuses = append(newStoragePoolStatuses, hostpathprovisionerv1.StoragePoolStatus{
@@ -646,8 +646,6 @@ func (r *ReconcileHostPathProvisioner) getCleanUpJobs(namespace string) ([]batch
 func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, sourceStoragePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
 	args := getDaemonSetArgs(logger, namespace, false)
 	labels := getRecommendedLabels()
-	defaultGracePeriod := int64(30)
-	privileged := true
 	directory := corev1.HostPathDirectory
 	bidirectional := corev1.MountPropagationBidirectional
 	cleanupJob := &batchv1.Job{
@@ -665,7 +663,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 					ServiceAccountName:            ProvisionerServiceAccountNameCsi,
 					RestartPolicy:                 corev1.RestartPolicyOnFailure,
 					SchedulerName:                 corev1.DefaultSchedulerName,
-					TerminationGracePeriodSeconds: &defaultGracePeriod,
+					TerminationGracePeriodSeconds: pointer.Int64(30),
 					DNSPolicy:                     corev1.DNSClusterFirst,
 					SecurityContext:               &corev1.PodSecurityContext{},
 					Affinity: &corev1.Affinity{
@@ -701,7 +699,8 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 								"--unmount",
 							},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: &privileged,
+								Privileged: pointer.Bool(true),
+								RunAsUser:  pointer.Int64(0),
 							},
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
