@@ -44,9 +44,11 @@ import (
 
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	//revive:enable
 )
 
 const (

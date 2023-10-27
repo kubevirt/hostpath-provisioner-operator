@@ -15,6 +15,7 @@ limitations under the License.
 */
 package hostpathprovisioner
 
+//revive:disable
 import (
 	"context"
 	"fmt"
@@ -35,6 +36,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
+
+//revive:enable
 
 const (
 	legacyDataDir                    = "csi-data-dir"
