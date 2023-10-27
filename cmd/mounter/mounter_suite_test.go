@@ -16,8 +16,11 @@ limitations under the License.
 package main
 
 import (
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	//revive:enable
 
 	"testing"
 )
