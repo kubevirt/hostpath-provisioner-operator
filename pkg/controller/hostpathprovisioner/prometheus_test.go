@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	//revive:enable
 )
 
 var _ = Describe("Prometheus", func() {

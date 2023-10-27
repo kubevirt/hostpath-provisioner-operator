@@ -19,8 +19,11 @@ import (
 	"testing"
 
 	"github.com/go-logr/zapr"
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	//revive:enable
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
