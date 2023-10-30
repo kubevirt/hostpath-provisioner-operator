@@ -18,8 +18,10 @@ package version
 import (
 	"testing"
 
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	//revive:enable
 )
 
 func TestVersions(t *testing.T) {
