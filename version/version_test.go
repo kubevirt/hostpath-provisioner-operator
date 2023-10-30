@@ -19,8 +19,10 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	//revive:enable
 )
 
 var _ = Describe("Version", func() {

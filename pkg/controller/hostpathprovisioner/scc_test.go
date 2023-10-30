@@ -25,9 +25,12 @@ import (
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	//revive:disable
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
+	//revive:enable
 	secv1 "github.com/openshift/api/security/v1"
 )
 
