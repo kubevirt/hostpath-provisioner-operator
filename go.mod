@@ -10,6 +10,7 @@ require (
 	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230710120526-cc1644c90b64
+	github.com/machadovilaca/operator-observability v0.0.8
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -17,8 +18,6 @@ require (
 	github.com/operator-framework/api v0.20.0
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.17.0
-	github.com/prometheus/client_model v0.5.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.26.0
 	k8s.io/api v0.28.1
@@ -27,7 +26,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.28.1
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 )
@@ -35,7 +34,7 @@ require (
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -59,6 +58,9 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0 // indirect
+	github.com/prometheus/client_golang v1.17.0 // indirect
+	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/sirupsen/logrus v1.9.2 // indirect

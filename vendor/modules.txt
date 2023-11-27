@@ -17,7 +17,7 @@ github.com/cespare/xxhash/v2
 ## explicit; go 1.13
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
-# github.com/davecgh/go-spew v1.1.1
+# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/emicklei/go-restful/v3 v3.10.2
@@ -107,6 +107,11 @@ github.com/json-iterator/go
 # github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230710120526-cc1644c90b64
 ## explicit; go 1.20
 github.com/kubevirt/monitoring/pkg/metrics/parser
+# github.com/machadovilaca/operator-observability v0.0.8
+## explicit; go 1.20
+github.com/machadovilaca/operator-observability/pkg/docs
+github.com/machadovilaca/operator-observability/pkg/operatormetrics
+github.com/machadovilaca/operator-observability/pkg/operatorrules
 # github.com/mailru/easyjson v0.7.7
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
@@ -178,6 +183,10 @@ github.com/operator-framework/operator-sdk/version
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
+# github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
+## explicit; go 1.17
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/prometheus/client_golang v1.17.0
 ## explicit; go 1.19
 github.com/prometheus/client_golang/prometheus
@@ -676,7 +685,7 @@ k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/sets
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+# k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 ## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
@@ -685,6 +694,7 @@ k8s.io/utils/integer
 k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
+k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
 # sigs.k8s.io/controller-runtime v0.16.2
