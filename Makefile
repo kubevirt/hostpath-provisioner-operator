@@ -19,6 +19,7 @@ GOOS?=linux
 GOARCH?=amd64
 BUILDAH_TLS_VERIFY?=true
 BUILDAH_PLATFORM_FLAG?=--platform $(GOOS)/$(GOARCH)
+GOLANG_VER?=1.20.8
 
 export GOLANG_VER
 export TAG
