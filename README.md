@@ -11,30 +11,30 @@ As of version 0.11 the hostpath provisioner operator now requires [cert manager]
 Before deploying the operator, you need to install cert manager:
 
 ```bash
-kubectl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+$ kubectl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
 ```
 
 Please ensure the cert manager is fully operational before installing the hostpath provisioner operator:  
 
 ```bash
-kubectl wait --for=condition=Available -n cert-manager --timeout=120s --all deployments
+$ kubectl wait --for=condition=Available -n cert-manager --timeout=120s --all deployments
 ```
 
 Next, you need to create the hostpath provisioner namespace:
 
 ```bash
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/namespace.yaml
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/namespace.yaml
 ```
 
 Followed by the webhook:
 ```bash
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/webhook.yaml -n hostpath-provisioner
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/webhook.yaml -n hostpath-provisioner
 ```
 
 And then you can create the operator:
 
 ```bash
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/operator.yaml -n hostpath-provisioner
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/operator.yaml -n hostpath-provisioner
 ```
 
 If you want to change the namespace in which you create the provisioner, make sure to update the ClusterRoleBinding and RoleBinding namespaces in the operator.yaml to match your namespace. Also change the namespace by changing the -n argument
@@ -140,7 +140,7 @@ The operator will continue to create the legacy provisioner in addition to the C
 To create the CustomResource
 
 ```bash
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/hostpathprovisioner_cr.yaml -n hostpath-provisioner
+$ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisioner-operator/main/deploy/hostpathprovisioner_cr.yaml -n hostpath-provisioner
 ```
 
 Once the CustomResource has been created, the operator will deploy the provisioner and CSI driver as a DaemonSet on each node.
@@ -154,7 +154,7 @@ The hostpath provisioner supports two volumeBindingModes, Immediate and WaitForF
 On each node you will have to give the directory you specify in the CR the appropriate selinux rules by running the following (assuming you pick /var/hpvolumes as your PathConfig path):
 
 ```bash
-sudo chcon -t container_file_t -R /var/hpvolumes
+$ sudo chcon -t container_file_t -R /var/hpvolumes
 ```
 
 Another way to configure SELinux when using OpenShift is using a [MachineConfig](./contrib/machineconfig-selinux-hpp.yaml).
