@@ -18,11 +18,12 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"strings"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -36,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/rules/alerts"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1099,19 +1101,17 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	err := cl.Get(context.TODO(), nn, rule)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	for _, r := range rule.Spec.Groups[0].Rules {
-		if r.Record != "" {
-			gomega.Expect(r.Annotations).To(gomega.BeNil())
-		}
+		gomega.Expect(r.Annotations).To(gomega.BeNil())
 	}
 
-	runbookURLTemplate := getRunbookURLTemplate()
+	runbookURLTemplate := alerts.GetRunbookURLTemplate()
 
 	hppDownAlert := promv1.Rule{
 		Alert: "HPPOperatorDown",
 		Expr:  intstr.FromString("kubevirt_hpp_operator_up == 0"),
-		For:   "5m",
+		For:   (*promv1.Duration)(ptr.To("5m")),
 		Annotations: map[string]string{
-			"summary":     "Hostpath Provisioner operator is down",
+			"summary":     "Hostpath Provisioner operator is down.",
 			"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPOperatorDown"),
 		},
 		Labels: map[string]string{
@@ -1121,8 +1121,8 @@ func verifyCreatePrometheusResources(cl client.Client) {
 			"kubernetes_operator_component": "hostpath-provisioner-operator",
 		},
 	}
-	gomega.Expect(rule.Spec.Groups[0].Rules).To(gomega.ContainElement(hppDownAlert))
 	gomega.Expect(rule.Labels[AppKubernetesPartOfLabel]).To(gomega.Equal("testing"))
+	gomega.Expect(rule.Spec.Groups[1].Rules).To(gomega.ContainElement(hppDownAlert))
 
 	// ServiceMonitor
 	monitor := &promv1.ServiceMonitor{}

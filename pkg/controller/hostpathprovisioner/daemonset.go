@@ -31,14 +31,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
 )
 
 const (
@@ -258,7 +260,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 	volumeType := corev1.HostPathDirectoryOrCreate
 	usePrefix := getUsePrefix(cr)
 	path := getPath(cr)
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -470,7 +472,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	pathVolumes := buildVolumesFromStoragePoolInfo(storagePoolPaths)
 	pathMounts := buildVolumeMountsFromStoragePoolInfo(storagePoolPaths)
 	biDirectional := corev1.MountPropagationBidirectional
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -800,7 +802,7 @@ func (r *ReconcileHostPathProvisioner) getDuplicateDaemonSet(customCrName, names
 	dsList := &appsv1.DaemonSetList{}
 	dups := make([]appsv1.DaemonSet, 0)
 
-	ls, err := labels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
+	ls, err := k8slabels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
 	if err != nil {
 		return dups, err
 	}

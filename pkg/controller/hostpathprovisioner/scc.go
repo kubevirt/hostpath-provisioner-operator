@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileSecurityContextConstraints(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -131,7 +132,7 @@ func createSecurityContextConstraintsObject(namespace string) *secv1.SecurityCon
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MultiPurposeHostPathProvisionerName,
-			Labels: getRecommendedLabels(),
+			Labels: util.GetRecommendedLabels(),
 		},
 		AllowPrivilegedContainer: false,
 		RequiredDropCapabilities: []corev1.Capability{
@@ -175,7 +176,7 @@ func createCsiSecurityContextConstraintsObject(namespace string) *secv1.Security
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
-			Labels: getRecommendedLabels(),
+			Labels: util.GetRecommendedLabels(),
 		},
 		AllowPrivilegedContainer: true,
 		RequiredDropCapabilities: []corev1.Capability{

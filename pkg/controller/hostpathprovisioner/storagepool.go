@@ -34,10 +34,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
 )
 
 const (
@@ -312,7 +314,7 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 }
 
 func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
@@ -326,7 +328,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpat
 
 func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, sourceStoragePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *appsv1.Deployment {
 	args := getDaemonSetArgs(logger, namespace, false)
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	resourceName := getResourceNameWithMaxLength(sourceStoragePool.Name, "hpp", maxNameLength)
 	labels[storagePoolLabelKey] = resourceName
 	labels[hppPoolPrefix] = resourceName
@@ -645,7 +647,7 @@ func (r *ReconcileHostPathProvisioner) getCleanUpJobs(namespace string) ([]batch
 
 func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, sourceStoragePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
 	args := getDaemonSetArgs(logger, namespace, false)
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	directory := corev1.HostPathDirectory
 	bidirectional := corev1.MountPropagationBidirectional
 	cleanupJob := &batchv1.Job{

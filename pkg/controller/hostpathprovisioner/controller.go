@@ -24,12 +24,12 @@ import (
 	"strings"
 	"time"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -91,6 +91,10 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	mgrScheme := mgr.GetScheme()
 	if err := hostpathprovisionerv1.AddToScheme(mgr.GetScheme()); err != nil {
+		panic(err)
+	}
+
+	if err := promv1.AddToScheme(mgr.GetScheme()); err != nil {
 		panic(err)
 	}
 

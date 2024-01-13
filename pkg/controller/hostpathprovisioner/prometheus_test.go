@@ -6,6 +6,8 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
+
+	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/rules"
 )
 
 var _ = ginkgo.Describe("Prometheus", func() {
@@ -18,14 +20,12 @@ var _ = ginkgo.Describe("Prometheus", func() {
 	})
 
 	ginkgo.It("should use the default runbook URL template when no ENV Variable is set", func() {
-		promRule := createPrometheusRule("mynamespace")
+		promRule, _ := rules.BuildPrometheusRule("mynamespace")
 
-		for _, group := range promRule.Spec.Groups {
-			for _, rule := range group.Rules {
-				if rule.Alert != "" {
-					if rule.Annotations["runbook_url"] != "" {
-						gomega.Expect(rule.Annotations["runbook_url"]).To(gomega.Equal(fmt.Sprintf(defaultRunbookURLTemplate, rule.Alert)))
-					}
+		for _, rule := range promRule.Spec.Groups[0].Rules {
+			if rule.Alert != "" {
+				if rule.Annotations["runbook_url"] != "" {
+					gomega.Expect(rule.Annotations["runbook_url"]).To(gomega.Equal(fmt.Sprintf(defaultRunbookURLTemplate, rule.Alert)))
 				}
 			}
 		}
@@ -35,14 +35,12 @@ var _ = ginkgo.Describe("Prometheus", func() {
 		desiredRunbookURLTemplate := "desired/runbookURL/template/%s"
 		os.Setenv(runbookURLTemplateEnv, desiredRunbookURLTemplate)
 
-		promRule := createPrometheusRule("mynamespace")
+		promRule, _ := rules.BuildPrometheusRule("mynamespace")
 
-		for _, group := range promRule.Spec.Groups {
-			for _, rule := range group.Rules {
-				if rule.Alert != "" {
-					if rule.Annotations["runbook_url"] != "" {
-						gomega.Expect(rule.Annotations["runbook_url"]).To(gomega.Equal(fmt.Sprintf(desiredRunbookURLTemplate, rule.Alert)))
-					}
+		for _, rule := range promRule.Spec.Groups[0].Rules {
+			if rule.Alert != "" {
+				if rule.Annotations["runbook_url"] != "" {
+					gomega.Expect(rule.Annotations["runbook_url"]).To(gomega.Equal(fmt.Sprintf(desiredRunbookURLTemplate, rule.Alert)))
 				}
 			}
 		}
