@@ -1395,8 +1395,8 @@ github.com/lucas-clemente/quic-go v0.10.2/go.mod h1:hvaRS9IHjFLMq76puFJeWNfmn+H7
 github.com/lucas-clemente/quic-go-certificates v0.0.0-20160823095156-d2f86524cced/go.mod h1:NCcRLrOTZbzhZvixZLlERbJtDtYsmMw8Jc4vS8Z0g58=
 github.com/lyft/protoc-gen-star v0.6.0/go.mod h1:TGAoBVkt8w7MPG72TrKIu85MIdXwDuzJYeZuUPFPNwA=
 github.com/lyft/protoc-gen-star v0.6.1/go.mod h1:TGAoBVkt8w7MPG72TrKIu85MIdXwDuzJYeZuUPFPNwA=
-github.com/machadovilaca/operator-observability v0.0.11 h1:x2CxawYP37Dl0mpKW/KWNtGxEMwFnswoGFjjxI1QtQ8=
-github.com/machadovilaca/operator-observability v0.0.11/go.mod h1:NGkaR3HEYLScVQf6kQAyxWOSN1ltHcsEvHU/8iIJ8cE=
+github.com/machadovilaca/operator-observability v0.0.12 h1:rd9iFmvWJiYS8LdW6siAiz8kLigcNLa1+dmCVb7dFxs=
+github.com/machadovilaca/operator-observability v0.0.12/go.mod h1:NGkaR3HEYLScVQf6kQAyxWOSN1ltHcsEvHU/8iIJ8cE=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
