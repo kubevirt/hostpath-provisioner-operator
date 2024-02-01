@@ -969,9 +969,6 @@ func verifyCreateCSIRole(cl client.Client) {
 			},
 			Verbs: []string{
 				"get",
-				"list",
-				"watch",
-				"delete",
 				"update",
 				"create",
 			},

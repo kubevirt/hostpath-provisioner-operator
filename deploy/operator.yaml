@@ -13,7 +13,11 @@ rules:
   resources:
   - persistentvolumes
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - delete
 - apiGroups:
   - ""
   resources:
@@ -315,13 +319,20 @@ rules:
   resources:
   - leases
   verbs:
-  - '*'
+  - get
+  - update
+  - create
 - apiGroups:
   - "storage.k8s.io"
   resources:
   - csistoragecapacities
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - create
 - apiGroups:
   - monitoring.coreos.com
   resources:
