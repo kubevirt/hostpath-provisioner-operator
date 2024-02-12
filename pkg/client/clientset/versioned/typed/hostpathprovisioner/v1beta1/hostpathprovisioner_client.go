@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	rest "k8s.io/client-go/rest"
+
 	v1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/scheme"
 )

@@ -17,9 +17,9 @@ limitations under the License.
 package hostpathprovisioner
 
 import (
+	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 )
 

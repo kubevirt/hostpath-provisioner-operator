@@ -20,6 +20,7 @@ package hostpathprovisioner
 
 import (
 	v1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/informers/externalversions/hostpathprovisioner/v1beta1"
+
 	internalinterfaces "kubevirt.io/hostpath-provisioner-operator/pkg/client/informers/externalversions/internalinterfaces"
 )
 
