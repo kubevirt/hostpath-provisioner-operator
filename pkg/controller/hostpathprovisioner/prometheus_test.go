@@ -22,7 +22,7 @@ var _ = ginkgo.Describe("Prometheus", func() {
 	ginkgo.It("should use the default runbook URL template when no ENV Variable is set", func() {
 		promRule, _ := rules.BuildPrometheusRule("mynamespace")
 
-		for _, rule := range promRule.Spec.Groups[0].Rules {
+		for _, rule := range promRule.Spec.Groups[1].Rules {
 			if rule.Alert != "" {
 				if rule.Annotations["runbook_url"] != "" {
 					gomega.Expect(rule.Annotations["runbook_url"]).To(gomega.Equal(fmt.Sprintf(defaultRunbookURLTemplate, rule.Alert)))

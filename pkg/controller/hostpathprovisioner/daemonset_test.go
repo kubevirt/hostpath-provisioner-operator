@@ -162,7 +162,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			gomega.Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(gomega.Equal(legacyVolume))
 		})
 
-		ginkgo.DescribeTable("Should fix a changed csi daemonSet", func(cr *hppv1.HostPathProvisioner, _ string) {
+		ginkgo.DescribeTable("Should fix a changed csi daemonSet", func(cr *hppv1.HostPathProvisioner, volumeMountName string) {
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "test-name",
