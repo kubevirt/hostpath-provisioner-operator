@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The hostpath provisioner operator Authors.
+Copyright 2024 The hostpath provisioner operator Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,24 +18,27 @@ package hostpathprovisioner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"strings"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/rules"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
 )
 
 const (
@@ -45,12 +48,6 @@ const (
 	defaultMonitoringNs       = "monitoring"
 	defaultRunbookURLTemplate = "https://kubevirt.io/monitoring/runbooks/%s"
 	runbookURLTemplateEnv     = "RUNBOOK_URL_TEMPLATE"
-	severityAlertLabelKey     = "severity"
-	healthImpactAlertLabelKey = "operator_health_impact"
-	partOfAlertLabelKey       = "kubernetes_operator_part_of"
-	partOfAlertLabelValue     = "kubevirt"
-	componentAlertLabelKey    = "kubernetes_operator_component"
-	componentAlertLabelValue  = "hostpath-provisioner-operator"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -59,7 +56,9 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.L
 	} else if used == false {
 		return reconcile.Result{}, nil
 	}
-	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRule(namespace), createPrometheusRule(namespace)); err != nil {
+	rule, _ := createPrometheusRule(namespace)
+
+	if res, err := r.reconcilePrometheusResource(reqLogger, cr, rule, rule); err != nil {
 		return res, err
 	}
 	if res, err := r.reconcilePrometheusResource(reqLogger, cr, createPrometheusRole(namespace), createPrometheusRole(namespace)); err != nil {
@@ -76,9 +75,12 @@ func (r *ReconcileHostPathProvisioner) reconcilePrometheusInfra(reqLogger logr.L
 
 func (r *ReconcileHostPathProvisioner) reconcilePrometheusResource(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, desired, found client.Object) (reconcile.Result, error) {
 	// Define a new PrometheusRule object
-	setLastAppliedConfiguration(desired)
+	err := setLastAppliedConfiguration(desired)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	// Check if this PrometheusRule already exists
-	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(found), found)
+	err = r.client.Get(context.TODO(), client.ObjectKeyFromObject(found), found)
 	if err != nil && k8serrors.IsNotFound(err) {
 		reqLogger.Info("Creating a new PrometheusResource", "Name", found.GetName())
 		err = r.client.Create(context.TODO(), desired)
@@ -181,115 +183,8 @@ func (r *ReconcileHostPathProvisioner) deletePrometheusResources(namespace strin
 	return nil
 }
 
-// RecordRulesDesc represent HPP Prometheus Record Rules
-type RecordRulesDesc struct {
-	Name        string
-	Expr        string
-	Description string
-	Type        string
-}
-
-// GetRecordRulesDesc returns HPPgst Prometheus Record Rules
-func GetRecordRulesDesc(namespace string) []RecordRulesDesc {
-	return []RecordRulesDesc{
-		{
-			"kubevirt_hpp_operator_up",
-			fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace),
-			"The number of running hostpath-provisioner-operator pods",
-			"Gauge",
-		},
-	}
-}
-
-func getRecordRules(namespace string) []promv1.Rule {
-	var recordRules []promv1.Rule
-
-	for _, rrd := range GetRecordRulesDesc(namespace) {
-		recordRules = append(recordRules, generateRecordRule(rrd.Name, rrd.Expr))
-	}
-
-	return recordRules
-}
-
-func getAlertRules(runbookURLTemplate string) []promv1.Rule {
-	return []promv1.Rule{
-		generateAlertRule(
-			"HPPOperatorDown",
-			"kubevirt_hpp_operator_up == 0",
-			"5m",
-			map[string]string{
-				"summary":     "Hostpath Provisioner operator is down",
-				"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPOperatorDown"),
-			},
-			map[string]string{
-				severityAlertLabelKey:     "warning",
-				healthImpactAlertLabelKey: "critical",
-				partOfAlertLabelKey:       partOfAlertLabelValue,
-				componentAlertLabelKey:    componentAlertLabelValue,
-			},
-		),
-		generateAlertRule(
-			"HPPNotReady",
-			"kubevirt_hpp_cr_ready == 0",
-			"5m",
-			map[string]string{
-				"summary":     "Hostpath Provisioner is not available to use",
-				"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPNotReady"),
-			},
-			map[string]string{
-				severityAlertLabelKey:     "warning",
-				healthImpactAlertLabelKey: "critical",
-				partOfAlertLabelKey:       partOfAlertLabelValue,
-				componentAlertLabelKey:    componentAlertLabelValue,
-			},
-		),
-		generateAlertRule(
-			"HPPSharingPoolPathWithOS",
-			"kubevirt_hpp_pool_path_shared_with_os == 1",
-			"1m",
-			map[string]string{
-				"summary":     "HPP pool path sharing a filesystem with OS, fix to prevent HPP PVs from causing disk pressure and affecting node operation",
-				"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPSharingPoolPathWithOS"),
-			},
-			map[string]string{
-				severityAlertLabelKey:     "warning",
-				healthImpactAlertLabelKey: "warning",
-				partOfAlertLabelKey:       partOfAlertLabelValue,
-				componentAlertLabelKey:    componentAlertLabelValue,
-			},
-		),
-	}
-}
-
-func createPrometheusRule(namespace string) *promv1.PrometheusRule {
-	labels := getRecommendedLabels()
-	labels[PrometheusLabelKey] = PrometheusLabelValue
-
-	runbookURLTemplate := getRunbookURLTemplate()
-
-	return &promv1.PrometheusRule{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: promv1.SchemeGroupVersion.String(),
-			Kind:       "PrometheusRule",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ruleName,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Spec: promv1.PrometheusRuleSpec{
-			Groups: []promv1.RuleGroup{
-				{
-					Name:  "hpp.rules",
-					Rules: append(getRecordRules(namespace), getAlertRules(runbookURLTemplate)...),
-				},
-			},
-		},
-	}
-}
-
 func createPrometheusRole(namespace string) *rbacv1.Role {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
 	return &rbacv1.Role{
@@ -318,7 +213,7 @@ func createPrometheusRole(namespace string) *rbacv1.Role {
 
 func createPrometheusRoleBinding(namespace string) *rbacv1.RoleBinding {
 	monitoringNamespace := getMonitoringNamespace()
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
 	return &rbacv1.RoleBinding{
@@ -343,7 +238,7 @@ func createPrometheusRoleBinding(namespace string) *rbacv1.RoleBinding {
 }
 
 func createPrometheusServiceMonitor(namespace string) *promv1.ServiceMonitor {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 	labels["openshift.io/cluster-monitoring"] = ""
 
@@ -371,7 +266,9 @@ func createPrometheusServiceMonitor(namespace string) *promv1.ServiceMonitor {
 					Port:   "metrics",
 					Scheme: "http",
 					TLSConfig: &promv1.TLSConfig{
-						InsecureSkipVerify: true,
+						SafeTLSConfig: promv1.SafeTLSConfig{
+							InsecureSkipVerify: true,
+						},
 					},
 				},
 			},
@@ -380,7 +277,7 @@ func createPrometheusServiceMonitor(namespace string) *promv1.ServiceMonitor {
 }
 
 func createPrometheusService(namespace string) *corev1.Service {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 
 	return &corev1.Service{
@@ -414,23 +311,6 @@ func getMonitoringNamespace() string {
 	return defaultMonitoringNs
 }
 
-func generateAlertRule(alert, expr, duration string, annotations, labels map[string]string) promv1.Rule {
-	return promv1.Rule{
-		Alert:       alert,
-		Expr:        intstr.FromString(expr),
-		For:         duration,
-		Annotations: annotations,
-		Labels:      labels,
-	}
-}
-
-func generateRecordRule(record, expr string) promv1.Rule {
-	return promv1.Rule{
-		Record: record,
-		Expr:   intstr.FromString(expr),
-	}
-}
-
 func (r *ReconcileHostPathProvisioner) checkPrometheusUsed() (bool, error) {
 	// Check if we are using prometheus, if not return false.
 	listObj := &promv1.PrometheusRuleList{}
@@ -444,15 +324,15 @@ func (r *ReconcileHostPathProvisioner) checkPrometheusUsed() (bool, error) {
 	return true, nil
 }
 
-func getRunbookURLTemplate() string {
-	runbookURLTemplate, exists := os.LookupEnv(runbookURLTemplateEnv)
-	if !exists {
-		runbookURLTemplate = defaultRunbookURLTemplate
+func createPrometheusRule(namespace string) (*v1.PrometheusRule, error) {
+	if err := rules.SetupRules(namespace); err != nil {
+		return nil, errors.Wrap(err, "failed to setup monitoring rules")
 	}
 
-	if strings.Count(runbookURLTemplate, "%s") != 1 {
-		panic(errors.New("runbook URL template must have exactly 1 %s substring"))
+	promRule, err := rules.BuildPrometheusRule(namespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build PrometheusRule")
 	}
 
-	return runbookURLTemplate
+	return promRule, nil
 }

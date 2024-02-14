@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"kubevirt.io/hostpath-provisioner-operator/tools/helper"
 	"kubevirt.io/hostpath-provisioner-operator/tools/util"
 )

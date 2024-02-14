@@ -23,7 +23,6 @@ import (
 	gomega "github.com/onsi/gomega"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 

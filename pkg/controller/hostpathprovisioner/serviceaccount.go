@@ -24,15 +24,16 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileServiceAccount(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -185,13 +186,13 @@ func (r *ReconcileHostPathProvisioner) deleteServiceAccount(name, namespace stri
 
 // createServiceAccount returns a new Service Account object in the same namespace as the cr.
 func createServiceAccountObject(namespace string) *corev1.ServiceAccount {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	return createServiceAccount(ProvisionerServiceAccountName, namespace, labels)
 }
 
 // createServiceAccount returns a new Service Account object in the same namespace as the cr.
 func createCsiServiceAccountObject(namespace string) *corev1.ServiceAccount {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	return createServiceAccount(ProvisionerServiceAccountNameCsi, namespace, labels)
 }
 
@@ -211,7 +212,7 @@ func (r *ReconcileHostPathProvisioner) getDuplicateServiceAccount(customCrName, 
 	saList := &corev1.ServiceAccountList{}
 	dups := make([]corev1.ServiceAccount, 0)
 
-	ls, err := labels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
+	ls, err := k8slabels.Parse(fmt.Sprintf("k8s-app in (%s, %s)", MultiPurposeHostPathProvisionerName, customCrName))
 	if err != nil {
 		return dups, err
 	}

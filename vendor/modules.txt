@@ -13,10 +13,6 @@ github.com/blang/semver/v4
 # github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
-## explicit; go 1.13
-github.com/coreos/prometheus-operator/pkg/apis/monitoring
-github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -108,7 +104,7 @@ github.com/json-iterator/go
 # github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230710120526-cc1644c90b64
 ## explicit; go 1.20
 github.com/kubevirt/monitoring/pkg/metrics/parser
-# github.com/machadovilaca/operator-observability v0.0.11
+# github.com/machadovilaca/operator-observability v0.0.12
 ## explicit; go 1.20
 github.com/machadovilaca/operator-observability/pkg/docs
 github.com/machadovilaca/operator-observability/pkg/operatormetrics

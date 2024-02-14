@@ -28,6 +28,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
+
 	v1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	hostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/applyconfiguration/hostpathprovisioner/v1beta1"
 	scheme "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/scheme"

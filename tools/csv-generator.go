@@ -21,16 +21,16 @@ import (
 	"os"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-
 	semver "github.com/blang/semver/v4"
 	"github.com/operator-framework/api/pkg/lib/version"
 	csvv1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller/hostpathprovisioner"
 	"kubevirt.io/hostpath-provisioner-operator/tools/helper"
 	"kubevirt.io/hostpath-provisioner-operator/tools/util"

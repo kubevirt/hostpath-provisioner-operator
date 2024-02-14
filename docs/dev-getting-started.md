@@ -17,7 +17,7 @@ $ export KUBEVIRT_DEPLOY_PROMETHEUS_ALERTMANAGER=true
 Create the cluster
 ```bash
 $ make cluster-up
-$ make-cluster sync
+$ make cluster-sync
 ```
 Check and save the `registry port` for next steps
 ```bash

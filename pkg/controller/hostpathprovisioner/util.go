@@ -20,17 +20,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"os"
 	"reflect"
 
 	jsondiff "github.com/appscode/jsonpatch"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -133,26 +131,6 @@ func setLastAppliedConfiguration(obj metav1.Object) error {
 	obj.GetAnnotations()[lastAppliedConfigAnnotation] = string(bytes)
 
 	return nil
-}
-
-func getRecommendedLabels() map[string]string {
-	labels := map[string]string{
-		"k8s-app":                   MultiPurposeHostPathProvisionerName,
-		AppKubernetesManagedByLabel: "hostpath-provisioner-operator",
-		AppKubernetesComponentLabel: "storage",
-	}
-
-	// Populate installer labels from env vars
-	partOfLabelVal := os.Getenv(PartOfLabelEnvVarName)
-	if partOfLabelVal != "" {
-		labels[AppKubernetesPartOfLabel] = partOfLabelVal
-	}
-	versionLabelVal := os.Getenv(VersionLabelEnvVarName)
-	if versionLabelVal != "" {
-		labels[AppKubernetesVersionLabel] = versionLabelVal
-	}
-
-	return labels
 }
 
 func getResourceNameWithMaxLength(base, suffix string, maxLength int) string {

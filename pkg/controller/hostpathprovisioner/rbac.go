@@ -22,14 +22,15 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
 )
 
 func (r *ReconcileHostPathProvisioner) reconcileClusterRoleBinding(reqLogger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -99,7 +100,7 @@ func (r *ReconcileHostPathProvisioner) reconcileRbacResource(reqLogger logr.Logg
 }
 
 func createClusterRoleBindingObject(name, namespace, saName string) *rbacv1.ClusterRoleBinding {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -154,7 +155,7 @@ func createClusterRoleObjectProvisioner() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   MultiPurposeHostPathProvisionerName,
-			Labels: getRecommendedLabels(),
+			Labels: util.GetRecommendedLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -233,7 +234,7 @@ func (r *ReconcileHostPathProvisioner) createCsiClusterRoleObjectProvisioner(cr 
 	res := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   ProvisionerServiceAccountNameCsi,
-			Labels: getRecommendedLabels(),
+			Labels: util.GetRecommendedLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -432,7 +433,7 @@ func (r *ReconcileHostPathProvisioner) reconcileRoleBinding(reqLogger logr.Logge
 }
 
 func createRoleBindingObject(name, namespace, saName string) *rbacv1.RoleBinding {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -462,7 +463,7 @@ func (r *ReconcileHostPathProvisioner) reconcileRole(reqLogger logr.Logger, cr *
 }
 
 func createRoleObjectProvisioner(namespace string) *rbacv1.Role {
-	labels := getRecommendedLabels()
+	labels := util.GetRecommendedLabels()
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ProvisionerServiceAccountNameCsi,

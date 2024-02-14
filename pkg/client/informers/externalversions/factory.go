@@ -27,6 +27,7 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+
 	versioned "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned"
 	hostpathprovisioner "kubevirt.io/hostpath-provisioner-operator/pkg/client/informers/externalversions/hostpathprovisioner"
 	internalinterfaces "kubevirt.io/hostpath-provisioner-operator/pkg/client/informers/externalversions/internalinterfaces"

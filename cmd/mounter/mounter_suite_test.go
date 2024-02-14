@@ -16,10 +16,10 @@ limitations under the License.
 package main
 
 import (
+	"testing"
+
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
-
-	"testing"
 )
 
 func TestMounter(t *testing.T) {
