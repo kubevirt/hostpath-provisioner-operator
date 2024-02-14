@@ -1107,7 +1107,7 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	hppDownAlert := promv1.Rule{
 		Alert: "HPPOperatorDown",
 		Expr:  intstr.FromString("kubevirt_hpp_operator_up == 0"),
-		For:   (*promv1.Duration)(ptr.To("5m")),
+		For:   ptr.To[promv1.Duration]("5m"),
 		Annotations: map[string]string{
 			"summary":     "Hostpath Provisioner operator is down.",
 			"runbook_url": fmt.Sprintf(runbookURLTemplate, "HPPOperatorDown"),
