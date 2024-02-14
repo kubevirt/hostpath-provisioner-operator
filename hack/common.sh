@@ -12,20 +12,9 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-GOLANG_VER=${GOLANG_VER:-1.20.8}
-
 function ensureArmAvailable() {
   if [[ -v PROW_JOB_ID && GOARCH="arm64" ]] ; then
     dnf install -y qemu-user-static
-  fi
-}
-
-function setGoInProw() {
-  if [[ -v PROW_JOB_ID ]] ; then
-    export GIMME_HOSTARCH=amd64
-    export GIMME_ARCH=${GOARCH}
-    eval $(gimme ${GOLANG_VER})
-    cp -R ~/.gimme/versions/go${GOLANG_VER}.linux.amd64 /usr/local/go
   fi
 }
 

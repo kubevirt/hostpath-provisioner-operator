@@ -15,7 +15,6 @@
 #limitations under the License.
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
-setGoInProw
 ensureArmAvailable
 
 if [ "${GOARCH}" != "amd64" ]; then

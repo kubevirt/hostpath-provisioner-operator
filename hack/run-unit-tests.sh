@@ -17,8 +17,6 @@ set -e
 
 script_dir="$(cd "$(dirname "$0")" && pwd -P)"
 source "${script_dir}"/common.sh
-setGoInProw
-
 go version
 # Validate
 make lint-metrics
