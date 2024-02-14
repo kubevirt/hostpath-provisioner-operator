@@ -13,7 +13,11 @@ rules:
   resources:
   - persistentvolumes
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - delete
 - apiGroups:
   - ""
   resources:

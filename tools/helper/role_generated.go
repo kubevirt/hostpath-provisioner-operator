@@ -103,13 +103,20 @@ rules:
   resources:
   - leases
   verbs:
-  - '*'
+  - get
+  - update
+  - create
 - apiGroups:
   - storage.k8s.io
   resources:
   - csistoragecapacities
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - create
 - apiGroups:
   - monitoring.coreos.com
   resources:

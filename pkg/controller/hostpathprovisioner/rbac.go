@@ -479,9 +479,6 @@ func createRoleObjectProvisioner(namespace string) *rbacv1.Role {
 				},
 				Verbs: []string{
 					"get",
-					"list",
-					"watch",
-					"delete",
 					"update",
 					"create",
 				},
