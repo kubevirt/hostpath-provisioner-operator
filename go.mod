@@ -115,6 +115,4 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.1
 )
 
-go 1.21
-
-toolchain go1.21.0
+go 1.20
