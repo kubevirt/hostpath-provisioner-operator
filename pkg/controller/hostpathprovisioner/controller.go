@@ -111,7 +111,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// mapFn will be used to map reconcile requests to the HPP for resources that don't have an ownerRef
-	mapFn := handler.MapFunc(func(context context.Context, o client.Object) []reconcile.Request {
+	mapFn := handler.MapFunc(func(_ context.Context, o client.Object) []reconcile.Request {
 		if val, ok := o.GetLabels()["k8s-app"]; ok && val == MultiPurposeHostPathProvisionerName {
 			hppList, err := getHppList(mgr.GetClient())
 			if err != nil {
