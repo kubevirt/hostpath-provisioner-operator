@@ -17,7 +17,7 @@ require (
 	github.com/operator-framework/api v0.22.0
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.71.2
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.26.0
 	k8s.io/api v0.29.0
@@ -26,7 +26,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.28.1
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	sigs.k8s.io/controller-runtime v0.17.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 )
