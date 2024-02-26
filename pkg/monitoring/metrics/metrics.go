@@ -17,10 +17,15 @@ limitations under the License.
 // Package metrics is the main prometheus metrics package
 package metrics
 
-import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+import (
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+)
 
 // SetupMetrics register the metrics
 func SetupMetrics() error {
+	operatormetrics.Register = metrics.Registry.Register
+
 	return operatormetrics.RegisterMetrics(
 		operatorMetrics,
 	)
