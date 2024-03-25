@@ -1,6 +1,10 @@
 package operatormetrics
 
-import "fmt"
+import (
+	"cmp"
+	"fmt"
+	"slices"
+)
 
 var operatorRegistry = newRegistry()
 
@@ -70,6 +74,10 @@ func ListMetrics() []Metric {
 	for _, rc := range operatorRegistry.registeredCollectorMetrics {
 		result = append(result, rc)
 	}
+
+	slices.SortFunc(result, func(a, b Metric) int {
+		return cmp.Compare(a.GetOpts().Name, b.GetOpts().Name)
+	})
 
 	return result
 }
