@@ -20,6 +20,7 @@ source "${script_dir}"/common.sh
 go version
 # Validate
 make lint-metrics
+make lint-monitoring
 make generate-doc
 git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 
