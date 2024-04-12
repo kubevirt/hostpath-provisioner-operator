@@ -216,7 +216,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			ginkgo.Entry("longNamecr", createStoragePoolWithTemplateLongNameCr(), hashedLongStoragePoolNameDataDir),
 		)
 
-		ginkgo.DescribeTable("DaemonSet should have prometheus labels, port", func(cr *hppv1.HostPathProvisioner, volumeMountName string) {
+		ginkgo.DescribeTable("DaemonSet should have prometheus labels, port", func(cr *hppv1.HostPathProvisioner) {
 			cr, r, cl = createDeployedCr(cr)
 			ds := &appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -236,9 +236,9 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			gomega.Expect(ds.Labels[PrometheusLabelKey]).To(gomega.Equal(PrometheusLabelValue))
 			gomega.Expect(ds.Spec.Template.Labels[PrometheusLabelKey]).To(gomega.Equal(PrometheusLabelValue))
 		},
-			ginkgo.Entry("legacyCr", createLegacyCr(), legacyDataDir),
-			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), legacyStoragePoolDataDir),
-			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), localDataDir),
+			ginkgo.Entry("legacyCr", createLegacyCr()),
+			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
+			ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr()),
 		)
 
 		ginkgo.DescribeTable("Should create daemonset with node placement", func(dsName string) {
