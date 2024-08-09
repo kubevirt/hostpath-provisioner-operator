@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"os"
 	"reflect"
+	"strings"
 
 	jsondiff "github.com/appscode/jsonpatch"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -181,4 +183,18 @@ func min(a, b int) int {
 		return b
 	}
 	return a
+}
+
+// GetNamespace returns the namespace the pod is executing in
+func GetNamespace() string {
+	return getNamespace("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+}
+
+func getNamespace(path string) string {
+	if data, err := os.ReadFile(path); err == nil {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			return ns
+		}
+	}
+	return "hostpath-provisioner"
 }

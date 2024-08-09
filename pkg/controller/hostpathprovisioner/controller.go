@@ -28,7 +28,6 @@ import (
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +56,7 @@ import (
 
 var (
 	log                = logf.Log.WithName("controller_hostpathprovisioner")
-	watchNamespaceFunc = k8sutil.GetWatchNamespace
+	watchNamespaceFunc = GetNamespace
 )
 
 func init() {
@@ -140,70 +139,146 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	})
 
 	// handleAPIServer will be used to handle APIServer Watch triggering
-	handleAPIServer := handler.MapFunc(handleAPIServerFunc)
+	handleAPIServer := handler.TypedMapFunc[*ocpconfigv1.APIServer](handleAPIServerFunc)
 
 	// Watch for changes to primary resource HostPathProvisioner
-	err = c.Watch(source.Kind(mgr.GetCache(), &hostpathprovisionerv1.HostPathProvisioner{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&hostpathprovisionerv1.HostPathProvisioner{},
+		&handler.TypedEnqueueRequestForObject[*hostpathprovisionerv1.HostPathProvisioner]{}))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.DaemonSet{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&appsv1.DaemonSet{},
+		handler.TypedEnqueueRequestForOwner[*appsv1.DaemonSet](
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&hostpathprovisionerv1.HostPathProvisioner{},
+			handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&appsv1.Deployment{},
+		handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&hostpathprovisionerv1.HostPathProvisioner{},
+			handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ServiceAccount{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&corev1.ServiceAccount{},
+		handler.TypedEnqueueRequestForOwner[*corev1.ServiceAccount](
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&hostpathprovisionerv1.HostPathProvisioner{},
+			handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&rbacv1.RoleBinding{},
+		handler.TypedEnqueueRequestForOwner[*rbacv1.RoleBinding](
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&hostpathprovisionerv1.HostPathProvisioner{},
+			handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	err = c.Watch(source.Kind(mgr.GetCache(), &rbacv1.Role{}), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &hostpathprovisionerv1.HostPathProvisioner{}, handler.OnlyControllerOwner()))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&rbacv1.Role{},
+		handler.TypedEnqueueRequestForOwner[*rbacv1.Role](
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&hostpathprovisionerv1.HostPathProvisioner{},
+			handler.OnlyControllerOwner())))
 	if err != nil {
 		return err
 	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &storagev1.CSIDriver{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(
+		mgr.GetCache(),
+		&storagev1.CSIDriver{},
+		handler.TypedEnqueueRequestsFromMapFunc[*storagev1.CSIDriver](handler.TypedMapFunc[*storagev1.CSIDriver](func(ctx context.Context, o *storagev1.CSIDriver) []reconcile.Request {
+			return mapFn(ctx, o)
+		})))); err != nil {
 		return err
 	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.ClusterRoleBinding{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(
+		mgr.GetCache(),
+		&rbacv1.ClusterRoleBinding{},
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.ClusterRoleBinding](handler.TypedMapFunc[*rbacv1.ClusterRoleBinding](func(ctx context.Context, o *rbacv1.ClusterRoleBinding) []reconcile.Request {
+			return mapFn(ctx, o)
+		})))); err != nil {
 		return err
 	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.ClusterRole{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(
+		mgr.GetCache(),
+		&rbacv1.ClusterRole{},
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.ClusterRole](handler.TypedMapFunc[*rbacv1.ClusterRole](func(ctx context.Context, o *rbacv1.ClusterRole) []reconcile.Request {
+			return mapFn(ctx, o)
+		})))); err != nil {
 		return err
 	}
 
-	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.Role{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(
+		mgr.GetCache(),
+		&rbacv1.Role{},
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.Role](handler.TypedMapFunc[*rbacv1.Role](func(ctx context.Context, o *rbacv1.Role) []reconcile.Request {
+			return mapFn(ctx, o)
+		})))); err != nil {
 		return err
 	}
-	if err := c.Watch(source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(
+		mgr.GetCache(),
+		&rbacv1.RoleBinding{},
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.RoleBinding](handler.TypedMapFunc[*rbacv1.RoleBinding](func(ctx context.Context, o *rbacv1.RoleBinding) []reconcile.Request {
+			return mapFn(ctx, o)
+		})))); err != nil {
 		return err
 	}
-	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+	if err := c.Watch(source.Kind(
+		mgr.GetCache(),
+		&corev1.Service{},
+		handler.TypedEnqueueRequestsFromMapFunc[*corev1.Service](handler.TypedMapFunc[*corev1.Service](func(ctx context.Context, o *corev1.Service) []reconcile.Request {
+			return mapFn(ctx, o)
+		})))); err != nil {
 		return err
 	}
 
 	if used, err := r.(*ReconcileHostPathProvisioner).checkSCCUsed(); used || isErrCacheNotStarted(err) {
-		if err := c.Watch(source.Kind(mgr.GetCache(), &secv1.SecurityContextConstraints{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		if err := c.Watch(source.Kind(
+			mgr.GetCache(),
+			&secv1.SecurityContextConstraints{},
+			handler.TypedEnqueueRequestsFromMapFunc[*secv1.SecurityContextConstraints](handler.TypedMapFunc[*secv1.SecurityContextConstraints](func(ctx context.Context, o *secv1.SecurityContextConstraints) []reconcile.Request {
+				return mapFn(ctx, o)
+			})))); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching SecurityContextConstraints")
 				return nil
 			}
 			return err
 		}
-		if err := c.Watch(source.Kind(mgr.GetCache(), &ocpconfigv1.APIServer{}), handler.EnqueueRequestsFromMapFunc(handleAPIServer)); err != nil {
+		if err := c.Watch(source.Kind(
+			mgr.GetCache(),
+			&ocpconfigv1.APIServer{},
+			handler.TypedEnqueueRequestsFromMapFunc[*ocpconfigv1.APIServer](handleAPIServer))); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching APIServer")
 				return nil
@@ -213,14 +288,24 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	if used, err := r.(*ReconcileHostPathProvisioner).checkPrometheusUsed(); used || isErrCacheNotStarted(err) {
-		if err := c.Watch(source.Kind(mgr.GetCache(), &promv1.PrometheusRule{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		if err := c.Watch(source.Kind(
+			mgr.GetCache(),
+			&promv1.PrometheusRule{},
+			handler.TypedEnqueueRequestsFromMapFunc[*promv1.PrometheusRule](handler.TypedMapFunc[*promv1.PrometheusRule](func(ctx context.Context, o *promv1.PrometheusRule) []reconcile.Request {
+				return mapFn(ctx, o)
+			})))); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching PrometheusRules")
 				return nil
 			}
 			return err
 		}
-		if err := c.Watch(source.Kind(mgr.GetCache(), &promv1.ServiceMonitor{}), handler.EnqueueRequestsFromMapFunc(mapFn)); err != nil {
+		if err := c.Watch(source.Kind(
+			mgr.GetCache(),
+			&promv1.ServiceMonitor{},
+			handler.TypedEnqueueRequestsFromMapFunc[*promv1.ServiceMonitor](handler.TypedMapFunc[*promv1.ServiceMonitor](func(ctx context.Context, o *promv1.ServiceMonitor) []reconcile.Request {
+				return mapFn(ctx, o)
+			})))); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching ServiceMonitors")
 				return nil
@@ -297,17 +382,7 @@ func (r *ReconcileHostPathProvisioner) Reconcile(context context.Context, reques
 		metrics.SetReadyGaugeValue(0)
 	}
 
-	namespace, err := watchNamespaceFunc()
-	if err != nil {
-		MarkCrFailed(cr, watchNameSpace, err.Error())
-		r.recorder.Event(cr, corev1.EventTypeWarning, watchNameSpace, err.Error())
-		err2 := r.client.Update(context, cr)
-		if err2 != nil {
-			reqLogger.Error(err2, "Unable to update CR to failed state")
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
+	namespace := watchNamespaceFunc()
 
 	if cr.GetDeletionTimestamp() != nil {
 		if err := r.cleanDeployments(reqLogger, cr, namespace); err != nil {
@@ -696,8 +771,7 @@ func HasFinalizer(object metav1.Object, value string) bool {
 	return false
 }
 
-func handleAPIServerFunc(_ context.Context, o client.Object) []reconcile.Request {
-	apiServer := o.(*ocpconfigv1.APIServer)
+func handleAPIServerFunc(_ context.Context, apiServer *ocpconfigv1.APIServer) []reconcile.Request {
 	cipherNames, minTypedTLSVersion := cryptopolicy.SelectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
 	if err := os.Setenv("TLS_CIPHERS", strings.Join(cipherNames, ",")); err != nil {
 		log.Error(err, "Error setting environment variable TLS_CIPHERS")

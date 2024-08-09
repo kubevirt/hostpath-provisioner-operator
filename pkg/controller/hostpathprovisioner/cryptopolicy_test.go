@@ -37,8 +37,8 @@ import (
 var _ = ginkgo.Describe("Controller reconcile loop", func() {
 	ginkgo.Context("crypto policy", func() {
 		ginkgo.BeforeEach(func() {
-			watchNamespaceFunc = func() (string, error) {
-				return testNamespace, nil
+			watchNamespaceFunc = func() string {
+				return testNamespace
 			}
 			version.VersionStringFunc = func() (string, error) {
 				return versionString, nil

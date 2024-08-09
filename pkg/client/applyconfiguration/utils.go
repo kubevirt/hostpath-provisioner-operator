@@ -20,7 +20,6 @@ package applyconfiguration
 
 import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
-
 	v1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	hostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/applyconfiguration/hostpathprovisioner/v1beta1"
 )

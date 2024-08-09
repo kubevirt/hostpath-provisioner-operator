@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
-
 	clientset "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned"
 	hostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/typed/hostpathprovisioner/v1beta1"
 	fakehostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned/typed/hostpathprovisioner/v1beta1/fake"

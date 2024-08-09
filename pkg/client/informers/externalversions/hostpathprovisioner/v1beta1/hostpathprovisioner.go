@@ -26,7 +26,6 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-
 	hostpathprovisionerv1beta1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	versioned "kubevirt.io/hostpath-provisioner-operator/pkg/client/clientset/versioned"
 	internalinterfaces "kubevirt.io/hostpath-provisioner-operator/pkg/client/informers/externalversions/internalinterfaces"

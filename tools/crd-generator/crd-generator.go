@@ -39,28 +39,28 @@ func main() {
 	buf := make([]byte, fileInfo.Size())
 	fileScanner.Buffer(buf, len(buf))
 	searchBytes := []byte("---")
-    searchLen := len(searchBytes)
+	searchLen := len(searchBytes)
 	fileScanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-        dataLen := len(data)
+		dataLen := len(data)
 
-        // Return nothing if at end of file and no data passed
-        if atEOF && dataLen == 0 {
-            return 0, nil, nil
-        }
+		// Return nothing if at end of file and no data passed
+		if atEOF && dataLen == 0 {
+			return 0, nil, nil
+		}
 
-        // Find next separator and return token
-        if i := bytes.Index(data, searchBytes); i >= 0 {
-            return i + searchLen, data[0:i], nil
-        }
+		// Find next separator and return token
+		if i := bytes.Index(data, searchBytes); i >= 0 {
+			return i + searchLen, data[0:i], nil
+		}
 
-        // If we're at EOF, we have a final, non-terminated line. Return it.
-        if atEOF {
-            return dataLen, data, nil
-        }
+		// If we're at EOF, we have a final, non-terminated line. Return it.
+		if atEOF {
+			return dataLen, data, nil
+		}
 
-        // Request more data.
-        return
-    })
+		// Request more data.
+		return
+	})
 	for fileScanner.Scan() {
 		item := fileScanner.Bytes()
 		crdName, crd := getCRD(item)
@@ -107,6 +107,8 @@ func generateCrdGoFile(outputDir string, crd *extv1.CustomResourceDefinition) {
 
 	crd.Status = extv1.CustomResourceDefinitionStatus{}
 	b, _ := yaml.Marshal(crd)
+	// Remove all backticks from b
+	b = bytes.ReplaceAll(b, []byte("`"), []byte("'"))
 	file.WriteString(string(b))
 	file.WriteString("`\n")
 
@@ -181,7 +183,6 @@ func generateDeploymentGoFile(outputDir string, deployment *appsv1.Deployment) {
 	file.WriteString(string(b))
 	file.WriteString("`\n")
 }
-
 
 func getCRD(text []byte) (string, *extv1.CustomResourceDefinition) {
 	crd := extv1.CustomResourceDefinition{}
