@@ -48,7 +48,6 @@ kube::codegen::gen_openapi \
 kube::codegen::gen_client \
 	${SCRIPT_ROOT}/pkg/apis \
 	--with-watch \
-	--with-applyconfig \
 	--output-pkg kubevirt.io/hostpath-provisioner-operator/pkg/client \
 	--output-dir "${SCRIPT_ROOT}/pkg/client" \
 	--boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"

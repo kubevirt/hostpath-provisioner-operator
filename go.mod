@@ -1,8 +1,6 @@
 module kubevirt.io/hostpath-provisioner-operator
 
-go 1.22.0
-
-toolchain go1.22.3
+go 1.22.3
 
 require (
 	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30
