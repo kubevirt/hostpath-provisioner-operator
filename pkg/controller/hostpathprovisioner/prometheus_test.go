@@ -13,6 +13,7 @@ import (
 var _ = ginkgo.Describe("Prometheus", func() {
 	ginkgo.BeforeEach(func() {
 		os.Unsetenv(runbookURLTemplateEnv)
+		gomega.Expect(rules.SetupRules("")).To(gomega.Succeed())
 	})
 
 	ginkgo.AfterEach(func() {
