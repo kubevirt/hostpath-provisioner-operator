@@ -11,7 +11,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230710120526-cc1644c90b64
-	github.com/machadovilaca/operator-observability v0.0.20
+	github.com/machadovilaca/operator-observability v0.0.21
 	github.com/onsi/ginkgo/v2 v2.20.0
 	github.com/onsi/gomega v1.34.1
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
