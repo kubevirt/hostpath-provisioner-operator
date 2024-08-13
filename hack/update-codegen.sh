@@ -34,24 +34,21 @@ report_filename="${SCRIPT_DIR}/codegen_violation_exceptions.list"
 update_report="--update-report"
 
 kube::codegen::gen_helpers \
-	--input-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
-	--output-base "${SCRIPT_ROOT}/../.." \
+	${SCRIPT_ROOT}/pkg/apis \
         --boilerplate "${SCRIPT_DIR}"/boilerplate.go.txt
 
 kube::codegen::gen_openapi \
-    --input-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
-    --output-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
-    --output-base "${SCRIPT_ROOT}/../.." \
-    --openapi-name "" \
-    --report-filename "${report_filename:-"/dev/null"}" \
-    --update-report \
-    --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt"
+	${SCRIPT_ROOT}/pkg/apis \
+	--output-pkg kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1 \
+	--output-dir "${SCRIPT_ROOT}"/pkg/apis/hostpathprovisioner/v1beta1 \
+	--report-filename "${report_filename:-"/dev/null"}" \
+	--update-report \
+	--boilerplate "${SCRIPT_DIR}/boilerplate.go.txt"
 
 kube::codegen::gen_client \
-    --with-watch \
-    --with-applyconfig \
-    --input-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/apis \
-    --output-pkg-root kubevirt.io/hostpath-provisioner-operator/pkg/client \
-    --output-base "${SCRIPT_ROOT}/../.." \
-    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
+	${SCRIPT_ROOT}/pkg/apis \
+	--with-watch \
+	--output-pkg kubevirt.io/hostpath-provisioner-operator/pkg/client \
+	--output-dir "${SCRIPT_ROOT}/pkg/client" \
+	--boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt"
 

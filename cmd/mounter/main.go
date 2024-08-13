@@ -28,9 +28,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
 	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -123,13 +123,10 @@ func main() {
 
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	opts := zap.Options{}
+	opts.BindFlags(flag.CommandLine)
 
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	pflag.Parse()
+	flag.Parse()
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
@@ -139,7 +136,7 @@ func main() {
 	// implementing the logr.Logger interface. This logger will
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
-	logf.SetLogger(zap.Logger())
+	logf.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	printVersion()
 

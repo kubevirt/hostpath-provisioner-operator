@@ -18,8 +18,9 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
@@ -57,8 +58,8 @@ const (
 
 var _ = ginkgo.Describe("Controller reconcile loop", func() {
 	ginkgo.BeforeEach(func() {
-		watchNamespaceFunc = func() (string, error) {
-			return testNamespace, nil
+		watchNamespaceFunc = func() string {
+			return testNamespace
 		}
 		version.VersionStringFunc = func() (string, error) {
 			return versionString, nil
@@ -148,41 +149,6 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 		ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr(), "legacy"),
 		ginkgo.Entry("storagePoolCr", createStoragePoolWithTemplateCr(), "local"),
 	)
-
-	ginkgo.It("Should requeue if watch namespaces returns error", func() {
-		watchNamespaceFunc = func() (string, error) {
-			return "", fmt.Errorf("Something is not right, no watch namespace")
-		}
-		cr := createLegacyCr()
-		objs := []runtime.Object{cr}
-		// Register operator types with the runtime scheme.
-		s := scheme.Scheme
-		s.AddKnownTypes(hppv1.SchemeGroupVersion, cr)
-		s.AddKnownTypes(hppv1.SchemeGroupVersion, &hppv1.HostPathProvisionerList{})
-		promv1.AddToScheme(s)
-		secv1.Install(s)
-
-		// Create a fake client to mock API calls.
-		cl := fake.NewFakeClient(objs...)
-
-		// Create a ReconcileMemcached object with the scheme and fake client.
-		r := &ReconcileHostPathProvisioner{
-			client:   cl,
-			scheme:   s,
-			recorder: record.NewFakeRecorder(250),
-			Log:      logf.Log.WithName("hostpath-provisioner-operator-controller-test"),
-		}
-
-		req := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "test-name",
-				Namespace: testNamespace,
-			},
-		}
-		res, err := r.Reconcile(context.TODO(), req)
-		gomega.Expect(err).To(gomega.HaveOccurred())
-		gomega.Expect(res.Requeue).To(gomega.BeFalse())
-	})
 
 	ginkgo.It("Should requeue if cr cannot be located", func() {
 		cr := createLegacyCr()
@@ -555,7 +521,7 @@ func createStoragePoolWithTemplateVolumeModeCr(name string, volumeMode *corev1.P
 						AccessModes: []corev1.PersistentVolumeAccessMode{
 							corev1.ReadWriteOnce,
 						},
-						Resources: corev1.ResourceRequirements{
+						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceStorage: resource.MustParse("1Gi"),
 							},

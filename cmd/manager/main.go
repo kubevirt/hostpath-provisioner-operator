@@ -24,21 +24,20 @@ import (
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/controller"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/controller/hostpathprovisioner"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 )
 
@@ -47,37 +46,22 @@ var log = logf.Log.WithName("cmd")
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
 }
 
 func main() {
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	opts := zap.Options{}
+	opts.BindFlags(flag.CommandLine)
 
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	pflag.Parse()
-
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	//
+	flag.Parse()
 	// The logger instantiated here can be changed to any logger
 	// implementing the logr.Logger interface. This logger will
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
-	logf.SetLogger(zap.Logger())
+	logf.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	printVersion()
 
-	namespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
-	}
+	namespace := hostpathprovisioner.GetNamespace()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
