@@ -169,22 +169,6 @@ func hash(s string) string {
 	return result
 }
 
-// max returns the greater of its 2 inputs
-func max(a, b int) int {
-	if b > a {
-		return b
-	}
-	return a
-}
-
-// min returns the lesser of its 2 inputs
-func min(a, b int) int {
-	if b < a {
-		return b
-	}
-	return a
-}
-
 // GetNamespace returns the namespace the pod is executing in
 func GetNamespace() string {
 	return getNamespace("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
