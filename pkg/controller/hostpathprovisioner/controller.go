@@ -139,7 +139,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	})
 
 	// handleAPIServer will be used to handle APIServer Watch triggering
-	handleAPIServer := handler.TypedMapFunc[*ocpconfigv1.APIServer](handleAPIServerFunc)
+	handleAPIServer := handler.TypedMapFunc[*ocpconfigv1.APIServer, reconcile.Request](handleAPIServerFunc)
 
 	// Watch for changes to primary resource HostPathProvisioner
 	err = c.Watch(source.Kind(
@@ -213,7 +213,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(source.Kind(
 		mgr.GetCache(),
 		&storagev1.CSIDriver{},
-		handler.TypedEnqueueRequestsFromMapFunc[*storagev1.CSIDriver](handler.TypedMapFunc[*storagev1.CSIDriver](func(ctx context.Context, o *storagev1.CSIDriver) []reconcile.Request {
+		handler.TypedEnqueueRequestsFromMapFunc[*storagev1.CSIDriver, reconcile.Request](handler.TypedMapFunc[*storagev1.CSIDriver, reconcile.Request](func(ctx context.Context, o *storagev1.CSIDriver) []reconcile.Request {
 			return mapFn(ctx, o)
 		})))); err != nil {
 		return err
@@ -222,7 +222,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(source.Kind(
 		mgr.GetCache(),
 		&rbacv1.ClusterRoleBinding{},
-		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.ClusterRoleBinding](handler.TypedMapFunc[*rbacv1.ClusterRoleBinding](func(ctx context.Context, o *rbacv1.ClusterRoleBinding) []reconcile.Request {
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.ClusterRoleBinding, reconcile.Request](handler.TypedMapFunc[*rbacv1.ClusterRoleBinding, reconcile.Request](func(ctx context.Context, o *rbacv1.ClusterRoleBinding) []reconcile.Request {
 			return mapFn(ctx, o)
 		})))); err != nil {
 		return err
@@ -231,7 +231,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(source.Kind(
 		mgr.GetCache(),
 		&rbacv1.ClusterRole{},
-		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.ClusterRole](handler.TypedMapFunc[*rbacv1.ClusterRole](func(ctx context.Context, o *rbacv1.ClusterRole) []reconcile.Request {
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.ClusterRole, reconcile.Request](handler.TypedMapFunc[*rbacv1.ClusterRole, reconcile.Request](func(ctx context.Context, o *rbacv1.ClusterRole) []reconcile.Request {
 			return mapFn(ctx, o)
 		})))); err != nil {
 		return err
@@ -240,7 +240,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(source.Kind(
 		mgr.GetCache(),
 		&rbacv1.Role{},
-		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.Role](handler.TypedMapFunc[*rbacv1.Role](func(ctx context.Context, o *rbacv1.Role) []reconcile.Request {
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.Role, reconcile.Request](handler.TypedMapFunc[*rbacv1.Role, reconcile.Request](func(ctx context.Context, o *rbacv1.Role) []reconcile.Request {
 			return mapFn(ctx, o)
 		})))); err != nil {
 		return err
@@ -248,7 +248,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(source.Kind(
 		mgr.GetCache(),
 		&rbacv1.RoleBinding{},
-		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.RoleBinding](handler.TypedMapFunc[*rbacv1.RoleBinding](func(ctx context.Context, o *rbacv1.RoleBinding) []reconcile.Request {
+		handler.TypedEnqueueRequestsFromMapFunc[*rbacv1.RoleBinding, reconcile.Request](handler.TypedMapFunc[*rbacv1.RoleBinding, reconcile.Request](func(ctx context.Context, o *rbacv1.RoleBinding) []reconcile.Request {
 			return mapFn(ctx, o)
 		})))); err != nil {
 		return err
@@ -256,7 +256,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err := c.Watch(source.Kind(
 		mgr.GetCache(),
 		&corev1.Service{},
-		handler.TypedEnqueueRequestsFromMapFunc[*corev1.Service](handler.TypedMapFunc[*corev1.Service](func(ctx context.Context, o *corev1.Service) []reconcile.Request {
+		handler.TypedEnqueueRequestsFromMapFunc[*corev1.Service, reconcile.Request](handler.TypedMapFunc[*corev1.Service, reconcile.Request](func(ctx context.Context, o *corev1.Service) []reconcile.Request {
 			return mapFn(ctx, o)
 		})))); err != nil {
 		return err
@@ -266,7 +266,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err := c.Watch(source.Kind(
 			mgr.GetCache(),
 			&secv1.SecurityContextConstraints{},
-			handler.TypedEnqueueRequestsFromMapFunc[*secv1.SecurityContextConstraints](handler.TypedMapFunc[*secv1.SecurityContextConstraints](func(ctx context.Context, o *secv1.SecurityContextConstraints) []reconcile.Request {
+			handler.TypedEnqueueRequestsFromMapFunc[*secv1.SecurityContextConstraints, reconcile.Request](handler.TypedMapFunc[*secv1.SecurityContextConstraints, reconcile.Request](func(ctx context.Context, o *secv1.SecurityContextConstraints) []reconcile.Request {
 				return mapFn(ctx, o)
 			})))); err != nil {
 			if meta.IsNoMatchError(err) {
@@ -291,7 +291,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err := c.Watch(source.Kind(
 			mgr.GetCache(),
 			&promv1.PrometheusRule{},
-			handler.TypedEnqueueRequestsFromMapFunc[*promv1.PrometheusRule](handler.TypedMapFunc[*promv1.PrometheusRule](func(ctx context.Context, o *promv1.PrometheusRule) []reconcile.Request {
+			handler.TypedEnqueueRequestsFromMapFunc[*promv1.PrometheusRule, reconcile.Request](handler.TypedMapFunc[*promv1.PrometheusRule, reconcile.Request](func(ctx context.Context, o *promv1.PrometheusRule) []reconcile.Request {
 				return mapFn(ctx, o)
 			})))); err != nil {
 			if meta.IsNoMatchError(err) {
@@ -303,7 +303,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		if err := c.Watch(source.Kind(
 			mgr.GetCache(),
 			&promv1.ServiceMonitor{},
-			handler.TypedEnqueueRequestsFromMapFunc[*promv1.ServiceMonitor](handler.TypedMapFunc[*promv1.ServiceMonitor](func(ctx context.Context, o *promv1.ServiceMonitor) []reconcile.Request {
+			handler.TypedEnqueueRequestsFromMapFunc[*promv1.ServiceMonitor, reconcile.Request](handler.TypedMapFunc[*promv1.ServiceMonitor, reconcile.Request](func(ctx context.Context, o *promv1.ServiceMonitor) []reconcile.Request {
 				return mapFn(ctx, o)
 			})))); err != nil {
 			if meta.IsNoMatchError(err) {
