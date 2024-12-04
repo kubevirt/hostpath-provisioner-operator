@@ -41,15 +41,6 @@ const (
 // +kubebuilder:validation:Enum=PrometheusProto;OpenMetricsText0.0.1;OpenMetricsText1.0.0;PrometheusText0.0.4
 type ScrapeProtocol string
 
-// RuntimeConfig configures the values for the process behavior.
-type RuntimeConfig struct {
-	// The Go garbage collection target percentage. Lowering this number may increase the CPU usage.
-	// See: https://tip.golang.org/doc/gc-guide#GOGC
-	// +optional
-	// +kubebuilder:validation:Minimum=-1
-	GoGC *int32 `json:"goGC,omitempty"`
-}
-
 // PrometheusInterface is used by Prometheus and PrometheusAgent to share common methods, e.g. config generation.
 // +k8s:deepcopy-gen=false
 type PrometheusInterface interface {
@@ -307,16 +298,6 @@ type CommonPrometheusFields struct {
 	// It requires Prometheus >= v2.33.0.
 	EnableRemoteWriteReceiver bool `json:"enableRemoteWriteReceiver,omitempty"`
 
-	// List of the protobuf message versions to accept when receiving the
-	// remote writes.
-	//
-	// It requires Prometheus >= v2.54.0.
-	//
-	// +kubebuilder:validation:MinItems=1
-	// +listType:=set
-	// +optional
-	RemoteWriteReceiverMessageVersions []RemoteWriteMessageVersion `json:"remoteWriteReceiverMessageVersions,omitempty"`
-
 	// Enable access to Prometheus feature flags. By default, no features are enabled.
 	//
 	// Enabling features which are disabled by default is entirely outside the
@@ -387,7 +368,6 @@ type CommonPrometheusFields struct {
 	// object, which shall be mounted into the Prometheus Pods.
 	// Each Secret is added to the StatefulSet definition as a volume named `secret-<secret-name>`.
 	// The Secrets are mounted into /etc/prometheus/secrets/<secret-name> in the 'prometheus' container.
-	// +listType:=set
 	Secrets []string `json:"secrets,omitempty"`
 	// ConfigMaps is a list of ConfigMaps in the same namespace as the Prometheus
 	// object, which shall be mounted into the Prometheus Pods.
@@ -410,25 +390,11 @@ type CommonPrometheusFields struct {
 	// +optional
 	RemoteWrite []RemoteWriteSpec `json:"remoteWrite,omitempty"`
 
-	// Settings related to the OTLP receiver feature.
-	// It requires Prometheus >= v2.55.0.
-	//
-	// +optional
-	OTLP *OTLPConfig `json:"otlp,omitempty"`
-
 	// SecurityContext holds pod-level security attributes and common container settings.
 	// This defaults to the default PodSecurityContext.
 	// +optional
 	SecurityContext *v1.PodSecurityContext `json:"securityContext,omitempty"`
 
-	// Defines the DNS policy for the pods.
-	//
-	// +optional
-	DNSPolicy *DNSPolicy `json:"dnsPolicy,omitempty"`
-	// Defines the DNS configuration for the pods.
-	//
-	// +optional
-	DNSConfig *PodDNSConfig `json:"dnsConfig,omitempty"`
 	// When true, the Prometheus server listens on the loopback address
 	// instead of the Pod IP's address.
 	ListenLocal bool `json:"listenLocal,omitempty"`
@@ -710,8 +676,7 @@ type CommonPrometheusFields struct {
 	// it (https://kubernetes.io/docs/concepts/configuration/overview/).
 	//
 	// When hostNetwork is enabled, this will set the DNS policy to
-	// `ClusterFirstWithHostNet` automatically (unless `.spec.DNSPolicy` is set
-	// to a different value).
+	// `ClusterFirstWithHostNet` automatically.
 	HostNetwork bool `json:"hostNetwork,omitempty"`
 
 	// PodTargetLabels are appended to the `spec.podTargetLabels` field of all
@@ -806,21 +771,6 @@ type CommonPrometheusFields struct {
 	// +listType=map
 	// +listMapKey=name
 	ScrapeClasses []ScrapeClass `json:"scrapeClasses,omitempty"`
-
-	// Defines the service discovery role used to discover targets from
-	// `ServiceMonitor` objects and Alertmanager endpoints.
-	//
-	// If set, the value should be either "Endpoints" or "EndpointSlice".
-	// If unset, the operator assumes the "Endpoints" role.
-	//
-	// +optional
-	ServiceDiscoveryRole *ServiceDiscoveryRole `json:"serviceDiscoveryRole,omitempty"`
-
-	// Defines the runtime reloadable configuration of the timeseries database(TSDB).
-	// It requires Prometheus >= v2.39.0 or PrometheusAgent >= v2.54.0.
-	//
-	// +optional
-	TSDB *TSDBSpec `json:"tsdb,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=HTTP;ProcessSignal
@@ -832,14 +782,6 @@ const (
 
 	// ProcessSignalReloadStrategyType reloads the configuration by sending a SIGHUP signal to the process.
 	ProcessSignalReloadStrategyType ReloadStrategyType = "ProcessSignal"
-)
-
-// +kubebuilder:validation:Enum=Endpoints;EndpointSlice
-type ServiceDiscoveryRole string
-
-const (
-	EndpointsRole     ServiceDiscoveryRole = "Endpoints"
-	EndpointSliceRole ServiceDiscoveryRole = "EndpointSlice"
 )
 
 func (cpf *CommonPrometheusFields) PrometheusURIScheme() string {
@@ -873,13 +815,7 @@ func (cpf *CommonPrometheusFields) WebRoutePrefix() string {
 // +genclient:method=GetScale,verb=get,subresource=scale,result=k8s.io/api/autoscaling/v1.Scale
 // +genclient:method=UpdateScale,verb=update,subresource=scale,input=k8s.io/api/autoscaling/v1.Scale,result=k8s.io/api/autoscaling/v1.Scale
 
-// The `Prometheus` custom resource definition (CRD) defines a desired [Prometheus](https://prometheus.io/docs/prometheus) setup to run in a Kubernetes cluster. It allows to specify many options such as the number of replicas, persistent storage, and Alertmanagers where firing alerts should be sent and many more.
-//
-// For each `Prometheus` resource, the Operator deploys one or several `StatefulSet` objects in the same namespace. The number of StatefulSets is equal to the number of shards which is 1 by default.
-//
-// The resource defines via label and namespace selectors which `ServiceMonitor`, `PodMonitor`, `Probe` and `PrometheusRule` objects should be associated to the deployed Prometheus instances.
-//
-// The Operator continuously reconciles the scrape and rules configuration and a sidecar container running in the Prometheus pods triggers a reload of the configuration when needed.
+// Prometheus defines a Prometheus deployment.
 type Prometheus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -918,10 +854,6 @@ func (l *PrometheusList) DeepCopyObject() runtime.Object {
 // +k8s:openapi-gen=true
 type PrometheusSpec struct {
 	CommonPrometheusFields `json:",inline"`
-
-	// RuntimeConfig configures the values for the Prometheus process behavior
-	// +optional
-	Runtime *RuntimeConfig `json:"runtime,omitempty"`
 
 	// Deprecated: use 'spec.image' instead.
 	BaseImage string `json:"baseImage,omitempty"`
@@ -1037,11 +969,6 @@ type PrometheusSpec struct {
 	// +kubebuilder:default:="30s"
 	EvaluationInterval Duration `json:"evaluationInterval,omitempty"`
 
-	// Defines the offset the rule evaluation timestamp of this particular group by the specified duration into the past.
-	// It requires Prometheus >= v2.53.0.
-	// +optional
-	RuleQueryOffset *Duration `json:"ruleQueryOffset,omitempty"`
-
 	// Enables access to the Prometheus web admin API.
 	//
 	// WARNING: Enabling the admin APIs enables mutating endpoints, to delete data,
@@ -1052,6 +979,10 @@ type PrometheusSpec struct {
 	// For more information:
 	// https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
 	EnableAdminAPI bool `json:"enableAdminAPI,omitempty"`
+
+	// Defines the runtime reloadable configuration of the timeseries database
+	// (TSDB).
+	TSDB TSDBSpec `json:"tsdb,omitempty"`
 }
 
 type PrometheusTracingConfig struct {
@@ -1129,7 +1060,7 @@ type PrometheusStatus struct {
 // AlertingSpec defines parameters for alerting configuration of Prometheus servers.
 // +k8s:openapi-gen=true
 type AlertingSpec struct {
-	// Alertmanager endpoints where Prometheus should send alerts to.
+	// AlertmanagerEndpoints Prometheus should fire alerts against.
 	Alertmanagers []AlertmanagerEndpoints `json:"alertmanagers"`
 }
 
@@ -1348,8 +1279,6 @@ type ThanosSpec struct {
 // +k8s:openapi-gen=true
 type RemoteWriteSpec struct {
 	// The URL of the endpoint to send samples to.
-	// +kubebuilder:validation:MinLength=1
-	// +required
 	URL string `json:"url"`
 
 	// The name of the remote write queue, it must be unique if specified. The
@@ -1357,27 +1286,10 @@ type RemoteWriteSpec struct {
 	//
 	// It requires Prometheus >= v2.15.0.
 	//
-	//+optional
-	Name *string `json:"name,omitempty"`
-
-	// The Remote Write message's version to use when writing to the endpoint.
-	//
-	// `Version1.0` corresponds to the `prometheus.WriteRequest` protobuf message introduced in Remote Write 1.0.
-	// `Version2.0` corresponds to the `io.prometheus.write.v2.Request` protobuf message introduced in Remote Write 2.0.
-	//
-	// When `Version2.0` is selected, Prometheus will automatically be
-	// configured to append the metadata of scraped metrics to the WAL.
-	//
-	// Before setting this field, consult with your remote storage provider
-	// what message version it supports.
-	//
-	// It requires Prometheus >= v2.54.0.
-	//
-	// +optional
-	MessageVersion *RemoteWriteMessageVersion `json:"messageVersion,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// Enables sending of exemplars over remote write. Note that
-	// exemplar-storage itself must be enabled using the `spec.enableFeatures`
+	// exemplar-storage itself must be enabled using the `spec.enableFeature`
 	// option for exemplars to be scraped in the first place.
 	//
 	// It requires Prometheus >= v2.27.0.
@@ -1394,8 +1306,7 @@ type RemoteWriteSpec struct {
 	SendNativeHistograms *bool `json:"sendNativeHistograms,omitempty"`
 
 	// Timeout for requests to the remote write endpoint.
-	// +optional
-	RemoteTimeout *Duration `json:"remoteTimeout,omitempty"`
+	RemoteTimeout Duration `json:"remoteTimeout,omitempty"`
 
 	// Custom HTTP headers to be sent along with each remote write request.
 	// Be aware that headers that are set by Prometheus itself can't be overwritten.
@@ -1416,19 +1327,16 @@ type RemoteWriteSpec struct {
 	// Cannot be set at the same time as `sigv4`, `authorization`, `basicAuth`, or `azureAd`.
 	// +optional
 	OAuth2 *OAuth2 `json:"oauth2,omitempty"`
-
 	// BasicAuth configuration for the URL.
 	//
 	// Cannot be set at the same time as `sigv4`, `authorization`, `oauth2`, or `azureAd`.
 	//
 	// +optional
 	BasicAuth *BasicAuth `json:"basicAuth,omitempty"`
-
 	// File from which to read bearer token for the URL.
 	//
 	// Deprecated: this will be removed in a future release. Prefer using `authorization`.
 	BearerTokenFile string `json:"bearerTokenFile,omitempty"`
-
 	// Authorization section for the URL.
 	//
 	// It requires Prometheus >= v2.26.0.
@@ -1437,7 +1345,6 @@ type RemoteWriteSpec struct {
 	//
 	// +optional
 	Authorization *Authorization `json:"authorization,omitempty"`
-
 	// Sigv4 allows to configures AWS's Signature Verification 4 for the URL.
 	//
 	// It requires Prometheus >= v2.26.0.
@@ -1489,16 +1396,6 @@ type RemoteWriteSpec struct {
 	// +optional
 	EnableHttp2 *bool `json:"enableHTTP2,omitempty"`
 }
-
-// +kubebuilder:validation:Enum=V1.0;V2.0
-type RemoteWriteMessageVersion string
-
-const (
-	// Remote Write message's version 1.0.
-	RemoteWriteMessageVersion1_0 = RemoteWriteMessageVersion("V1.0")
-	// Remote Write message's version 2.0.
-	RemoteWriteMessageVersion2_0 = RemoteWriteMessageVersion("V2.0")
-)
 
 // QueueConfig allows the tuning of remote write's queue_config parameters.
 // This object is referenced in the RemoteWriteSpec object.
@@ -1637,8 +1534,7 @@ type RemoteReadSpec struct {
 	RequiredMatchers map[string]string `json:"requiredMatchers,omitempty"`
 
 	// Timeout for requests to the remote read endpoint.
-	// +optional
-	RemoteTimeout *Duration `json:"remoteTimeout,omitempty"`
+	RemoteTimeout Duration `json:"remoteTimeout,omitempty"`
 
 	// Custom HTTP headers to be sent along with each remote read request.
 	// Be aware that headers that are set by Prometheus itself can't be overwritten.
@@ -1809,18 +1705,8 @@ type APIServerConfig struct {
 // +k8s:openapi-gen=true
 type AlertmanagerEndpoints struct {
 	// Namespace of the Endpoints object.
-	//
-	// If not set, the object will be discovered in the namespace of the
-	// Prometheus object.
-	//
-	// +kubebuilder:validation:MinLength:=1
-	// +optional
-	Namespace *string `json:"namespace,omitempty"`
-
+	Namespace string `json:"namespace"`
 	// Name of the Endpoints object in the namespace.
-	//
-	// +kubebuilder:validation:MinLength:=1
-	// +required
 	Name string `json:"name"`
 
 	// Port on which the Alertmanager API is exposed.
@@ -1955,9 +1841,8 @@ type TSDBSpec struct {
 	// This is an *experimental feature*, it may change in any upcoming release
 	// in a breaking way.
 	//
-	// It requires Prometheus >= v2.39.0 or PrometheusAgent >= v2.54.0.
-	// +optional
-	OutOfOrderTimeWindow *Duration `json:"outOfOrderTimeWindow,omitempty"`
+	// It requires Prometheus >= v2.39.0.
+	OutOfOrderTimeWindow Duration `json:"outOfOrderTimeWindow,omitempty"`
 }
 
 type Exemplars struct {
@@ -2084,24 +1969,4 @@ type ScrapeClass struct {
 	//
 	// +optional
 	MetricRelabelings []RelabelConfig `json:"metricRelabelings,omitempty"`
-
-	// AttachMetadata configures additional metadata to the discovered targets.
-	// When the scrape object defines its own configuration, it takes
-	// precedence over the scrape class configuration.
-	//
-	// +optional
-	AttachMetadata *AttachMetadata `json:"attachMetadata,omitempty"`
-}
-
-// OTLPConfig is the configuration for writing to the OTLP endpoint.
-//
-// +k8s:openapi-gen=true
-type OTLPConfig struct {
-	// List of OpenTelemetry Attributes that should be promoted to metric labels, defaults to none.
-	//
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:items:MinLength=1
-	// +listType=set
-	// +optional
-	PromoteResourceAttributes []string `json:"promoteResourceAttributes,omitempty"`
 }
