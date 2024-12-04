@@ -31,14 +31,7 @@ const (
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:categories="prometheus-operator",shortName="pmon"
 
-// The `PodMonitor` custom resource definition (CRD) defines how `Prometheus` and `PrometheusAgent` can scrape metrics from a group of pods.
-// Among other things, it allows to specify:
-// * The pods to scrape via label selectors.
-// * The container ports to scrape.
-// * Authentication credentials to use.
-// * Target and metric relabeling.
-//
-// `Prometheus` and `PrometheusAgent` objects select `PodMonitor` objects using label and namespace selectors.
+// PodMonitor defines monitoring for a set of pods.
 type PodMonitor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -71,15 +64,15 @@ type PodMonitorSpec struct {
 	//
 	PodTargetLabels []string `json:"podTargetLabels,omitempty"`
 
-	// Defines how to scrape metrics from the selected pods.
+	// List of endpoints part of this PodMonitor.
 	//
 	// +optional
 	PodMetricsEndpoints []PodMetricsEndpoint `json:"podMetricsEndpoints"`
 
-	// Label selector to select the Kubernetes `Pod` objects to scrape metrics from.
+	// Label selector to select the Kubernetes `Pod` objects.
 	Selector metav1.LabelSelector `json:"selector"`
-	// `namespaceSelector` defines in which namespace(s) Prometheus should discover the pods.
-	// By default, the pods are discovered in the same namespace as the `PodMonitor` object but it is possible to select pods across different/all namespaces.
+	// Selector to select which namespaces the Kubernetes `Pods` objects
+	// are discovered from.
 	NamespaceSelector NamespaceSelector `json:"namespaceSelector,omitempty"`
 
 	// `sampleLimit` defines a per-scrape limit on the number of scraped samples
@@ -123,9 +116,6 @@ type PodMonitorSpec struct {
 	//
 	// +optional
 	LabelValueLengthLimit *uint64 `json:"labelValueLengthLimit,omitempty"`
-
-	NativeHistogramConfig `json:",inline"`
-
 	// Per-scrape limit on the number of targets dropped by relabeling
 	// that will be kept in memory. 0 means no limit.
 	//
@@ -137,7 +127,7 @@ type PodMonitorSpec struct {
 	// `attachMetadata` defines additional metadata which is added to the
 	// discovered targets.
 	//
-	// It requires Prometheus >= v2.35.0.
+	// It requires Prometheus >= v2.37.0.
 	//
 	// +optional
 	AttachMetadata *AttachMetadata `json:"attachMetadata,omitempty"`

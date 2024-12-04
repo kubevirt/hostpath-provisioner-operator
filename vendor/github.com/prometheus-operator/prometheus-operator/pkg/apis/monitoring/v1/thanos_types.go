@@ -38,11 +38,7 @@ const (
 // +kubebuilder:printcolumn:name="Paused",type="boolean",JSONPath=".status.paused",description="Whether the resource reconciliation is paused or not",priority=1
 // +kubebuilder:subresource:status
 
-// The `ThanosRuler` custom resource definition (CRD) defines a desired [Thanos Ruler](https://github.com/thanos-io/thanos/blob/main/docs/components/rule.md) setup to run in a Kubernetes cluster.
-//
-// A `ThanosRuler` instance requires at least one compatible Prometheus API endpoint (either Thanos Querier or Prometheus services).
-//
-// The resource defines via label and namespace selectors which `PrometheusRule` objects should be associated to the deployed Thanos Ruler instances.
+// ThanosRuler defines a ThanosRuler deployment.
 type ThanosRuler struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -110,15 +106,6 @@ type ThanosRulerSpec struct {
 	// SecurityContext holds pod-level security attributes and common container settings.
 	// This defaults to the default PodSecurityContext.
 	SecurityContext *v1.PodSecurityContext `json:"securityContext,omitempty"`
-	// Defines the DNS policy for the pods.
-	//
-	// +optional
-	DNSPolicy *DNSPolicy `json:"dnsPolicy,omitempty"`
-	// Defines the DNS configuration for the pods.
-	//
-	// +optional
-	DNSConfig *PodDNSConfig `json:"dnsConfig,omitempty"`
-
 	// Priority class assigned to the Pods
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 	// ServiceAccountName is the name of the ServiceAccount to use to run the
@@ -305,7 +292,7 @@ type ThanosRulerStatus struct {
 	AvailableReplicas int32 `json:"availableReplicas"`
 	// Total number of unavailable pods targeted by this ThanosRuler deployment.
 	UnavailableReplicas int32 `json:"unavailableReplicas"`
-	// The current state of the ThanosRuler object.
+	// The current state of the Alertmanager object.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
