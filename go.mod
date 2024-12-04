@@ -1,7 +1,6 @@
 module kubevirt.io/hostpath-provisioner-operator
 
-go 1.22.3
-toolchain go1.23.3
+go 1.22.0
 
 require (
 	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30
@@ -19,7 +18,7 @@ require (
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/operator-framework/api v0.27.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.75.2
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.31.2
 	k8s.io/apiextensions-apiserver v0.31.2
