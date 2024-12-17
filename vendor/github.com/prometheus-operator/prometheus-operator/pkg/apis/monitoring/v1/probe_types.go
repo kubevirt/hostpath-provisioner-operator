@@ -30,7 +30,13 @@ const (
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:categories="prometheus-operator",shortName="prb"
 
-// Probe defines monitoring for a set of static targets or ingresses.
+// The `Probe` custom resource definition (CRD) defines how to scrape metrics from prober exporters such as the [blackbox exporter](https://github.com/prometheus/blackbox_exporter).
+//
+// The `Probe` resource needs 2 pieces of information:
+// * The list of probed addresses which can be defined statically or by discovering Kubernetes Ingress objects.
+// * The prober which exposes the availability of probed endpoints (over various protocols such HTTP, TCP, ICMP, ...) as Prometheus metrics.
+//
+// `Prometheus` and `PrometheusAgent` objects select `Probe` objects using label and namespace selectors.
 type Probe struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -94,6 +100,11 @@ type ProbeSpec struct {
 	// +listType=set
 	// +optional
 	ScrapeProtocols []ScrapeProtocol `json:"scrapeProtocols,omitempty"`
+	// The protocol to use if a scrape returns blank, unparseable, or otherwise invalid Content-Type.
+	//
+	// It requires Prometheus >= v3.0.0.
+	// +optional
+	FallbackScrapeProtocol *ScrapeProtocol `json:"fallbackScrapeProtocol,omitempty"`
 	// Per-scrape limit on number of labels that will be accepted for a sample.
 	// Only valid in Prometheus versions 2.27.0 and newer.
 	// +optional
@@ -106,6 +117,8 @@ type ProbeSpec struct {
 	// Only valid in Prometheus versions 2.27.0 and newer.
 	// +optional
 	LabelValueLengthLimit *uint64 `json:"labelValueLengthLimit,omitempty"`
+
+	NativeHistogramConfig `json:",inline"`
 	// Per-scrape limit on the number of targets dropped by relabeling
 	// that will be kept in memory. 0 means no limit.
 	//
