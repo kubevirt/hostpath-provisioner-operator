@@ -766,6 +766,7 @@ func verifyCreateCSIClusterRole(cl client.Client, enableSnapshot bool) {
 				"watch",
 				"create",
 				"delete",
+				"patch",
 			},
 		},
 		{
