@@ -25,7 +25,9 @@ git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 # Install dependencies for the test run
 if [[ -v PROW_JOB_ID ]] ; then
   cd /home/prow/go/src/github.com/kubevirt/hostpath-provisioner-operator
+  echo "**************** installing revive ****************"
   go get -u github.com/mgechev/revive
+  go mod tidy
   go mod vendor
 fi
 # Run test
