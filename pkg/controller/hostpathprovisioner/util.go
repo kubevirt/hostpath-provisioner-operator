@@ -168,6 +168,8 @@ func hash(s string) string {
 }
 
 // max returns the greater of its 2 inputs
+//
+//revive:disable
 func max(a, b int) int {
 	if b > a {
 		return b
@@ -182,3 +184,5 @@ func min(a, b int) int {
 	}
 	return a
 }
+
+//revive:enable
