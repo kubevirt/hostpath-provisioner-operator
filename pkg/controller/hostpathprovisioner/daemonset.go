@@ -26,6 +26,8 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	secv1 "github.com/openshift/api/security/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -502,6 +504,9 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
+					Annotations: map[string]string{
+						secv1.RequiredSCCAnnotation: "hostpath-provisioner-csi",
+					},
 				},
 				Spec: corev1.PodSpec{
 

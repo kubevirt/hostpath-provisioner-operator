@@ -21,6 +21,7 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
+	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -119,6 +120,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			err = cl.Get(context.TODO(), client.ObjectKeyFromObject(deployment), deployment)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(gomega.Equal("mounter"))
+			gomega.Expect(deployment.Spec.Template.GetAnnotations()[secv1.RequiredSCCAnnotation]).To(gomega.Equal("hostpath-provisioner-csi"))
 		})
 
 		ginkgo.It("Should create cleanup jobs, if CR is marked for deletion", func() {
