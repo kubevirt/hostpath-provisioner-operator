@@ -91,6 +91,6 @@ require (
 
 replace (
 	github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20211217221424-8779abfbd571
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20240116035456-11ed2fbcb805
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
 )
