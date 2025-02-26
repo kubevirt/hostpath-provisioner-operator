@@ -22,6 +22,7 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
+	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -197,6 +198,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			err = cl.Get(context.TODO(), dsNN, ds)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(ds.Spec.Template.Spec.Volumes[0].Name).To(gomega.Equal(socketDir))
+			gomega.Expect(ds.Spec.Template.GetAnnotations()[secv1.RequiredSCCAnnotation]).To(gomega.Equal("hostpath-provisioner-csi"))
 			foundVolumeMountName := false
 			volumeMounts := make([]string, 0)
 			for _, container := range ds.Spec.Template.Spec.Containers {

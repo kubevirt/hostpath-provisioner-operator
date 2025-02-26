@@ -25,13 +25,14 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	secv1 "github.com/openshift/api/security/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -138,7 +139,7 @@ func (r *ReconcileHostPathProvisioner) cleanDeployments(logger logr.Logger, cr *
 
 func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, deployment *appsv1.Deployment, storagePool *hostpathprovisionerv1.StoragePool) (*corev1.Node, error) {
 	node := &corev1.Node{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Values[0],
 		},
 	}
@@ -301,7 +302,7 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 	logger.V(3).Info("Found pods on the following nodes", "nodes", nodeNames)
 	for nodeName := range nodeNames {
 		node := &corev1.Node{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: nodeName,
 			},
 		}
@@ -317,7 +318,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpat
 	labels := util.GetRecommendedLabels()
 	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      getStoragePoolPVCName(storagePool.Name, node.GetName()),
 			Namespace: namespace,
 			Labels:    labels,
@@ -346,13 +347,13 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 	}
 
 	deployment := &appsv1.Deployment{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      getResourceNameWithMaxLength(hppPoolPrefix, fmt.Sprintf("%s-%s", sourceStoragePool.Name, node.GetName()), maxNameLength),
 			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Selector: &v1.LabelSelector{
+			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					hppPoolPrefix: resourceName,
 				},
@@ -372,10 +373,13 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 			ProgressDeadlineSeconds: &progressDeadline,
 			RevisionHistoryLimit:    &revisionHistoryLimit,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:      resourceName,
 					Namespace: namespace,
 					Labels:    labels,
+					Annotations: map[string]string{
+						secv1.RequiredSCCAnnotation: "hostpath-provisioner-csi",
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            ProvisionerServiceAccountNameCsi,
@@ -651,14 +655,14 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 	directory := corev1.HostPathDirectory
 	bidirectional := corev1.MountPropagationBidirectional
 	cleanupJob := &batchv1.Job{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      getResourceNameWithMaxLength("cleanup-pool", fmt.Sprintf("%s-%s", sourceStoragePool.Name, node.GetName()), maxNameLength),
 			Namespace: namespace,
 			Labels:    labels,
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{

@@ -17,6 +17,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
       creationTimestamp: null
       labels:
         name: hostpath-provisioner-operator
