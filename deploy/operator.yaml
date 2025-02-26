@@ -1995,6 +1995,8 @@ spec:
       name: hostpath-provisioner-operator
   template:
     metadata:
+      annotations:
+        openshift.io/required-scc: "restricted-v2"
       labels:
         name: hostpath-provisioner-operator
         prometheus.hostpathprovisioner.kubevirt.io: "true"
