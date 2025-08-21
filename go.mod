@@ -11,7 +11,6 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230710120526-cc1644c90b64
-	github.com/machadovilaca/operator-observability v0.0.24
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -19,6 +18,7 @@ require (
 	github.com/operator-framework/api v0.27.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.75.2
+	github.com/rhobs/operator-observability-toolkit v0.0.29
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.31.2
 	k8s.io/apiextensions-apiserver v0.31.2
