@@ -78,7 +78,7 @@ lint-metrics:
 	./hack/prom_metric_linter.sh --operator-name="kubevirt" --sub-operator-name="hpp"
 
 lint-monitoring:
-	go install github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790
+	go install github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@latest
 	monitoringlinter ./...
 
 generate-doc: build-docgen
