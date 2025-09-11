@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,20 +38,20 @@ func (r *HostPathProvisioner) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-var _ webhook.Validator = &HostPathProvisioner{}
+var _ webhook.CustomValidator = &HostPathProvisioner{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *HostPathProvisioner) ValidateCreate() (admission.Warnings, error) {
+func (r *HostPathProvisioner) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return r.validatePathConfigAndStoragePools()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *HostPathProvisioner) ValidateUpdate(_ runtime.Object) (admission.Warnings, error) {
+func (r *HostPathProvisioner) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	return r.validatePathConfigAndStoragePools()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *HostPathProvisioner) ValidateDelete() (admission.Warnings, error) {
+func (r *HostPathProvisioner) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
