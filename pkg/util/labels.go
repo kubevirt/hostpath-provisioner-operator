@@ -1,6 +1,8 @@
 package util
 
-import "os"
+import (
+	os "os"
+)
 
 const (
 	// MultiPurposeHostPathProvisionerName is the name used for the DaemonSet, ClusterRole/Binding, SCC and k8s-app label value.
