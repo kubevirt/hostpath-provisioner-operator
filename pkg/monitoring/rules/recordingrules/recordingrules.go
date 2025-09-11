@@ -17,7 +17,7 @@ limitations under the License.
 // Package recordingrules provides functions for setting up and managing Prometheus recording rules.
 package recordingrules
 
-import "github.com/machadovilaca/operator-observability/pkg/operatorrules"
+import "github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 
 // Register initializes and registers recording rules within the specified namespace.
 func Register(namespace string) error {

@@ -18,8 +18,8 @@ limitations under the License.
 package rules
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatorrules"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/rules/alerts"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/rules/recordingrules"

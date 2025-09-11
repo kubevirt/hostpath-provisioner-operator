@@ -21,7 +21,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/machadovilaca/operator-observability/pkg/docs"
+	"github.com/rhobs/operator-observability-toolkit/pkg/docs"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/metrics"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/rules"
