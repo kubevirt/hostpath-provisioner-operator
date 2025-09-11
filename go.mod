@@ -8,11 +8,11 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230710120526-cc1644c90b64
-	github.com/onsi/ginkgo/v2 v2.22.2
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/gomega v1.38.2
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/operator-framework/api v0.27.0
@@ -31,6 +31,7 @@ require (
 )
 
 require (
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -45,7 +46,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -62,19 +63,21 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
-	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.12.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/term v0.30.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
-	golang.org/x/tools v0.28.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
+	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
