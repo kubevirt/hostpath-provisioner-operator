@@ -34,39 +34,50 @@ const (
 // SetupWebhookWithManager configures the webhook for the passed in manager
 func (r *HostPathProvisioner) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(r).WithValidator(&HostPathProvisionerValidator{}).
 		Complete()
 }
 
-var _ webhook.CustomValidator = &HostPathProvisioner{}
+type HostPathProvisionerValidator struct {
+}
+
+var _ webhook.CustomValidator = &HostPathProvisionerValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *HostPathProvisioner) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	return r.validatePathConfigAndStoragePools()
+func (v *HostPathProvisionerValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	hpp, ok := obj.(*HostPathProvisioner)
+	if !ok {
+		return nil, fmt.Errorf("obj is not a HostPathProvisioner")
+	}
+	return v.validatePathConfigAndStoragePools(hpp)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *HostPathProvisioner) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
-	return r.validatePathConfigAndStoragePools()
+func (v *HostPathProvisionerValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
+	hpp, ok := newObj.(*HostPathProvisioner)
+	if !ok {
+		return nil, fmt.Errorf("newObj is not a HostPathProvisioner")
+	}
+	return v.validatePathConfigAndStoragePools(hpp)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *HostPathProvisioner) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+func (v *HostPathProvisionerValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
-func (r *HostPathProvisioner) validatePathConfigAndStoragePools() (admission.Warnings, error) {
-	if r.Spec.PathConfig != nil && len(r.Spec.StoragePools) > 0 {
+func (v *HostPathProvisionerValidator) validatePathConfigAndStoragePools(hpp *HostPathProvisioner) (admission.Warnings, error) {
+	if hpp.Spec.PathConfig != nil && len(hpp.Spec.StoragePools) > 0 {
 		return nil, fmt.Errorf("pathConfig and storage pools cannot be both set")
-	} else if r.Spec.PathConfig == nil && len(r.Spec.StoragePools) == 0 {
+	} else if hpp.Spec.PathConfig == nil && len(hpp.Spec.StoragePools) == 0 {
 		return nil, fmt.Errorf("either pathConfig or storage pools must be set")
 	}
-	if r.Spec.PathConfig != nil && len(r.Spec.PathConfig.Path) == 0 {
+	if hpp.Spec.PathConfig != nil && len(hpp.Spec.PathConfig.Path) == 0 {
 		return nil, fmt.Errorf("pathconfig path must be set")
 	}
 	usedPaths := make(map[string]int, 0)
 	usedNames := make(map[string]int, 0)
-	for i, source := range r.Spec.StoragePools {
+	for i, source := range hpp.Spec.StoragePools {
 		if err := validateStoragePool(source); err != nil {
 			return nil, err
 		}

@@ -189,43 +189,52 @@ var _ = ginkgo.Describe("validating webhook", func() {
 	ginkgo.Context("admission", func() {
 		ginkgo.It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			_, err := hppCr.ValidateCreate(context.Background(), &hppCr)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &hppCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
 		})
 		ginkgo.It("Both legacy or volume sources cannot to be set.", func() {
-			_, err := bothLegacyAndVolumeCR.ValidateCreate(context.Background(), &bothLegacyAndVolumeCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &bothLegacyAndVolumeCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
 		ginkgo.It("Cannot have blank kind in volume source", func() {
-			_, err := blankNameCr1.ValidateCreate(context.Background(), &blankNameCr1)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &blankNameCr1)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
-			_, err = blankNameCr2.ValidateCreate(context.Background(), &blankNameCr2)
+			_, err = hppCrValidator.ValidateCreate(context.Background(), &blankNameCr2)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
 		})
 		ginkgo.It("Cannot have blank path in volume source", func() {
-			_, err := blankPathCr1.ValidateCreate(context.Background(), &blankPathCr1)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &blankPathCr1)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
-			_, err = blankPathCr2.ValidateCreate(context.Background(), &blankPathCr2)
+			_, err = hppCrValidator.ValidateCreate(context.Background(), &blankPathCr2)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
 		ginkgo.It("If pathConfig exists, path must be set", func() {
-			_, err := invalidPathConfigCR.ValidateCreate(context.Background(), &invalidPathConfigCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &invalidPathConfigCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("pathconfig path must be set")))
 		})
 		ginkgo.It("Should not allow duplicate paths", func() {
-			_, err := multiSourceVolumeDuplicatePathCR.ValidateCreate(context.Background(), &multiSourceVolumeDuplicatePathCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &multiSourceVolumeDuplicatePathCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
 		})
 		ginkgo.It("Should not allow duplicate names", func() {
-			_, err := multiSourceVolumeDuplicateNameCR.ValidateCreate(context.Background(), &multiSourceVolumeDuplicateNameCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &multiSourceVolumeDuplicateNameCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
 		ginkgo.It("Should not allow storagepool.name length > 50", func() {
-			_, err := longNameCr.ValidateCreate(context.Background(), &longNameCr)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &longNameCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
 		})
 		ginkgo.It("Should not allow storagepool.path length > 255", func() {
-			_, err := longPathCr.ValidateCreate(context.Background(), &longPathCr)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateCreate(context.Background(), &longPathCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
 		})
 	})
@@ -233,39 +242,47 @@ var _ = ginkgo.Describe("validating webhook", func() {
 	ginkgo.Context("update", func() {
 		ginkgo.It("Either legacy or volume sources have to be set.", func() {
 			hppCr := HostPathProvisioner{}
-			_, err := hppCr.ValidateUpdate(context.Background(), &hppCr, &hppCr)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &hppCr, &hppCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("either pathConfig or storage pools must be set")))
 		})
 		ginkgo.It("Both legacy or volume sources cannot to be set.", func() {
-			_, err := bothLegacyAndVolumeCR.ValidateUpdate(context.Background(), &bothLegacyAndVolumeCR, &bothLegacyAndVolumeCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &bothLegacyAndVolumeCR, &bothLegacyAndVolumeCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("pathConfig and storage pools cannot be both set")))
 		})
 		ginkgo.It("Cannot have blank kind in volume source", func() {
-			_, err := blankNameCr1.ValidateUpdate(context.Background(), &blankNameCr1, &blankNameCr1)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &blankNameCr1, &blankNameCr1)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
-			_, err = blankNameCr2.ValidateUpdate(context.Background(), &blankNameCr2, &blankNameCr2)
+			_, err = hppCrValidator.ValidateUpdate(context.Background(), &blankNameCr2, &blankNameCr2)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot be blank")))
 		})
 		ginkgo.It("Cannot have blank path in volume source", func() {
-			_, err := blankPathCr1.ValidateUpdate(context.Background(), &blankPathCr1, &blankPathCr1)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &blankPathCr1, &blankPathCr1)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
-			_, err = blankPathCr2.ValidateUpdate(context.Background(), &blankPathCr2, &blankPathCr2)
+			_, err = hppCrValidator.ValidateUpdate(context.Background(), &blankPathCr2, &blankPathCr2)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot be blank")))
 		})
 		ginkgo.It("Should not allow duplicate paths", func() {
-			_, err := multiSourceVolumeDuplicatePathCR.ValidateUpdate(context.Background(), &multiSourceVolumeDuplicatePathCR, &multiSourceVolumeDuplicatePathCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &multiSourceVolumeDuplicatePathCR, &multiSourceVolumeDuplicatePathCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].path is the same as spec.storagePools[0].path, cannot have duplicate paths")))
 		})
 		ginkgo.It("Should not allow duplicate names", func() {
-			_, err := multiSourceVolumeDuplicateNameCR.ValidateUpdate(context.Background(), &multiSourceVolumeDuplicateNameCR, &multiSourceVolumeDuplicateNameCR)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &multiSourceVolumeDuplicateNameCR, &multiSourceVolumeDuplicateNameCR)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("spec.storagePools[2].name is the same as spec.storagePools[0].name, cannot have duplicate names")))
 		})
 		ginkgo.It("Should not allow storagepool.name length > 50", func() {
-			_, err := longNameCr.ValidateUpdate(context.Background(), &longNameCr, &longNameCr)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &longNameCr, &longNameCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.name cannot have a length greater than 50")))
 		})
 		ginkgo.It("Should not allow storagepool.path length > 255", func() {
-			_, err := longPathCr.ValidateUpdate(context.Background(), &longPathCr, &longPathCr)
+			hppCrValidator := HostPathProvisionerValidator{}
+			_, err := hppCrValidator.ValidateUpdate(context.Background(), &longPathCr, &longPathCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
 		})
 	})
