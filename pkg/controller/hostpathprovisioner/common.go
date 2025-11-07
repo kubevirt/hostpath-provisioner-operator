@@ -28,7 +28,7 @@ const (
 	// LivenessProbeImageDefault is the default value of the liveness probe side car container image name.
 	LivenessProbeImageDefault = "registry.k8s.io/sig-storage/livenessprobe:v2.3.0"
 	// SnapshotterImageDefault is the default value of the csi snapshotter side car container image name.
-	SnapshotterImageDefault = "registry.k8s.io/sig-storage/csi-snapshotter:v4.2.1"
+	SnapshotterImageDefault = "registry.k8s.io/sig-storage/csi-snapshotter:v8.2.0"
 	// CsiSigStorageProvisionerImageDefault is the default value of the sig storage csi provisioner side car container image name.
 	CsiSigStorageProvisionerImageDefault = "registry.k8s.io/sig-storage/csi-provisioner:v3.4.1"
 

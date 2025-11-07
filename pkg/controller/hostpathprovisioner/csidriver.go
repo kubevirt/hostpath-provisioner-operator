@@ -111,7 +111,6 @@ func copyImmutableFields(desired, current *storagev1.CSIDriver) *storagev1.CSIDr
 	desired.Spec.PodInfoOnMount = current.Spec.PodInfoOnMount
 	desired.Spec.VolumeLifecycleModes = current.Spec.VolumeLifecycleModes
 	desired.Spec.StorageCapacity = current.Spec.StorageCapacity
-	desired.Spec.FSGroupPolicy = current.Spec.FSGroupPolicy
 
 	return desired
 }
@@ -122,7 +121,7 @@ func createCSIDriverObject() *storagev1.CSIDriver {
 	attachRequired := false
 	storageCapacity := true
 	requiresRepublish := false
-	fsGroupPolicy := storagev1.ReadWriteOnceWithFSTypeFSGroupPolicy
+	fsGroupPolicy := storagev1.FileFSGroupPolicy
 
 	return &storagev1.CSIDriver{
 		TypeMeta: metav1.TypeMeta{

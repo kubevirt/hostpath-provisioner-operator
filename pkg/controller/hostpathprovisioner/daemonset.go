@@ -404,8 +404,10 @@ func getStoragePoolPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []Storag
 	} else if len(cr.Spec.StoragePools) > 0 {
 		for _, storagePool := range cr.Spec.StoragePools {
 			storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
-				Name: storagePool.Name,
-				Path: storagePool.Path,
+				Name:             storagePool.Name,
+				Path:             storagePool.Path,
+				SnapshotPath:     storagePool.SnapshotPath,
+				SnapshotProvider: storagePool.SnapshotProvider,
 			})
 		}
 	}
@@ -427,6 +429,10 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 		// We want to add /csi to the path so if we are running side by side with legacy provisioner
 		// the two paths don't mix.
 		storagePools[i].Path = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi")
+		if storagePool.SnapshotPath != "" {
+			storagePools[i].SnapshotPath = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "snapshots")
+		}
+		storagePools[i].SnapshotProvider = storagePool.SnapshotProvider
 	}
 	bytes, err := json.Marshal(storagePools)
 	if err != nil {

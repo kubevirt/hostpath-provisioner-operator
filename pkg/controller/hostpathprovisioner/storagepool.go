@@ -55,8 +55,10 @@ const (
 
 // StoragePoolInfo contains the name and path of a hostpath storage pool.
 type StoragePoolInfo struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name             string `json:"name"`
+	Path             string `json:"path"`
+	SnapshotPath     string `json:"snapshotPath"`
+	SnapshotProvider string `json:"snapshotProvider"`
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
