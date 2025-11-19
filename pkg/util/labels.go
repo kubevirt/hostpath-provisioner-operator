@@ -19,6 +19,10 @@ const (
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
+	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
+	// access to cluster services otherwise blocked by the strict network policy (NP).
+	// Copied from: https://github.com/kubevirt/kubevirt/blob/e5da5c9405d7f263ad70489a52747cc21a472489/staging/src/kubevirt.io/api/core/v1/types.go#L1369
+	AllowAccessClusterServicesNPLabel = "np.kubevirt.io/allow-access-cluster-services"
 )
 
 // GetRecommendedLabels define the labels for prometheus resources

@@ -53,7 +53,8 @@ var (
 	csiExternalProvisionerImage = flag.String("csi-external-provisioner-image-name", hostpathprovisioner.CsiSigStorageProvisionerImageDefault, "optional")
 	csiSnapshotterImage         = flag.String("csi-snapshotter-image-name", hostpathprovisioner.SnapshotterImageDefault, "optional")
 
-	dumpCRDs = flag.Bool("dump-crds", false, "optional - dumps operator related crd manifests to stdout")
+	dumpCRDs            = flag.Bool("dump-crds", false, "optional - dumps operator related crd manifests to stdout")
+	dumpNetworkPolicies = flag.Bool("dump-network-policies", false, "optional - dumps hpp related network policies")
 )
 
 func main() {
@@ -82,10 +83,23 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	util.MarshallObject(csv, os.Stdout)
+	if err = util.MarshallObject(csv, os.Stdout); err != nil {
+		panic(err)
+	}
 
 	if *dumpCRDs {
-		util.MarshallObject(helper.CreateCRDDef(), os.Stdout)
+		if err := util.MarshallObject(helper.CreateCRDDef(), os.Stdout); err != nil {
+			panic(err)
+		}
+
+	}
+
+	if *dumpNetworkPolicies {
+		for _, np := range helper.CreateNetworkPolicies(data.OperatorArgs.Namespace) {
+			if err := util.MarshallObject(np, os.Stdout); err != nil {
+				panic(err)
+			}
+		}
 	}
 }
 

@@ -263,6 +263,8 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 	usePrefix := getUsePrefix(cr)
 	path := getPath(cr)
 	labels := util.GetRecommendedLabels()
+	// Add NetworkPolicy label
+	labels[util.AllowAccessClusterServicesNPLabel] = "true"
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
