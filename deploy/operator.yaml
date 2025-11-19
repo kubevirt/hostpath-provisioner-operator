@@ -2000,6 +2000,7 @@ spec:
       labels:
         name: hostpath-provisioner-operator
         prometheus.hostpathprovisioner.kubevirt.io: "true"
+        np.kubevirt.io/allow-access-cluster-services: "true"
     spec:
       serviceAccountName: hostpath-provisioner-operator
       containers:
