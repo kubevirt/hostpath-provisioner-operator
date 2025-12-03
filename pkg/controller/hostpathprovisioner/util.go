@@ -84,8 +84,6 @@ func mergeObject(desiredObj, currentObj client.Object) (client.Object, error) {
 	}
 
 	preconditions := []mergepatch.PreconditionFunc{
-		mergepatch.RequireKeyUnchanged("apiVersion"),
-		mergepatch.RequireKeyUnchanged("kind"),
 		mergepatch.RequireMetadataKeyUnchanged("name"),
 	}
 
