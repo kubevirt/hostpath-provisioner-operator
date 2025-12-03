@@ -1013,6 +1013,10 @@ func verifyCreateSCC(cl client.Client) {
 		Name: fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
 	}
 	err := cl.Get(context.TODO(), nn, scc)
+	scc.TypeMeta = metav1.TypeMeta{
+		APIVersion: "security.openshift.io/v1",
+		Kind:       "SecurityContextConstraints",
+	}
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	expected := &secv1.SecurityContextConstraints{
 		Groups: []string{},
