@@ -20,10 +20,10 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.85.0
 	github.com/rhobs/operator-observability-toolkit v0.0.29
 	go.uber.org/zap v1.27.0
-	k8s.io/api v0.34.1
+	k8s.io/api v0.34.2
 	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/apimachinery v0.34.2
-	k8s.io/client-go v0.34.1
+	k8s.io/client-go v0.34.2
 	k8s.io/code-generator v0.34.2
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
