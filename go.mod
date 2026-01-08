@@ -18,7 +18,8 @@ require (
 	github.com/operator-framework/api v0.36.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.85.0
-	github.com/rhobs/operator-observability-toolkit v0.0.29
+	github.com/prometheus/client_model v0.6.2
+	github.com/rhobs/operator-observability-toolkit v0.0.30
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
@@ -58,7 +59,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
