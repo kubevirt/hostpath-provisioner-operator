@@ -1,10 +1,9 @@
 # Hostpath Provisioner Operator Metrics
 
-### kubevirt_hpp_cr_ready
-HPP CR Ready. Type: Gauge.
-
-### kubevirt_hpp_operator_up
-The number of running hostpath-provisioner-operator pods. Type: Gauge.
+| Name | Kind | Type | Description |
+|------|------|------|-------------|
+| kubevirt_hpp_cr_ready | Metric | Gauge | HPP CR Ready |
+| kubevirt_hpp_operator_up | Recording rule | Gauge | The number of running hostpath-provisioner-operator pods |
 
 ## Developing new metrics
 
