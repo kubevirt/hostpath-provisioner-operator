@@ -59,6 +59,7 @@ type StoragePoolInfo struct {
 	Path             string `json:"path"`
 	SnapshotPath     string `json:"snapshotPath"`
 	SnapshotProvider string `json:"snapshotProvider"`
+	Shared           bool   `json:"shared"`
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -72,16 +73,30 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 		return reconcile.Result{}, err
 	}
 	for _, storagePool := range cr.Spec.StoragePools {
-		logger.V(3).Info("Checking storage pool", "pool.Name", storagePool.Name)
+		logger.Info("Checking storage pool", "pool.Name", storagePool.Name)
 		if storagePool.PVCTemplate != nil {
-			for _, node := range usedNodes {
-				if err := r.reconcileStoragePoolPVCByNode(logger, cr, namespace, &storagePool, &node); err != nil {
+			if isShared(storagePool.PVCTemplate) {
+				// create just one shared storage pool PVC
+				if err := r.reconcileSharedStoragePoolPVC(logger, cr, namespace, &storagePool); err != nil {
 					return reconcile.Result{}, err
 				}
-				if err := r.reconcileStoragePoolDeploymentByNode(logger, cr, namespace, &storagePool, &node, currentStoragePoolDeployments); err != nil {
-					return reconcile.Result{}, err
+				// then mount shared PVC on each node
+				for _, node := range usedNodes {
+					if err := r.reconcileStoragePoolDeploymentByNode(logger, cr, namespace, &storagePool, &node, currentStoragePoolDeployments); err != nil {
+						return reconcile.Result{}, err
+					}
+				}
+			} else {
+				for _, node := range usedNodes {
+					if err := r.reconcileStoragePoolPVCByNode(logger, cr, namespace, &storagePool, &node); err != nil {
+						return reconcile.Result{}, err
+					}
+					if err := r.reconcileStoragePoolDeploymentByNode(logger, cr, namespace, &storagePool, &node, currentStoragePoolDeployments); err != nil {
+						return reconcile.Result{}, err
+					}
 				}
 			}
+
 		}
 	}
 	// Clean up any deployments that are no longer used.
@@ -165,6 +180,26 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolPVCByNode(logger logr
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
 	if err != nil && errors.IsNotFound(err) {
 		logger.Info("Creating a new storage pool pvc on node", "storagepool.Name", storagePool.Name, "node.Name", node.GetName())
+		err = r.client.Create(context.TODO(), desired)
+		if err != nil {
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.GetName(), err))
+			return err
+		}
+		// PVC created successfully - don't requeue
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.GetName()))
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ReconcileHostPathProvisioner) reconcileSharedStoragePoolPVC(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool) error {
+	desired := r.sharedStoragePoolPVC(storagePool, namespace)
+	// Check if this PersistentVolumeClaim already exists
+	found := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Creating a new shared storage pool pvc", "storagepool.Name", storagePool.Name)
 		err = r.client.Create(context.TODO(), desired)
 		if err != nil {
 			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.GetName(), err))
@@ -316,6 +351,19 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 	return res, nil
 }
 
+func (r *ReconcileHostPathProvisioner) sharedStoragePoolPVC(storagePool *hostpathprovisionerv1.StoragePool, namespace string) *corev1.PersistentVolumeClaim {
+	labels := util.GetRecommendedLabels()
+	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getSharedStoragePoolPVCName(storagePool.Name),
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: *storagePool.PVCTemplate,
+	}
+}
+
 func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := util.GetRecommendedLabels()
 	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
@@ -342,6 +390,12 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 	defaultGracePeriod := int64(30)
 	progressDeadline := int32(600)
 	revisionHistoryLimit := int32(10)
+	pvcName := ""
+	if isShared(sourceStoragePool.PVCTemplate) {
+		pvcName = getSharedStoragePoolPVCName(sourceStoragePool.Name)
+	} else {
+		pvcName = getStoragePoolPVCName(sourceStoragePool.Name, node.GetName())
+	}
 
 	dataMountPath := blockDataMountPath
 	if sourceStoragePool.PVCTemplate.VolumeMode == nil || *sourceStoragePool.PVCTemplate.VolumeMode == corev1.PersistentVolumeFilesystem {
@@ -449,7 +503,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 							Name: dataName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: getStoragePoolPVCName(sourceStoragePool.Name, node.GetName()),
+									ClaimName: pvcName,
 								},
 							},
 						},
@@ -484,6 +538,10 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 
 func getStoragePoolPVCName(poolName, nodeName string) string {
 	return getResourceNameWithMaxLength(hppPoolPrefix, fmt.Sprintf("%s-%s", poolName, nodeName), maxNameLength)
+}
+
+func getSharedStoragePoolPVCName(poolName string) string {
+	return getResourceNameWithMaxLength(hppPoolPrefix, fmt.Sprintf("%s-shared", poolName), maxNameLength)
 }
 
 func (r *ReconcileHostPathProvisioner) storagePoolDeploymentsByStoragePool(cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool) ([]appsv1.Deployment, error) {

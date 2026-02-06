@@ -408,6 +408,7 @@ func getStoragePoolPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []Storag
 				Path:             storagePool.Path,
 				SnapshotPath:     storagePool.SnapshotPath,
 				SnapshotProvider: storagePool.SnapshotProvider,
+				Shared:           isShared(storagePool.PVCTemplate),
 			})
 		}
 	}
@@ -433,6 +434,7 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 			storagePools[i].SnapshotPath = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "snapshots")
 		}
 		storagePools[i].SnapshotProvider = storagePool.SnapshotProvider
+		storagePools[i].Shared = storagePool.Shared
 	}
 	bytes, err := json.Marshal(storagePools)
 	if err != nil {
