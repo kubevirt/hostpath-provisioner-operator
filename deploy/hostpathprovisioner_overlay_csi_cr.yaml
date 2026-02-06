@@ -11,6 +11,13 @@ spec:
       path: "/nfs-vol"
       snapshotPath: "/nfs-vol/snapshots"
       snapshotProvider: "reflink"
+      pvcTemplate:
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "nfs-csi"
+        resources:
+          requests:
+            storage: 10Gi
   workload:
     nodeSelector:
       kubernetes.io/os: linux
