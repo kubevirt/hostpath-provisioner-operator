@@ -1,0 +1,9 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: csi-hostpath-snapclass
+parameters:
+    # this must match what is defined in HPP CR
+    storagePool: nfs-backend
+deletionPolicy: Delete
+driver: kubevirt.io.hostpath-provisioner

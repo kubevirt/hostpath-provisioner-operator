@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
+	storagev1 "k8s.io/api/storage/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -51,6 +52,7 @@ const (
 	defaultStorageClassName = "default"
 	hppPoolPrefix           = "hpp-pool"
 	maxNameLength           = 63
+	defaultOverlaySCName    = "hpp-overlay"
 )
 
 // StoragePoolInfo contains the name and path of a hostpath storage pool.
@@ -76,13 +78,20 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger,
 		logger.Info("Checking storage pool", "pool.Name", storagePool.Name)
 		if storagePool.PVCTemplate != nil {
 			if isShared(storagePool.PVCTemplate) {
-				// create just one shared storage pool PVC
-				if err := r.reconcileSharedStoragePoolPVC(logger, cr, namespace, &storagePool); err != nil {
-					return reconcile.Result{}, err
-				}
-				// then mount shared PVC on each node
-				for _, node := range usedNodes {
-					if err := r.reconcileStoragePoolDeploymentByNode(logger, cr, namespace, &storagePool, &node, currentStoragePoolDeployments); err != nil {
+				// only want to create resources if node(s) exist
+				if len(usedNodes) > 0 {
+					// create just one shared storage pool PVC
+					if err := r.reconcileSharedStoragePoolPVC(logger, cr, namespace, &storagePool); err != nil {
+						return reconcile.Result{}, err
+					}
+					// then mount shared PVC on each node
+					for _, node := range usedNodes {
+						if err := r.reconcileStoragePoolDeploymentByNode(logger, cr, namespace, &storagePool, &node, currentStoragePoolDeployments); err != nil {
+							return reconcile.Result{}, err
+						}
+					}
+					// create backend storage class that uses this storage pool
+					if err := r.reconcileBackendStorageClass(logger, cr, namespace, &storagePool); err != nil {
 						return reconcile.Result{}, err
 					}
 				}
@@ -173,8 +182,28 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForDeployment(logger logr
 	return node, nil
 }
 
+func (r *ReconcileHostPathProvisioner) reconcileBackendStorageClass(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool) error {
+	desired := r.backendStorageClass(storagePool, namespace)
+	found := &storagev1.StorageClass{}
+	err := r.client.Get(context.TODO(), client.ObjectKey{Name: desired.GetName()}, found)
+
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Creating a new backend storage class", "storagepool.Name", storagePool.Name)
+		err = r.client.Create(context.TODO(), desired)
+		if err != nil {
+			r.recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf(createMessageFailed, desired.GetName(), err))
+			return err
+		}
+		// Storage Class created successfully - don't requeue
+		r.recorder.Event(cr, corev1.EventTypeNormal, createResourceSuccess, fmt.Sprintf(createMessageSucceeded, desired, desired.GetName()))
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *ReconcileHostPathProvisioner) reconcileStoragePoolPVCByNode(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool, node *corev1.Node) error {
-	desired := r.storagePoolPVCByNode(storagePool, namespace, node)
+	desired := r.storagePoolPVC(storagePool, namespace, node)
 	// Check if this PersistentVolumeClaim already exists
 	found := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
@@ -194,7 +223,7 @@ func (r *ReconcileHostPathProvisioner) reconcileStoragePoolPVCByNode(logger logr
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileSharedStoragePoolPVC(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string, storagePool *hostpathprovisionerv1.StoragePool) error {
-	desired := r.sharedStoragePoolPVC(storagePool, namespace)
+	desired := r.storagePoolPVC(storagePool, namespace, nil)
 	// Check if this PersistentVolumeClaim already exists
 	found := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(desired), found)
@@ -351,25 +380,44 @@ func (r *ReconcileHostPathProvisioner) getNodesByDaemonSet(logger logr.Logger, n
 	return res, nil
 }
 
-func (r *ReconcileHostPathProvisioner) sharedStoragePoolPVC(storagePool *hostpathprovisionerv1.StoragePool, namespace string) *corev1.PersistentVolumeClaim {
-	labels := util.GetRecommendedLabels()
-	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
-	return &corev1.PersistentVolumeClaim{
+func Ptr[T any](v T) *T {
+	return &v
+}
+
+func (r *ReconcileHostPathProvisioner) backendStorageClass(storagePool *hostpathprovisionerv1.StoragePool, namespace string) *storagev1.StorageClass {
+	params := make(map[string]string)
+	params["storagePool"] = storagePool.Name
+	params["overlayCSI"] = "true"
+	return &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getSharedStoragePoolPVCName(storagePool.Name),
-			Namespace: namespace,
-			Labels:    labels,
+			// should this be configurable somehow?
+			// has to match up with the vmStateStorageClass in the kubevirt config
+			Name: defaultOverlaySCName,
 		},
-		Spec: *storagePool.PVCTemplate,
+		Provisioner:       "kubevirt.io.hostpath-provisioner",
+		ReclaimPolicy:     Ptr(corev1.PersistentVolumeReclaimDelete),
+		VolumeBindingMode: Ptr(storagev1.VolumeBindingWaitForFirstConsumer),
+		Parameters:        params,
 	}
 }
 
-func (r *ReconcileHostPathProvisioner) storagePoolPVCByNode(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
+func (r *ReconcileHostPathProvisioner) storagePoolPVC(storagePool *hostpathprovisionerv1.StoragePool, namespace string, node *corev1.Node) *corev1.PersistentVolumeClaim {
 	labels := util.GetRecommendedLabels()
 	labels[storagePoolLabelKey] = getResourceNameWithMaxLength(storagePool.Name, "hpp", maxNameLength)
+	if node != nil {
+		return &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      getStoragePoolPVCName(storagePool.Name, node.GetName()),
+				Namespace: namespace,
+				Labels:    labels,
+			},
+			Spec: *storagePool.PVCTemplate,
+		}
+	}
+	// if no node is specified, PVC is RWX and does not need node appended to name
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      getStoragePoolPVCName(storagePool.Name, node.GetName()),
+			Name:      getSharedStoragePoolPVCName(storagePool.Name),
 			Namespace: namespace,
 			Labels:    labels,
 		},
