@@ -18,6 +18,7 @@ package recordingrules
 
 import (
 	"fmt"
+
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -28,7 +29,15 @@ func operatorRecordingRules(namespace string) []operatorrules.RecordingRule {
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
 				Name: "kubevirt_hpp_operator_up",
-				Help: "The number of running hostpath-provisioner-operator pods",
+				Help: "[Deprecated] The number of running hostpath-provisioner-operator pods",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr:       intstr.FromString(fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace)),
+		},
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "cluster:kubevirt_hpp_operator_up:sum",
+				Help: "The number of hostpath-provisioner-operator pods that are up",
 			},
 			MetricType: operatormetrics.GaugeType,
 			Expr:       intstr.FromString(fmt.Sprintf("sum(up{namespace='%s', pod=~'hostpath-provisioner-operator-.*'} or vector(0))", namespace)),
