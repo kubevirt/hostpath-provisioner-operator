@@ -533,6 +533,40 @@ func createStoragePoolWithTemplateVolumeModeCr(name string, volumeMode *corev1.P
 	}
 }
 
+func createStoragePoolWithRWXTemplate() *hppv1.HostPathProvisioner {
+	scName := "test"
+	volumeMode := corev1.PersistentVolumeFilesystem
+	return &hppv1.HostPathProvisioner{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-name",
+			Namespace: testNamespace,
+		},
+		Spec: hppv1.HostPathProvisionerSpec{
+			ImagePullPolicy: corev1.PullAlways,
+			StoragePools: []hppv1.StoragePool{
+				{
+					Name:             "testOverlayCSI",
+					Path:             "/tmp/test",
+					SnapshotPath:     "tmp/test/snapshots",
+					SnapshotProvider: "reflink",
+					PVCTemplate: &corev1.PersistentVolumeClaimSpec{
+						StorageClassName: &scName,
+						VolumeMode:       &volumeMode,
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteMany,
+						},
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("1Gi"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func createStoragePoolWithTemplateVolumeModeAndBasicCr(name string, volumeMode *corev1.PersistentVolumeMode) *hppv1.HostPathProvisioner {
 	cr := createStoragePoolWithTemplateVolumeModeCr(name, volumeMode)
 	pvcTemplate := cr.Spec.StoragePools[0]
@@ -760,6 +794,7 @@ func verifyCreateCSIClusterRole(cl client.Client, enableSnapshot bool) {
 				"get",
 				"list",
 				"watch",
+				"create",
 			},
 		},
 		{

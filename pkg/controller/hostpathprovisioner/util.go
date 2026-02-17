@@ -27,6 +27,7 @@ import (
 	jsondiff "github.com/appscode/jsonpatch"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
@@ -179,4 +180,16 @@ func getNamespace(path string) string {
 		}
 	}
 	return "hostpath-provisioner"
+}
+
+// isShared returns true if the PVCTemplate is using RWX storage
+func isShared(pvcTemplate *corev1.PersistentVolumeClaimSpec) bool {
+	if pvcTemplate != nil && pvcTemplate.AccessModes != nil {
+		for _, mode := range pvcTemplate.AccessModes {
+			if mode == corev1.ReadWriteMany {
+				return true
+			}
+		}
+	}
+	return false
 }

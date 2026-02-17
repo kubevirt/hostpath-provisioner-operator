@@ -63,7 +63,9 @@ type StoragePool struct {
 	// PVCTemplate is the template of the PVC to create as the source volume
 	PVCTemplate *corev1.PersistentVolumeClaimSpec `json:"pvcTemplate,omitempty" optional:"true"`
 	// path the path to use on the host, this is a required field
-	Path string `json:"path" valid:"required"`
+	Path             string `json:"path" valid:"required"`
+	SnapshotPath     string `json:"snapshotPath,omitempty" optional:"true"`
+	SnapshotProvider string `json:"snapshotProvider,omitempty" optional:"true"`
 }
 
 // StoragePoolStatus is the status of the named storage pool
