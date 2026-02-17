@@ -26,7 +26,7 @@ var (
 	operatorAlerts = []promv1.Rule{
 		{
 			Alert: "HPPOperatorDown",
-			Expr:  intstr.FromString("kubevirt_hpp_operator_up == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_hpp_operator_up:sum == 0"),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary": "Hostpath Provisioner operator is down.",
