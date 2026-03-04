@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
@@ -75,6 +76,14 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			ginkgo.Entry("filesystem long name", createStoragePoolWithTemplateLongNameCr()),
 			ginkgo.Entry("block", createStoragePoolWithTemplateBlockCr()),
 		)
+
+		ginkgo.It("Should create a RWX storage pool and storage class for overlay CSI", func() {
+			cr := createStoragePoolWithRWXTemplate()
+			cr, r, cl := createDeployedCr(cr)
+			scaleClusterNodesAndDsUp(1, 5, cr, r, cl)
+			verifyOverlayDeploymentAndPVC(5, cr, cl)
+			verifyOverlayStorageClass(cr, cl)
+		})
 
 		ginkgo.It("Should scale the deployments and pvcs, if daemonset scales", func() {
 			cr, r, cl := createDeployedCr(createStoragePoolWithTemplateCr())
@@ -340,6 +349,65 @@ func verifyDeploymentsAndPVCs(podCount, pvcCount int, cr *hppv1.HostPathProvisio
 	}
 	gomega.Expect(foundPVCs).ToNot(gomega.BeEmpty(), fmt.Sprintf("%v", foundPVCs))
 	gomega.Expect(len(foundPVCs)).To(gomega.Equal(pvcCount))
+}
+
+func verifyOverlayDeploymentAndPVC(podCount int, cr *hppv1.HostPathProvisioner, cl client.Client) {
+	deploymentList := &appsv1.DeploymentList{}
+	err := cl.List(context.TODO(), deploymentList, &client.ListOptions{
+		Namespace: testNamespace,
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	storagePoolName := ""
+	for _, storagePool := range cr.Spec.StoragePools {
+		storagePoolName = storagePool.Name
+	}
+	gomega.Expect(storagePoolName).ToNot(gomega.BeEmpty())
+	foundDeployments := make([]string, 0)
+	for _, deployment := range deploymentList.Items {
+		if metav1.IsControlledBy(&deployment, cr) && deployment.GetLabels()[storagePoolLabelKey] == getResourceNameWithMaxLength(storagePoolName, "hpp", maxNameLength) {
+			foundDeployments = append(foundDeployments, deployment.Name)
+		}
+		gomega.Expect(deployment.Spec.Template.Spec.ServiceAccountName).To(gomega.Equal(ProvisionerServiceAccountNameCsi))
+	}
+	gomega.Expect(foundDeployments).ToNot(gomega.BeEmpty(), fmt.Sprintf("%v", foundDeployments))
+	gomega.Expect(len(foundDeployments)).To(gomega.Equal(podCount), fmt.Sprintf("%v", foundDeployments))
+
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	err = cl.List(context.TODO(), pvcList, &client.ListOptions{
+		Namespace: testNamespace,
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	pvcName := getSharedStoragePoolPVCName(storagePoolName)
+
+	// for a RWX storage pool, we should only have one singluar PVC
+	gomega.Expect(len(pvcList.Items)).To(gomega.Equal(1))
+	pvc := pvcList.Items[0]
+
+	gomega.Expect(pvcName).To(gomega.Equal(pvc.Name))
+	gomega.Expect(pvc.GetLabels()[storagePoolLabelKey]).To(gomega.Equal(getResourceNameWithMaxLength(storagePoolName, "hpp", maxNameLength)))
+	gomega.Expect(pvc.Spec).To(gomega.BeEquivalentTo(*cr.Spec.StoragePools[0].PVCTemplate))
+}
+
+func verifyOverlayStorageClass(cr *hppv1.HostPathProvisioner, cl client.Client) {
+	scList := &storagev1.StorageClassList{}
+	err := cl.List(context.TODO(), scList)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(len(scList.Items)).ToNot(gomega.Equal(0))
+
+	gomega.Expect(len(cr.Spec.StoragePools)).ToNot(gomega.Equal(0))
+	storagePoolName := cr.Spec.StoragePools[0].Name
+	foundSc := &storagev1.StorageClass{}
+	for _, sc := range scList.Items {
+		if sc.Name == defaultOverlaySCName {
+			foundSc = &sc
+		}
+	}
+
+	val, _ := foundSc.Parameters["storagePool"]
+	gomega.Expect(val).To(gomega.Equal(storagePoolName))
+
+	_, exists := foundSc.Parameters["overlayCSI"]
+	gomega.Expect(exists).To(gomega.BeTrue())
 }
 
 func addNodesToCluster(start, end int, cl client.Client) {
