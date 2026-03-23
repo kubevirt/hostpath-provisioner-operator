@@ -1,0 +1,23 @@
+apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
+kind: HostPathProvisioner
+metadata:
+  name: hostpath-provisioner
+spec:
+  featureGates: 
+    - "Snapshotting"
+  imagePullPolicy: Always
+  storagePools:
+    - name: "nfs-backend"
+      path: "/nfs-vol"
+      snapshotPath: "/nfs-vol/snapshots"
+      snapshotProvider: "reflink"
+      pvcTemplate:
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "nfs-csi"
+        resources:
+          requests:
+            storage: 10Gi
+  workload:
+    nodeSelector:
+      kubernetes.io/os: linux
