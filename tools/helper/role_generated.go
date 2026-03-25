@@ -5,7 +5,6 @@ var HppOperatorRole string =
 `apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: null
   name: hostpath-provisioner-operator
 rules:
 - apiGroups:
