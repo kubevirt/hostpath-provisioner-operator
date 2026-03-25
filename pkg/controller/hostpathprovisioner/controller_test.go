@@ -547,8 +547,8 @@ func createStoragePoolWithRWXTemplate() *hppv1.HostPathProvisioner {
 				{
 					Name:             "testOverlayCSI",
 					Path:             "/tmp/test",
-					SnapshotPath:     "tmp/test/snapshots",
-					SnapshotProvider: "reflink",
+					SnapshotPath:     ptr.To("tmp/test/snapshots"),
+					SnapshotProvider: ptr.To("reflink"),
 					PVCTemplate: &corev1.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,
 						VolumeMode:       &volumeMode,

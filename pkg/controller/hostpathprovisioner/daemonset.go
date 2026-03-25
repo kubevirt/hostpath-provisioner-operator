@@ -432,8 +432,9 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 		// We want to add /csi to the path so if we are running side by side with legacy provisioner
 		// the two paths don't mix.
 		storagePools[i].Path = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi")
-		if storagePool.SnapshotPath != "" {
-			storagePools[i].SnapshotPath = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "snapshots")
+		if storagePool.SnapshotPath != nil {
+			path := filepath.Join(getMountNameFromStoragePool(storagePool.Name), "snapshots")
+			storagePools[i].SnapshotPath = &path
 		}
 		storagePools[i].SnapshotProvider = storagePool.SnapshotProvider
 		storagePools[i].Shared = storagePool.Shared
