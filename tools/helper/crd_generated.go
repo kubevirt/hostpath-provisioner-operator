@@ -6,8 +6,7 @@ var hppCRD string =
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
 spec:
   group: hostpathprovisioner.kubevirt.io
@@ -77,8 +76,12 @@ spec:
                       description: Name specifies an identifier that is used in the
                         storage class arguments to identify the source to use.
                       type: string
+                    overlayClassName:
+                      description: OverlayClassName is used to set the name of the
+                        overlay storage class
+                      type: string
                     path:
-                      description: path the path to use on the host, this is a required
+                      description: the path to use on the host, this is a required
                         field
                       type: string
                     pvcTemplate:
@@ -259,15 +262,13 @@ spec:
                             volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                             If specified, the CSI driver will create or update the volume with the attributes defined
                             in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                            it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                            will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                            If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                            will be set by the persistentvolume controller if it exists.
+                            it can be changed after the claim is created. An empty string or nil value indicates that no
+                            VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                            this field can be reset to its previous value (including nil) to cancel the modification.
                             If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                             set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                             exists.
                             More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                            (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                           type: string
                         volumeMode:
                           description: |-
@@ -279,6 +280,13 @@ spec:
                             PersistentVolume backing this claim.
                           type: string
                       type: object
+                    snapshotPath:
+                      description: the path used to store snapshot volumes
+                      type: string
+                    snapshotProvider:
+                      description: SnapshotProvider defines the snapshot type, currently
+                        only reflink supported
+                      type: string
                   required:
                   - name
                   - path
@@ -578,7 +586,6 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -593,7 +600,6 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -760,7 +766,6 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -775,7 +780,6 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -869,8 +873,8 @@ spec:
                               most preferred is the one with the greatest sum of weights, i.e.
                               for each node that meets all of the scheduling requirements (resource
                               request, requiredDuringScheduling anti-affinity expressions, etc.),
-                              compute a sum by iterating through the elements of this field and adding
-                              "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                              compute a sum by iterating through the elements of this field and subtracting
+                              "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                               node(s) with the highest sum are the most preferred.
                             items:
                               description: The weights of all of the matched WeightedPodAffinityTerm
@@ -940,7 +944,6 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -955,7 +958,6 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1122,7 +1124,6 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -1137,7 +1138,6 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -1462,18 +1462,15 @@ spec:
                                         persistent volume is being resized.
                                       type: string
                                     status:
+                                      description: |-
+                                        Status is the status of the condition.
+                                        Can be True, False, Unknown.
+                                        More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=state%20of%20pvc-,conditions.status,-(string)%2C%20required
                                       type: string
                                     type:
                                       description: |-
-                                        PersistentVolumeClaimConditionType defines the condition of PV claim.
-                                        Valid values are:
-                                          - "Resizing", "FileSystemResizePending"
-
-                                        If RecoverVolumeExpansionFailure feature gate is enabled, then following additional values can be expected:
-                                          - "ControllerResizeError", "NodeResizeError"
-
-                                        If VolumeAttributesClass feature gate is enabled, then following additional values can be expected:
-                                          - "ModifyVolumeError", "ModifyingVolume"
+                                        Type is the type of the condition.
+                                        More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=set%20to%20%27ResizeStarted%27.-,PersistentVolumeClaimCondition,-contains%20details%20about
                                       type: string
                                   required:
                                   - status
@@ -1487,13 +1484,11 @@ spec:
                                 description: |-
                                   currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.
                                   When unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim
-                                  This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                                 type: string
                               modifyVolumeStatus:
                                 description: |-
                                   ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.
                                   When this is unset, there is no ModifyVolume operation being attempted.
-                                  This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                                 properties:
                                   status:
                                     description: "status is the status of the ControllerModifyVolume

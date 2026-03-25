@@ -5,7 +5,6 @@ var HppOperatorDeployment string =
 `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   labels:
     prometheus.hostpathprovisioner.kubevirt.io: "true"
   name: hostpath-provisioner-operator
@@ -19,7 +18,6 @@ spec:
     metadata:
       annotations:
         openshift.io/required-scc: restricted-v2
-      creationTimestamp: null
       labels:
         name: hostpath-provisioner-operator
         prometheus.hostpathprovisioner.kubevirt.io: "true"
@@ -57,7 +55,7 @@ spec:
         - name: LIVENESS_PROBE_IMAGE
           value: registry.k8s.io/sig-storage/livenessprobe:v2.3.0
         - name: CSI_SNAPSHOT_IMAGE
-          value: registry.k8s.io/sig-storage/csi-snapshotter:v4.2.1
+          value: registry.k8s.io/sig-storage/csi-snapshotter:v8.2.0
         - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
           value: registry.k8s.io/sig-storage/csi-provisioner:v3.4.1
         - name: VERBOSITY

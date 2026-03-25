@@ -5,7 +5,6 @@ var HppOperatorClusterRole string =
 `apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: hostpath-provisioner-operator
 rules:
 - apiGroups:
@@ -129,6 +128,9 @@ rules:
   - list
   - get
   - watch
+  - create
+  - update
+  - delete
 - apiGroups:
   - ""
   resources:
