@@ -40,8 +40,20 @@ function update_github_release() {
         set -e
     fi
 
+    # Create a temporary directory for modified deployment files
+    local temp_dir=$(mktemp -d)
+    trap "rm -rf $temp_dir" EXIT
+
+    # Copy all yaml files to temp directory
+    cp deploy/*.yaml "$temp_dir/"
+
+    # Update operator.yaml image tags to match the release tag (replace both 'latest' and version tags)
+    sed -i "s|quay.io/kubevirt/hostpath-provisioner-operator:\(latest\|v[0-9.]*\)|quay.io/kubevirt/hostpath-provisioner-operator:${TAG}|g" "$temp_dir/operator.yaml"
+    sed -i "s|quay.io/kubevirt/hostpath-provisioner:\(latest\|v[0-9.]*\)|quay.io/kubevirt/hostpath-provisioner:${TAG}|g" "$temp_dir/operator.yaml"
+    sed -i "s|quay.io/kubevirt/hostpath-csi-driver:\(latest\|v[0-9.]*\)|quay.io/kubevirt/hostpath-csi-driver:${TAG}|g" "$temp_dir/operator.yaml"
+
     gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$TAG" \
-        deploy/*.yaml
+        "$temp_dir"/*.yaml
 }
 
 function main() {
