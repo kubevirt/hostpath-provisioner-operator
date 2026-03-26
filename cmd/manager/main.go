@@ -84,6 +84,7 @@ func main() {
 		LeaderElection:          true,
 		LeaderElectionID:        "hostpath-provisioner-operator-lock",
 		WebhookServer:           cryptopolicy.GetWebhookServerSpec(),
+		Metrics:                 cryptopolicy.GetMetricsServerOptions(),
 	})
 	if err != nil {
 		log.Error(err, "")

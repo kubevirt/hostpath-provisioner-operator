@@ -17,6 +17,7 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 )
 
@@ -91,6 +93,88 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			// Verify changes are respected
 			gomega.Expect(os.Getenv("TLS_MIN_VERSION")).To(gomega.Equal("VersionTLS10"))
 			gomega.Expect(os.Getenv("TLS_CIPHERS")).To(gomega.Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ",")))
+		})
+
+		ginkgo.It("Metrics server should respect cluster-wide crypto config but enforce TLS 1.3 minimum", func() {
+			// Clear environment variables first
+			os.Unsetenv("TLS_CIPHERS_OVERRIDE")
+			os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+			os.Unsetenv("TLS_CIPHERS")
+			os.Unsetenv("TLS_MIN_VERSION")
+
+			// Test 1: Default configuration (no env vars) should use TLS 1.3
+			metricsOpts := cryptopolicy.GetMetricsServerOptions()
+			gomega.Expect(metricsOpts.SecureServing).To(gomega.BeTrue())
+			gomega.Expect(metricsOpts.BindAddress).To(gomega.Equal(":8443"))
+			gomega.Expect(metricsOpts.TLSOpts).NotTo(gomega.BeEmpty())
+
+			// Apply TLS options and verify default is TLS 1.3
+			testConfig := &tls.Config{}
+			for _, opt := range metricsOpts.TLSOpts {
+				opt(testConfig)
+			}
+			// Verify GetConfigForClient sets TLS 1.3 when no env vars are set
+			clientConfig, err := testConfig.GetConfigForClient(nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(clientConfig.MinVersion).To(gomega.Equal(uint16(tls.VersionTLS13)))
+
+			// Test 2: Simulate APIServer watch setting Modern profile (TLS 1.3)
+			os.Setenv("TLS_MIN_VERSION", "VersionTLS13")
+			os.Setenv("TLS_CIPHERS", strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileModernType].Ciphers, ","))
+
+			testConfig2 := &tls.Config{}
+			for _, opt := range metricsOpts.TLSOpts {
+				opt(testConfig2)
+			}
+			clientConfig2, err := testConfig2.GetConfigForClient(nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(clientConfig2.MinVersion).To(gomega.Equal(uint16(tls.VersionTLS13)))
+
+			// Test 3: CRITICAL - Simulate APIServer watch setting Intermediate profile (TLS 1.2)
+			// Should still enforce TLS 1.3 minimum for metrics endpoint
+			os.Setenv("TLS_MIN_VERSION", "VersionTLS12")
+			os.Setenv("TLS_CIPHERS", strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType].Ciphers, ","))
+
+			testConfig3 := &tls.Config{}
+			for _, opt := range metricsOpts.TLSOpts {
+				opt(testConfig3)
+			}
+			clientConfig3, err := testConfig3.GetConfigForClient(nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			// Metrics endpoint enforces TLS 1.3 minimum even when cluster uses TLS 1.2
+			gomega.Expect(clientConfig3.MinVersion).To(gomega.Equal(uint16(tls.VersionTLS13)))
+
+			// Test 4: CRITICAL - Simulate Old profile (TLS 1.0) should be upgraded to TLS 1.3
+			os.Setenv("TLS_MIN_VERSION", "VersionTLS10")
+			os.Setenv("TLS_CIPHERS", strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ","))
+
+			testConfig4 := &tls.Config{}
+			for _, opt := range metricsOpts.TLSOpts {
+				opt(testConfig4)
+			}
+			clientConfig4, err := testConfig4.GetConfigForClient(nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			// Metrics endpoint enforces TLS 1.3 minimum even when cluster uses TLS 1.0
+			gomega.Expect(clientConfig4.MinVersion).To(gomega.Equal(uint16(tls.VersionTLS13)))
+
+			// Test 5: Override with lower version should still be upgraded to TLS 1.3
+			os.Setenv("TLS_MIN_VERSION_OVERRIDE", "VersionTLS11")
+
+			metricsOptsOverride := cryptopolicy.GetMetricsServerOptions()
+			testConfig5 := &tls.Config{}
+			for _, opt := range metricsOptsOverride.TLSOpts {
+				opt(testConfig5)
+			}
+			clientConfig5, err := testConfig5.GetConfigForClient(nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			// Even overrides are subject to TLS 1.3 minimum
+			gomega.Expect(clientConfig5.MinVersion).To(gomega.Equal(uint16(tls.VersionTLS13)))
+
+			// Clean up
+			os.Unsetenv("TLS_CIPHERS_OVERRIDE")
+			os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+			os.Unsetenv("TLS_CIPHERS")
+			os.Unsetenv("TLS_MIN_VERSION")
 		})
 	})
 })
