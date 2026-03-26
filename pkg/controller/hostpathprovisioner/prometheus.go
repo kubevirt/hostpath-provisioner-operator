@@ -265,7 +265,17 @@ func createPrometheusServiceMonitor(namespace string) *promv1.ServiceMonitor {
 			Endpoints: []promv1.Endpoint{
 				{
 					Port:   "metrics",
-					Scheme: ptr.To(promv1.SchemeHTTP),
+					Scheme: ptr.To(promv1.SchemeHTTPS),
+					HTTPConfigWithProxyAndTLSFiles: promv1.HTTPConfigWithProxyAndTLSFiles{
+						HTTPConfigWithTLSFiles: promv1.HTTPConfigWithTLSFiles{
+							TLSConfig: &promv1.TLSConfig{
+								SafeTLSConfig: promv1.SafeTLSConfig{
+									InsecureSkipVerify: ptr.To(true),
+									MinVersion:         ptr.To(promv1.TLSVersion13),
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -287,7 +297,7 @@ func createPrometheusService(namespace string) *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name: "metrics",
-					Port: 8080,
+					Port: 8443,
 					TargetPort: intstr.IntOrString{
 						Type:   intstr.String,
 						StrVal: "metrics",
