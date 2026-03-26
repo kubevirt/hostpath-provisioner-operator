@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -139,4 +140,74 @@ func SelectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile)
 	}
 
 	return ocpconfigv1.TLSProfiles[profile.Type].Ciphers, ocpconfigv1.TLSProfiles[profile.Type].MinTLSVersion
+}
+
+// GetMetricsServerOptions returns metrics server options configured for secure serving with TLS 1.3 minimum.
+// The TLS configuration dynamically reads from environment variables that are updated by the
+// APIServer resource watch (see handleAPIServerFunc in controller.go):
+// - TLS_CIPHERS_OVERRIDE / TLS_CIPHERS: Comma-separated cipher suite names
+// - TLS_MIN_VERSION_OVERRIDE / TLS_MIN_VERSION: Minimum TLS version (e.g., "VersionTLS13")
+//
+// IMPORTANT: This function ENFORCES TLS 1.3 as the absolute minimum for post-quantum cryptography.
+// Even if the cluster TLS profile specifies a lower version, TLS 1.3 will be used.
+// If the cluster profile specifies a higher version, that will be respected.
+func GetMetricsServerOptions() metricsserver.Options {
+	ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS_OVERRIDE"), ",")
+	ciphers := cipherSuitesIDs(ciphersNames)
+	minTLSVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION_OVERRIDE"))
+
+	tlsCfgMutateFunc := func(cfg *tls.Config) {
+		if len(ciphers) != 0 {
+			cfg.CipherSuites = ciphers
+		}
+		if minTLSVersion != nil {
+			// Enforce TLS 1.3 minimum even with override
+			cfg.MinVersion = max(*minTLSVersion, tls.VersionTLS13)
+		} else {
+			// Default to TLS 1.3
+			cfg.MinVersion = tls.VersionTLS13
+		}
+		// This callback executes on each client call returning a new config to be used.
+		// It dynamically reads the environment variables which are updated when the
+		// cluster's APIServer TLSSecurityProfile changes.
+		cfg.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
+			if os.Getenv("TLS_CIPHERS_OVERRIDE") == "" {
+				// Read ciphers from cluster TLS profile (via TLS_CIPHERS env var)
+				ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS"), ",")
+				ciphers := cipherSuitesIDs(ciphersNames)
+				if len(ciphers) != 0 {
+					cfg.CipherSuites = ciphers
+				}
+			}
+			if os.Getenv("TLS_MIN_VERSION_OVERRIDE") == "" {
+				// Read min TLS version from cluster TLS profile (via TLS_MIN_VERSION env var)
+				clusterMinVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION"))
+				if clusterMinVersion != nil {
+					// Enforce TLS 1.3 as absolute minimum, use higher version if cluster specifies it
+					cfg.MinVersion = max(*clusterMinVersion, tls.VersionTLS13)
+				} else {
+					// Default to TLS 1.3 for post-quantum cryptography support
+					cfg.MinVersion = tls.VersionTLS13
+				}
+			} else {
+				// Even with override, enforce TLS 1.3 minimum
+				overrideMinVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION_OVERRIDE"))
+				if overrideMinVersion != nil {
+					cfg.MinVersion = max(*overrideMinVersion, tls.VersionTLS13)
+				} else {
+					cfg.MinVersion = tls.VersionTLS13
+				}
+			}
+
+			return cfg, nil
+		}
+	}
+
+	return metricsserver.Options{
+		SecureServing: true,
+		BindAddress:   ":8443",
+		TLSOpts: []func(*tls.Config){
+			tlsCfgMutateFunc,
+		},
+	}
 }

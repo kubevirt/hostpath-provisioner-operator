@@ -1162,7 +1162,7 @@ func verifyCreatePrometheusResources(cl client.Client) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	port := corev1.ServicePort{
 		Name: "metrics",
-		Port: 8080,
+		Port: 8443,
 		TargetPort: intstr.IntOrString{
 			Type:   intstr.String,
 			StrVal: "metrics",
