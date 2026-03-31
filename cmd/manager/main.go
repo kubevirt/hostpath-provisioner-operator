@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -33,6 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"kubevirt.io/hostpath-provisioner-operator/pkg/apis"
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
@@ -70,7 +73,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	managedTLSWatcher := cryptopolicy.NewManagedTLSWatcher()
+
 	// Create a new Cmd to provide shared dependencies and start components
+	tlsOpts := []func(*tls.Config){managedTLSWatcher.CryptoPolicyOpt()}
 	mgr, err := manager.New(cfg, manager.Options{
 		Cache: cache.Options{
 			DefaultNamespaces: map[string]cache.Config{
@@ -83,11 +89,25 @@ func main() {
 		LivenessEndpointName:    "/livez",
 		LeaderElection:          true,
 		LeaderElectionID:        "hostpath-provisioner-operator-lock",
-		WebhookServer:           cryptopolicy.GetWebhookServerSpec(),
-		Metrics:                 cryptopolicy.GetMetricsServerOptions(),
+		WebhookServer: &webhook.DefaultServer{
+			Options: webhook.Options{
+				TLSOpts: tlsOpts,
+			},
+		},
+		Metrics: metricsserver.Options{
+			SecureServing: true,
+			BindAddress:   ":8443",
+			TLSOpts:       tlsOpts,
+		},
 	})
 	if err != nil {
 		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	managedTLSWatcher.SetCache(mgr.GetCache())
+	if err := mgr.Add(managedTLSWatcher); err != nil {
+		log.Error(err, "unable to add TLS watcher to manager")
 		os.Exit(1)
 	}
 

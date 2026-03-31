@@ -587,7 +587,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								"--nodeid=$(NODE_NAME)",
 								"--version=$(VERSION)",
 								"--datadir=$(PV_DIR)",
-								fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString()),
+								fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString(r.client)),
 							},
 							Ports: []corev1.ContainerPort{
 								{

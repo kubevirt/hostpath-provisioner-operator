@@ -505,7 +505,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 
 				// Verify --metrics-tls-version argument is present and matches current policy
 				container := ds.Spec.Template.Spec.Containers[0]
-				expectedArg := fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString())
+				expectedArg := fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString(cl))
 				foundArg := false
 				for _, arg := range container.Args {
 					if strings.HasPrefix(arg, "--metrics-tls-version=") {
