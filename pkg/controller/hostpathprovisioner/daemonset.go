@@ -433,7 +433,7 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 		// the two paths don't mix.
 		storagePools[i].Path = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi")
 		if storagePool.SnapshotPath != nil {
-			path := filepath.Join(getMountNameFromStoragePool(storagePool.Name), "snapshots")
+			path := filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi", "snapshots")
 			storagePools[i].SnapshotPath = &path
 		}
 		storagePools[i].SnapshotProvider = storagePool.SnapshotProvider
