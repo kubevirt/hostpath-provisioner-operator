@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -139,4 +140,68 @@ func SelectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile)
 	}
 
 	return ocpconfigv1.TLSProfiles[profile.Type].Ciphers, ocpconfigv1.TLSProfiles[profile.Type].MinTLSVersion
+}
+
+// GetMetricsServerOptions returns metrics server options configured for secure serving.
+// The TLS configuration dynamically reads from environment variables on each client connection.
+// Environment variables are updated by the APIServer resource watch (see handleAPIServerFunc in controller.go):
+// - TLS_CIPHERS: Comma-separated cipher suite names from cluster TLS profile
+// - TLS_MIN_VERSION: Minimum TLS version from cluster TLS profile (e.g., "VersionTLS13")
+// - TLS_CIPHERS_OVERRIDE: Overrides cluster cipher suites (takes precedence)
+// - TLS_MIN_VERSION_OVERRIDE: Overrides cluster TLS version (takes precedence)
+//
+// Override variables are useful for non-OpenShift clusters or to deviate from cluster-wide settings.
+func GetMetricsServerOptions() metricsserver.Options {
+	tlsCfgMutateFunc := func(cfg *tls.Config) {
+		// This callback executes on each client call returning a new config to be used.
+		// It dynamically reads the environment variables which are updated when the
+		// cluster's APIServer TLSSecurityProfile changes.
+		// Clone the config to avoid concurrent modification issues.
+		cfg.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
+			newCfg := cfg.Clone()
+
+			tlsCiphersOverride := os.Getenv("TLS_CIPHERS_OVERRIDE")
+			// Check for override first, then fall back to cluster settings
+			if tlsCiphersOverride != "" {
+				// Use override ciphers
+				ciphersNames := strings.Split(tlsCiphersOverride, ",")
+				ciphers := cipherSuitesIDs(ciphersNames)
+				if len(ciphers) != 0 {
+					newCfg.CipherSuites = ciphers
+				}
+			} else {
+				// Use cluster TLS profile ciphers
+				ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS"), ",")
+				ciphers := cipherSuitesIDs(ciphersNames)
+				if len(ciphers) != 0 {
+					newCfg.CipherSuites = ciphers
+				}
+			}
+
+			tlsMinVersionOverride := os.Getenv("TLS_MIN_VERSION_OVERRIDE")
+			if tlsMinVersionOverride != "" {
+				// Use override min version
+				overrideMinVersion := getTLSVersion(tlsMinVersionOverride)
+				if overrideMinVersion != nil {
+					newCfg.MinVersion = *overrideMinVersion
+				}
+			} else {
+				// Use cluster TLS profile min version
+				clusterMinVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION"))
+				if clusterMinVersion != nil {
+					newCfg.MinVersion = *clusterMinVersion
+				}
+			}
+
+			return newCfg, nil
+		}
+	}
+
+	return metricsserver.Options{
+		SecureServing: true,
+		BindAddress:   ":8443",
+		TLSOpts: []func(*tls.Config){
+			tlsCfgMutateFunc,
+		},
+	}
 }

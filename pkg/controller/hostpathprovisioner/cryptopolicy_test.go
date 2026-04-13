@@ -17,6 +17,7 @@ package hostpathprovisioner
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"strings"
 
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 )
 
@@ -91,6 +93,90 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			// Verify changes are respected
 			gomega.Expect(os.Getenv("TLS_MIN_VERSION")).To(gomega.Equal("VersionTLS10"))
 			gomega.Expect(os.Getenv("TLS_CIPHERS")).To(gomega.Equal(strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ",")))
+		})
+
+		ginkgo.Context("metrics server TLS configuration", func() {
+			ginkgo.BeforeEach(func() {
+				// Clear environment variables before each test
+				os.Unsetenv("TLS_CIPHERS_OVERRIDE")
+				os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+				os.Unsetenv("TLS_CIPHERS")
+				os.Unsetenv("TLS_MIN_VERSION")
+			})
+
+			ginkgo.AfterEach(func() {
+				// Clean up environment variables after each test
+				os.Unsetenv("TLS_CIPHERS_OVERRIDE")
+				os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+				os.Unsetenv("TLS_CIPHERS")
+				os.Unsetenv("TLS_MIN_VERSION")
+			})
+
+			ginkgo.It("should be configured for secure serving", func() {
+				metricsOpts := cryptopolicy.GetMetricsServerOptions()
+				gomega.Expect(metricsOpts.SecureServing).To(gomega.BeTrue())
+				gomega.Expect(metricsOpts.BindAddress).To(gomega.Equal(":8443"))
+				gomega.Expect(metricsOpts.TLSOpts).NotTo(gomega.BeEmpty())
+			})
+
+			ginkgo.DescribeTable("should respect TLS configuration from cluster or override",
+				func(setupEnv func(), expectedMinVersion uint16, description string) {
+					// Setup environment for this test case
+					if setupEnv != nil {
+						setupEnv()
+					}
+
+					// Get metrics options and apply TLS config
+					metricsOpts := cryptopolicy.GetMetricsServerOptions()
+					testConfig := &tls.Config{}
+					for _, opt := range metricsOpts.TLSOpts {
+						opt(testConfig)
+					}
+
+					// Get config for client and verify expected TLS version
+					clientConfig, err := testConfig.GetConfigForClient(nil)
+					gomega.Expect(err).NotTo(gomega.HaveOccurred())
+					gomega.Expect(clientConfig.MinVersion).To(gomega.Equal(expectedMinVersion), description)
+				},
+				ginkgo.Entry("default configuration with no env vars",
+					nil,
+					uint16(0),
+					"should have no MinVersion when no config is set"),
+				ginkgo.Entry("Modern profile (TLS 1.3) from cluster",
+					func() {
+						os.Setenv("TLS_MIN_VERSION", "VersionTLS13")
+						os.Setenv("TLS_CIPHERS", strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileModernType].Ciphers, ","))
+					},
+					uint16(tls.VersionTLS13),
+					"should use TLS 1.3 from cluster"),
+				ginkgo.Entry("Intermediate profile (TLS 1.2) from cluster",
+					func() {
+						os.Setenv("TLS_MIN_VERSION", "VersionTLS12")
+						os.Setenv("TLS_CIPHERS", strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType].Ciphers, ","))
+					},
+					uint16(tls.VersionTLS12),
+					"should respect TLS 1.2 from cluster"),
+				ginkgo.Entry("Old profile (TLS 1.0) from cluster",
+					func() {
+						os.Setenv("TLS_MIN_VERSION", "VersionTLS10")
+						os.Setenv("TLS_CIPHERS", strings.Join(ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileOldType].Ciphers, ","))
+					},
+					uint16(tls.VersionTLS10),
+					"should respect TLS 1.0 from cluster"),
+				ginkgo.Entry("Override to TLS 1.3",
+					func() {
+						os.Setenv("TLS_MIN_VERSION_OVERRIDE", "VersionTLS13")
+					},
+					uint16(tls.VersionTLS13),
+					"should use TLS 1.3 from override"),
+				ginkgo.Entry("Override takes precedence over cluster",
+					func() {
+						os.Setenv("TLS_MIN_VERSION", "VersionTLS10")
+						os.Setenv("TLS_MIN_VERSION_OVERRIDE", "VersionTLS13")
+					},
+					uint16(tls.VersionTLS13),
+					"should use override (TLS 1.3) instead of cluster (TLS 1.0)"),
+			)
 		})
 	})
 })
