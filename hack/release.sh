@@ -48,9 +48,9 @@ function update_github_release() {
     cp deploy/*.yaml "$temp_dir/"
 
     # Update operator.yaml image tags to match the release tag (replace both 'latest' and version tags)
-    sed -i "s|quay.io/kubevirt/hostpath-provisioner-operator:\(latest\|v[0-9.]*\)|quay.io/kubevirt/hostpath-provisioner-operator:${TAG}|g" "$temp_dir/operator.yaml"
-    sed -i "s|quay.io/kubevirt/hostpath-provisioner:\(latest\|v[0-9.]*\)|quay.io/kubevirt/hostpath-provisioner:${TAG}|g" "$temp_dir/operator.yaml"
-    sed -i "s|quay.io/kubevirt/hostpath-csi-driver:\(latest\|v[0-9.]*\)|quay.io/kubevirt/hostpath-csi-driver:${TAG}|g" "$temp_dir/operator.yaml"
+    sed -i "s#quay.io/kubevirt/hostpath-provisioner-operator:\(latest\|v[0-9.]*\)#quay.io/kubevirt/hostpath-provisioner-operator:${TAG}#g" "$temp_dir/operator.yaml"
+    sed -i "s#quay.io/kubevirt/hostpath-provisioner:\(latest\|v[0-9.]*\)#quay.io/kubevirt/hostpath-provisioner:${TAG}#g" "$temp_dir/operator.yaml"
+    sed -i "s#quay.io/kubevirt/hostpath-csi-driver:\(latest\|v[0-9.]*\)#quay.io/kubevirt/hostpath-csi-driver:${TAG}#g" "$temp_dir/operator.yaml"
 
     gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$TAG" \
         "$temp_dir"/*.yaml
