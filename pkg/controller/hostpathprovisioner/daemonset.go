@@ -408,7 +408,6 @@ func getStoragePoolPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []Storag
 			storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
 				Name:             storagePool.Name,
 				Path:             storagePool.Path,
-				SnapshotPath:     storagePool.SnapshotPath,
 				SnapshotProvider: storagePool.SnapshotProvider,
 				Shared:           isShared(storagePool.PVCTemplate),
 			})
@@ -432,12 +431,10 @@ func buildPathArgFromStoragePoolInfo(storagePools []StoragePoolInfo) string {
 		// We want to add /csi to the path so if we are running side by side with legacy provisioner
 		// the two paths don't mix.
 		storagePools[i].Path = filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi")
-		if storagePool.SnapshotPath != nil {
+		if storagePool.SnapshotProvider != nil {
 			path := filepath.Join(getMountNameFromStoragePool(storagePool.Name), "csi", "snapshots")
 			storagePools[i].SnapshotPath = &path
 		}
-		storagePools[i].SnapshotProvider = storagePool.SnapshotProvider
-		storagePools[i].Shared = storagePool.Shared
 	}
 	bytes, err := json.Marshal(storagePools)
 	if err != nil {
