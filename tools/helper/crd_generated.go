@@ -1,8 +1,7 @@
 package helper
 
-//hppCRD is a string yaml of the hpp CRD
-var hppCRD string = 
-`apiVersion: apiextensions.k8s.io/v1
+// hppCRD is a string yaml of the hpp CRD
+var hppCRD string = `apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
@@ -280,9 +279,6 @@ spec:
                             PersistentVolume backing this claim.
                           type: string
                       type: object
-                    snapshotPath:
-                      description: the path used to store snapshot volumes
-                      type: string
                     snapshotProvider:
                       description: SnapshotProvider defines the snapshot type, currently
                         only reflink supported
