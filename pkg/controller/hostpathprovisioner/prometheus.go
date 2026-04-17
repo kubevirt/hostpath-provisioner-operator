@@ -265,7 +265,7 @@ func createPrometheusServiceMonitor(namespace string) *promv1.ServiceMonitor {
 			Endpoints: []promv1.Endpoint{
 				{
 					Port:   "metrics",
-					Scheme: ptr.To(promv1.SchemeHTTPS),
+					Scheme: ptr.To(promv1.Scheme("https")),
 					HTTPConfigWithProxyAndTLSFiles: promv1.HTTPConfigWithProxyAndTLSFiles{
 						HTTPConfigWithTLSFiles: promv1.HTTPConfigWithTLSFiles{
 							TLSConfig: &promv1.TLSConfig{
