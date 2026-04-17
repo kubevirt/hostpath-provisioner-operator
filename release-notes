@@ -1,0 +1,6 @@
+v0.25.0
+Initial release
+
+v0.25.1
+Fixed prometheus constant from upper case to lower case http to be compatible with older prometheus
+Removed snapshot path from CRD
