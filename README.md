@@ -11,7 +11,7 @@ As of version 0.11 the hostpath provisioner operator now requires [cert manager]
 Before deploying the operator, you need to install cert manager:
 
 ```bash
-$ kubectl create -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+$ kubectl create -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
 ```
 
 Please ensure the cert manager is fully operational before installing the hostpath provisioner operator:  
