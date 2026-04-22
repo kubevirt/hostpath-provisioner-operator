@@ -410,7 +410,7 @@ func (r *ReconcileHostPathProvisioner) backendStorageClass(storagePool *hostpath
 		},
 		Provisioner:       "kubevirt.io.hostpath-provisioner",
 		ReclaimPolicy:     Ptr(corev1.PersistentVolumeReclaimDelete),
-		VolumeBindingMode: Ptr(storagev1.VolumeBindingWaitForFirstConsumer),
+		VolumeBindingMode: Ptr(storagev1.VolumeBindingImmediate),
 		Parameters:        params,
 	}
 }
