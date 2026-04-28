@@ -250,6 +250,7 @@ func (r *ReconcileHostPathProvisioner) createCsiClusterRoleObjectProvisioner(cr 
 					"watch",
 					"create",
 					"delete",
+					"patch",
 				},
 			},
 			{

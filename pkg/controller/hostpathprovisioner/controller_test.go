@@ -18,8 +18,9 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
@@ -766,6 +767,7 @@ func verifyCreateCSIClusterRole(cl client.Client, enableSnapshot bool) {
 				"watch",
 				"create",
 				"delete",
+				"patch",
 			},
 		},
 		{
@@ -1211,7 +1213,7 @@ type erroringFakeCtrlRuntimeClient struct {
 
 func (p erroringFakeCtrlRuntimeClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	if len(p.errMsg) > 0 {
-		return fmt.Errorf(p.errMsg)
+		return fmt.Errorf("%s", p.errMsg)
 	}
 	return p.Client.Create(ctx, obj, opts...)
 }
