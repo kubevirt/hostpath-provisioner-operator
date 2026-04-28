@@ -73,7 +73,7 @@ spec:
           periodSeconds: 5
         name: hostpath-provisioner-operator
         ports:
-        - containerPort: 8080
+        - containerPort: 8443
           name: metrics
           protocol: TCP
         readinessProbe:

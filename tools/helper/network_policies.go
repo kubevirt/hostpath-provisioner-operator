@@ -52,7 +52,7 @@ func newIngressToMetricsNP(namespace string) *networkv1.NetworkPolicy {
 				{
 					Ports: []networkv1.NetworkPolicyPort{
 						{
-							Port:     ptr.To(intstr.FromInt32(8080)),
+							Port:     ptr.To(intstr.FromInt32(8443)),
 							Protocol: ptr.To(corev1.ProtocolTCP),
 						},
 					},
