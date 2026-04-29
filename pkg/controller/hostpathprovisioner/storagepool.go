@@ -146,6 +146,13 @@ func (r *ReconcileHostPathProvisioner) cleanDeployments(logger logr.Logger, cr *
 				if err != nil {
 					return err
 				}
+				if node == nil {
+					logger.V(3).Info("Node no longer exists, deleting deployment directly", "deployment", deployment.Name)
+					if err := r.client.Delete(context.TODO(), &deployment); err != nil && !errors.IsNotFound(err) {
+						return err
+					}
+					continue
+				}
 				desired := r.storagePoolDeploymentByNode(logger, cr, &storagePool, namespace, node)
 
 				// delete deployment

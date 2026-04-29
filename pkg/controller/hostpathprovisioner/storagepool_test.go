@@ -164,6 +164,44 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			gomega.Expect(jobList.Items[0].Spec.Template.Spec.Containers[0].SecurityContext.Privileged).To(gomega.Equal(pointer.Bool(true)))
 		})
 
+		ginkgo.It("Should not panic when node is deleted before cleanup", func() {
+			cr, r, cl := createDeployedCr(createStoragePoolWithTemplateCr())
+			scaleClusterNodesAndDsUp(1, 1, cr, r, cl)
+			verifyDeploymentsAndPVCs(1, 1, cr, r, cl)
+
+			ginkgo.By("Deleting the node before marking CR for deletion")
+			removeNodesFromCluster(1, 1, cl)
+
+			ginkgo.By("Marking CR as deleted")
+			err := r.client.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			err = cl.Delete(context.TODO(), cr)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "test-name",
+					Namespace: testNamespace,
+				},
+			}
+			gomega.Expect(func() { _, err = r.Reconcile(context.TODO(), req) }).ToNot(gomega.Panic())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			ginkgo.By("Verifying deployments are cleaned up")
+			deploymentList := &appsv1.DeploymentList{}
+			err = cl.List(context.TODO(), deploymentList, &client.ListOptions{Namespace: testNamespace})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			for _, deployment := range deploymentList.Items {
+				gomega.Expect(metav1.IsControlledBy(&deployment, cr)).To(gomega.BeFalse())
+			}
+
+			ginkgo.By("Verifying no cleanup jobs are created for missing nodes")
+			jobList := &batchv1.JobList{}
+			err = r.client.List(context.TODO(), jobList)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(jobList.Items).To(gomega.BeEmpty())
+		})
+
 		ginkgo.It("Status length should remain at one with legacy CR", func() {
 			cr, r, cl := createDeployedCr(createLegacyCr())
 			err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cr), cr)
