@@ -18,60 +18,145 @@ limitations under the License.
 package cryptopolicy
 
 import (
+	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
-// GetWebhookServerSpec sets the GetConfigForClient to always check for ciphers and minimum TLS version
-func GetWebhookServerSpec() webhook.Server {
-	ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS_OVERRIDE"), ",")
-	ciphers := cipherSuitesIDs(ciphersNames)
-	minTLSVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION_OVERRIDE"))
+var log = ctrl.Log.WithName("cryptopolicy")
 
-	tlsCfgMutateFunc := func(cfg *tls.Config) {
-		if len(ciphers) != 0 {
-			cfg.CipherSuites = ciphers
-		}
-		if minTLSVersion != nil {
-			cfg.MinVersion = *minTLSVersion
-		}
-		// This callback executes on each client call returning a new config to be used
-		cfg.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
-			if os.Getenv("TLS_CIPHERS_OVERRIDE") == "" {
-				// set CipherSuites if they were not set already
-				ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS"), ",")
-				ciphers := cipherSuitesIDs(ciphersNames)
-				if len(ciphers) != 0 {
-					cfg.CipherSuites = ciphers
-				}
-			}
-			if os.Getenv("TLS_MIN_VERSION_OVERRIDE") == "" {
-				// set MinVersion if it was not set already
-				minTLSVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION"))
-				if minTLSVersion != nil {
-					cfg.MinVersion = *minTLSVersion
-				}
-			}
+type cryptoConfig struct {
+	CipherSuites []uint16
+	MinVersion   uint16
+}
 
-			return cfg, nil
-		}
+// ManagedTLSWatcher reads TLS configuration from the cluster's APIServer CR
+// via the informer cache, eliminating the need for environment variable exchange.
+type ManagedTLSWatcher struct {
+	mu            sync.RWMutex
+	cache         cache.Cache
+	defaultConfig *cryptoConfig
+	ready         bool
+}
+
+// NewManagedTLSWatcher creates a new ManagedTLSWatcher with Intermediate profile defaults.
+func NewManagedTLSWatcher() *ManagedTLSWatcher {
+	defaultProfile := &ocpconfigv1.TLSSecurityProfile{
+		Type:         ocpconfigv1.TLSProfileIntermediateType,
+		Intermediate: &ocpconfigv1.IntermediateTLSProfile{},
 	}
-
-	return &webhook.DefaultServer{
-		Options: webhook.Options{
-			TLSOpts: []func(*tls.Config){
-				tlsCfgMutateFunc,
-			},
+	cipherNames, minVersion := selectCipherSuitesAndMinTLSVersion(defaultProfile)
+	return &ManagedTLSWatcher{
+		defaultConfig: &cryptoConfig{
+			CipherSuites: cipherSuitesIDs(cipherNames),
+			MinVersion:   getTLSVersion(string(minVersion)),
 		},
 	}
 }
 
-func getTLSVersion(versionName string) *uint16 {
+// SetCache injects the controller-runtime cache after manager creation.
+func (m *ManagedTLSWatcher) SetCache(c cache.Cache) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cache = c
+}
+
+// Start implements manager.Runnable. It waits for the cache to sync, then
+// marks the watcher as ready.
+func (m *ManagedTLSWatcher) Start(ctx context.Context) error {
+	m.mu.RLock()
+	c := m.cache
+	m.mu.RUnlock()
+
+	if c == nil {
+		return fmt.Errorf("no cache provided for tls watcher")
+	}
+	log.Info("ManagedTLSWatcher: starting, waiting for cache sync")
+	if !c.WaitForCacheSync(ctx) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+	m.mu.Lock()
+	m.ready = true
+	m.mu.Unlock()
+	log.Info("ManagedTLSWatcher: ready")
+
+	<-ctx.Done()
+	return nil
+}
+
+// NeedLeaderElection implements manager.LeaderElectionRunnable.
+func (m *ManagedTLSWatcher) NeedLeaderElection() bool {
+	return false
+}
+
+// GetTLSConfig returns the current TLS configuration. Override env vars take
+// precedence, then the APIServer CR from cache, then the default Intermediate profile.
+func (m *ManagedTLSWatcher) GetTLSConfig(ctx context.Context) *cryptoConfig {
+	// Override env vars always take precedence
+	ciphersOverride := os.Getenv("TLS_CIPHERS_OVERRIDE")
+	versionOverride := os.Getenv("TLS_MIN_VERSION_OVERRIDE")
+	if ciphersOverride != "" || versionOverride != "" {
+		cc := &cryptoConfig{}
+		if ciphersOverride != "" {
+			cc.CipherSuites = cipherSuitesIDs(strings.Split(ciphersOverride, ","))
+		}
+		if versionOverride != "" {
+			cc.MinVersion = getTLSVersion(versionOverride)
+		}
+		return cc
+	}
+
+	m.mu.RLock()
+	ready := m.ready
+	c := m.cache
+	m.mu.RUnlock()
+
+	if !ready || c == nil {
+		return m.defaultConfig
+	}
+
+	apiServer := &ocpconfigv1.APIServer{}
+	if err := c.Get(ctx, types.NamespacedName{Name: "cluster"}, apiServer); err != nil {
+		return m.defaultConfig
+	}
+
+	return cryptoConfigFromProfile(apiServer.Spec.TLSSecurityProfile)
+}
+
+// CryptoPolicyOpt returns a TLS config mutator that dynamically applies
+// the current crypto policy on each TLS handshake.
+func (m *ManagedTLSWatcher) CryptoPolicyOpt() func(*tls.Config) {
+	return func(c *tls.Config) {
+		// Disable HTTP/2 to prevent rapid reset vulnerability
+		// See CVE-2023-44487, CVE-2023-39325
+		c.NextProtos = []string{"http/1.1"}
+		c.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			config := c.Clone()
+			cc := m.GetTLSConfig(hello.Context())
+			config.CipherSuites = cc.CipherSuites
+			config.MinVersion = cc.MinVersion
+			return config, nil
+		}
+	}
+}
+
+func cryptoConfigFromProfile(profile *ocpconfigv1.TLSSecurityProfile) *cryptoConfig {
+	cipherNames, minVersion := selectCipherSuitesAndMinTLSVersion(profile)
+	return &cryptoConfig{
+		CipherSuites: cipherSuitesIDs(cipherNames),
+		MinVersion:   getTLSVersion(string(minVersion)),
+	}
+}
+
+func getTLSVersion(versionName string) uint16 {
 	var versions = map[string]uint16{
 		"VersionTLS10": tls.VersionTLS10,
 		"VersionTLS11": tls.VersionTLS11,
@@ -79,10 +164,9 @@ func getTLSVersion(versionName string) *uint16 {
 		"VersionTLS13": tls.VersionTLS13,
 	}
 	if version, ok := versions[versionName]; ok {
-		return &version
+		return version
 	}
-
-	return nil
+	return tls.VersionTLS12
 }
 
 func cipherSuitesIDs(names []string) []uint16 {
@@ -126,8 +210,7 @@ func cipherSuitesIDs(names []string) []uint16 {
 	return ids
 }
 
-// SelectCipherSuitesAndMinTLSVersion selects the cipher suite and minimum TLS version based on the passed in security profile
-func SelectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile) ([]string, ocpconfigv1.TLSProtocolVersion) {
+func selectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile) ([]string, ocpconfigv1.TLSProtocolVersion) {
 	if profile == nil {
 		profile = &ocpconfigv1.TLSSecurityProfile{
 			Type:         ocpconfigv1.TLSProfileIntermediateType,
@@ -140,68 +223,4 @@ func SelectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile)
 	}
 
 	return ocpconfigv1.TLSProfiles[profile.Type].Ciphers, ocpconfigv1.TLSProfiles[profile.Type].MinTLSVersion
-}
-
-// GetMetricsServerOptions returns metrics server options configured for secure serving.
-// The TLS configuration dynamically reads from environment variables on each client connection.
-// Environment variables are updated by the APIServer resource watch (see handleAPIServerFunc in controller.go):
-// - TLS_CIPHERS: Comma-separated cipher suite names from cluster TLS profile
-// - TLS_MIN_VERSION: Minimum TLS version from cluster TLS profile (e.g., "VersionTLS13")
-// - TLS_CIPHERS_OVERRIDE: Overrides cluster cipher suites (takes precedence)
-// - TLS_MIN_VERSION_OVERRIDE: Overrides cluster TLS version (takes precedence)
-//
-// Override variables are useful for non-OpenShift clusters or to deviate from cluster-wide settings.
-func GetMetricsServerOptions() metricsserver.Options {
-	tlsCfgMutateFunc := func(cfg *tls.Config) {
-		// This callback executes on each client call returning a new config to be used.
-		// It dynamically reads the environment variables which are updated when the
-		// cluster's APIServer TLSSecurityProfile changes.
-		// Clone the config to avoid concurrent modification issues.
-		cfg.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
-			newCfg := cfg.Clone()
-
-			tlsCiphersOverride := os.Getenv("TLS_CIPHERS_OVERRIDE")
-			// Check for override first, then fall back to cluster settings
-			if tlsCiphersOverride != "" {
-				// Use override ciphers
-				ciphersNames := strings.Split(tlsCiphersOverride, ",")
-				ciphers := cipherSuitesIDs(ciphersNames)
-				if len(ciphers) != 0 {
-					newCfg.CipherSuites = ciphers
-				}
-			} else {
-				// Use cluster TLS profile ciphers
-				ciphersNames := strings.Split(os.Getenv("TLS_CIPHERS"), ",")
-				ciphers := cipherSuitesIDs(ciphersNames)
-				if len(ciphers) != 0 {
-					newCfg.CipherSuites = ciphers
-				}
-			}
-
-			tlsMinVersionOverride := os.Getenv("TLS_MIN_VERSION_OVERRIDE")
-			if tlsMinVersionOverride != "" {
-				// Use override min version
-				overrideMinVersion := getTLSVersion(tlsMinVersionOverride)
-				if overrideMinVersion != nil {
-					newCfg.MinVersion = *overrideMinVersion
-				}
-			} else {
-				// Use cluster TLS profile min version
-				clusterMinVersion := getTLSVersion(os.Getenv("TLS_MIN_VERSION"))
-				if clusterMinVersion != nil {
-					newCfg.MinVersion = *clusterMinVersion
-				}
-			}
-
-			return newCfg, nil
-		}
-	}
-
-	return metricsserver.Options{
-		SecureServing: true,
-		BindAddress:   ":8443",
-		TLSOpts: []func(*tls.Config){
-			tlsCfgMutateFunc,
-		},
-	}
 }

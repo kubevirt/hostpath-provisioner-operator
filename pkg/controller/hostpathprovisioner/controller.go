@@ -19,13 +19,10 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
-	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	ocpconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -50,7 +47,6 @@ import (
 
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/monitoring/metrics"
-	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 )
 
@@ -137,9 +133,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		}
 		return nil
 	})
-
-	// handleAPIServer will be used to handle APIServer Watch triggering
-	handleAPIServer := handler.TypedMapFunc[*ocpconfigv1.APIServer, reconcile.Request](handleAPIServerFunc)
 
 	// Watch for changes to primary resource HostPathProvisioner
 	err = c.Watch(source.Kind(
@@ -271,16 +264,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			})))); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Info("Not watching SecurityContextConstraints")
-				return nil
-			}
-			return err
-		}
-		if err := c.Watch(source.Kind(
-			mgr.GetCache(),
-			&ocpconfigv1.APIServer{},
-			handler.TypedEnqueueRequestsFromMapFunc[*ocpconfigv1.APIServer](handleAPIServer))); err != nil {
-			if meta.IsNoMatchError(err) {
-				log.Info("Not watching APIServer")
 				return nil
 			}
 			return err
@@ -769,15 +752,4 @@ func HasFinalizer(object metav1.Object, value string) bool {
 		}
 	}
 	return false
-}
-
-func handleAPIServerFunc(_ context.Context, apiServer *ocpconfigv1.APIServer) []reconcile.Request {
-	cipherNames, minTypedTLSVersion := cryptopolicy.SelectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
-	if err := os.Setenv("TLS_CIPHERS", strings.Join(cipherNames, ",")); err != nil {
-		log.Error(err, "Error setting environment variable TLS_CIPHERS")
-	}
-	if err := os.Setenv("TLS_MIN_VERSION", string(minTypedTLSVersion)); err != nil {
-		log.Error(err, "Error setting environment variable TLS_MIN_VERSION")
-	}
-	return nil
 }
