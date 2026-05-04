@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
+	"k8s.io/klog/v2"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -83,6 +84,51 @@ func getTLSVersion(versionName string) *uint16 {
 	}
 
 	return nil
+}
+
+// GetTLSMinVersionString returns the TLS minimum version string to use based on environment variables.
+// It checks environment variables in this order:
+//  1. TLS_MIN_VERSION_OVERRIDE (manual override)
+//  2. TLS_MIN_VERSION (set by APIServer watch on OpenShift)
+//  3. Default: VersionTLS13
+//
+// Returns a string like "VersionTLS13" suitable for passing to command-line arguments.
+// This ensures consistent precedence logic across the operator and daemonset configuration.
+// If an invalid value is provided, it logs a warning and returns the default.
+//
+// Note: TLS_MIN_VERSION is set by handleAPIServerFunc when watching APIServer resources,
+// which may not have run yet during the first DaemonSet reconcile. In that case, the
+// DaemonSet will initially be created with the default (VersionTLS13), and will be
+// updated on a subsequent reconcile after the APIServer watch fires. This is normal
+// self-healing behavior and ensures secure defaults.
+func GetTLSMinVersionString() string {
+	validVersions := map[string]bool{
+		"VersionTLS10": true,
+		"VersionTLS11": true,
+		"VersionTLS12": true,
+		"VersionTLS13": true,
+	}
+
+	// Check for override first
+	if tlsVersion := os.Getenv("TLS_MIN_VERSION_OVERRIDE"); tlsVersion != "" {
+		if !validVersions[tlsVersion] {
+			klog.Warningf("Invalid TLS_MIN_VERSION_OVERRIDE value '%s', defaulting to VersionTLS13. Valid values: VersionTLS10, VersionTLS11, VersionTLS12, VersionTLS13", tlsVersion)
+			return "VersionTLS13"
+		}
+		return tlsVersion
+	}
+
+	// Then fall back to cluster settings
+	if tlsVersion := os.Getenv("TLS_MIN_VERSION"); tlsVersion != "" {
+		if !validVersions[tlsVersion] {
+			klog.Warningf("Invalid TLS_MIN_VERSION value '%s', defaulting to VersionTLS13. Valid values: VersionTLS10, VersionTLS11, VersionTLS12, VersionTLS13", tlsVersion)
+			return "VersionTLS13"
+		}
+		return tlsVersion
+	}
+
+	// Default to TLS 1.3 if no environment variable is set
+	return "VersionTLS13"
 }
 
 func cipherSuitesIDs(names []string) []uint16 {
