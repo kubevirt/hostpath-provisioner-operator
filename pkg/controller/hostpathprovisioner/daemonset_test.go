@@ -18,6 +18,7 @@ package hostpathprovisioner
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 )
 
@@ -40,6 +42,17 @@ const (
 	localDataDir                     = "local-data-dir"
 	hashedLongStoragePoolNameDataDir = "l12345678901234567890123456789012345678901234-69d4290d-data-dir"
 )
+
+// findEnvVar finds an environment variable by name in a container's env list.
+// Returns the EnvVar if found, nil otherwise.
+func findEnvVar(container *corev1.Container, name string) *corev1.EnvVar {
+	for i := range container.Env {
+		if container.Env[i].Name == name {
+			return &container.Env[i]
+		}
+	}
+	return nil
+}
 
 var _ = ginkgo.Describe("Controller reconcile loop", func() {
 	ginkgo.Context("daemonset", func() {
@@ -217,7 +230,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			ginkgo.Entry("longNamecr", createStoragePoolWithTemplateLongNameCr(), hashedLongStoragePoolNameDataDir),
 		)
 
-		ginkgo.DescribeTable("DaemonSet should have prometheus labels, port", func(cr *hppv1.HostPathProvisioner) {
+		ginkgo.DescribeTable("DaemonSet should have prometheus labels, port, and TLS env vars", func(cr *hppv1.HostPathProvisioner) {
 			_, r, cl = createDeployedCr(cr)
 			ds := &appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -228,14 +241,40 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			dsNN := client.ObjectKeyFromObject(ds)
 			err := cl.Get(context.TODO(), dsNN, ds)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			// Check metrics port
 			port := corev1.ContainerPort{
-				ContainerPort: 8080,
+				ContainerPort: 8443,
 				Name:          "metrics",
 				Protocol:      corev1.ProtocolTCP,
 			}
 			gomega.Expect(ds.Spec.Template.Spec.Containers[0].Ports).To(gomega.ContainElement(port))
+
+			// Check prometheus labels
 			gomega.Expect(ds.Labels[PrometheusLabelKey]).To(gomega.Equal(PrometheusLabelValue))
 			gomega.Expect(ds.Spec.Template.Labels[PrometheusLabelKey]).To(gomega.Equal(PrometheusLabelValue))
+
+			// Check TLS-related environment variables
+			container := &ds.Spec.Template.Spec.Containers[0]
+
+			// Verify POD_IP env var source
+			podIPEnv := findEnvVar(container, "POD_IP")
+			gomega.Expect(podIPEnv).NotTo(gomega.BeNil())
+			gomega.Expect(podIPEnv.ValueFrom).NotTo(gomega.BeNil())
+			gomega.Expect(podIPEnv.ValueFrom.FieldRef).NotTo(gomega.BeNil())
+			gomega.Expect(podIPEnv.ValueFrom.FieldRef.FieldPath).To(gomega.Equal("status.podIP"))
+
+			// Verify POD_NAMESPACE env var source
+			podNamespaceEnv := findEnvVar(container, "POD_NAMESPACE")
+			gomega.Expect(podNamespaceEnv).NotTo(gomega.BeNil())
+			gomega.Expect(podNamespaceEnv.ValueFrom).NotTo(gomega.BeNil())
+			gomega.Expect(podNamespaceEnv.ValueFrom.FieldRef).NotTo(gomega.BeNil())
+			gomega.Expect(podNamespaceEnv.ValueFrom.FieldRef.FieldPath).To(gomega.Equal("metadata.namespace"))
+
+			// Verify SERVICE_NAME env var value
+			serviceNameEnv := findEnvVar(container, "SERVICE_NAME")
+			gomega.Expect(serviceNameEnv).NotTo(gomega.BeNil())
+			gomega.Expect(serviceNameEnv.Value).To(gomega.Equal(PrometheusServiceName))
 		},
 			ginkgo.Entry("legacyCr", createLegacyCr()),
 			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
@@ -439,5 +478,45 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			ginkgo.Entry("legacyDs", MultiPurposeHostPathProvisionerName),
 			ginkgo.Entry("csiDs", fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName)),
 		)
+
+		ginkgo.Context("metrics TLS configuration", func() {
+			ginkgo.BeforeEach(func() {
+				// Clear env vars to ensure deterministic test behavior
+				os.Unsetenv("TLS_MIN_VERSION")
+				os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+			})
+
+			ginkgo.AfterEach(func() {
+				// Clean up env vars after test
+				os.Unsetenv("TLS_MIN_VERSION")
+				os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+			})
+
+			ginkgo.It("Should include --metrics-tls-version argument in CSI daemonset", func() {
+				_, _, cl := createDeployedCr(createLegacyCr())
+				ds := &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-csi", MultiPurposeHostPathProvisionerName),
+						Namespace: testNamespace,
+					},
+				}
+				err := cl.Get(context.TODO(), client.ObjectKeyFromObject(ds), ds)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+				// Verify --metrics-tls-version argument is present and matches current policy
+				container := ds.Spec.Template.Spec.Containers[0]
+				expectedArg := fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString())
+				foundArg := false
+				for _, arg := range container.Args {
+					if strings.HasPrefix(arg, "--metrics-tls-version=") {
+						foundArg = true
+						gomega.Expect(arg).To(gomega.Equal(expectedArg))
+						break
+					}
+				}
+				gomega.Expect(foundArg).To(gomega.BeTrue(), "Expected --metrics-tls-version argument not found")
+			})
+		})
+
 	})
 })

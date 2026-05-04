@@ -43,6 +43,7 @@ import (
 
 	hostpathprovisionerv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
 	"kubevirt.io/hostpath-provisioner-operator/pkg/util"
+	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 )
 
 const (
@@ -553,6 +554,28 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 									Name:  "VERSION",
 									Value: cr.Status.TargetVersion,
 								},
+								{
+									Name: "POD_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "status.podIP",
+										},
+									},
+								},
+								{
+									Name: "POD_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "metadata.namespace",
+										},
+									},
+								},
+								{
+									Name:  "SERVICE_NAME",
+									Value: PrometheusServiceName,
+								},
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: pointer.BoolPtr(true),
@@ -564,6 +587,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								"--nodeid=$(NODE_NAME)",
 								"--version=$(VERSION)",
 								"--datadir=$(PV_DIR)",
+								fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString()),
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -572,7 +596,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 									Protocol:      corev1.ProtocolTCP,
 								},
 								{
-									ContainerPort: 8080,
+									ContainerPort: 8443,
 									Name:          "metrics",
 									Protocol:      corev1.ProtocolTCP,
 								},
