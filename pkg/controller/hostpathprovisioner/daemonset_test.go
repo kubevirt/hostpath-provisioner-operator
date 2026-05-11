@@ -461,7 +461,7 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			_, err = r.Reconcile(context.TODO(), req)
 			gomega.Expect(err).To(gomega.HaveOccurred())
 			gomega.Expect(err.Error()).To(gomega.Equal("DaemonSet with extra selector labels spotted, cleaning up and requeueing"))
-			// Artificial requeue (err occured implies requeue)
+			// Artificial requeue (err occurred implies requeue)
 			_, err = r.Reconcile(context.TODO(), req)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			// Check the daemonSet value, make sure it changed back.
