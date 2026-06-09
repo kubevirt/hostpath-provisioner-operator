@@ -21,6 +21,50 @@ import (
 )
 
 var _ = ginkgo.Describe("Mounter tests", func() {
+	ginkgo.Context("filterPodMounts", func() {
+		ginkgo.It("should filter to pod mount when multiple mounts exist", func() {
+			infos := []FindmntInfo{
+				{
+					Target: "/var/lib/kubelet/plugins/kubernetes.io/csi/openshift-storage.cephfs.csi.ceph.com/abc123/globalmount",
+					Source: "csi-cephfs-node@cluster.cephfs=/volumes/csi/csi-vol-123/abc",
+				},
+				{
+					Target: "/var/lib/kubelet/pods/pod-uid-123/volumes/kubernetes.io~csi/pvc-abc/mount",
+					Source: "csi-cephfs-node@cluster.cephfs=/volumes/csi/csi-vol-123/abc",
+				},
+			}
+			result := filterPodMounts(infos)
+			gomega.Expect(result).To(gomega.HaveLen(1))
+			gomega.Expect(result[0].Target).To(gomega.ContainSubstring("/pods/"))
+		})
+
+		ginkgo.It("should return all infos when no pod mount is found", func() {
+			infos := []FindmntInfo{
+				{
+					Target: "/var/lib/kubelet/plugins/kubernetes.io/csi/driver/globalmount",
+					Source: "some-source",
+				},
+				{
+					Target: "/var/lib/kubelet/plugins/kubernetes.io/csi/driver/other",
+					Source: "some-source",
+				},
+			}
+			result := filterPodMounts(infos)
+			gomega.Expect(result).To(gomega.HaveLen(2))
+		})
+
+		ginkgo.It("should return single pod mount unchanged", func() {
+			infos := []FindmntInfo{
+				{
+					Target: "/var/lib/kubelet/pods/pod-uid/volumes/kubernetes.io~csi/pvc-123/mount",
+					Source: "nfs-server:/share",
+				},
+			}
+			result := filterPodMounts(infos)
+			gomega.Expect(result).To(gomega.HaveLen(1))
+		})
+	})
+
 	ginkgo.Context("lsblk JSON parsing", func() {
 		intJSON := `{
 			"blockdevices": [
