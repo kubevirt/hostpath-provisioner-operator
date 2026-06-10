@@ -282,10 +282,10 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 				os.Exit(1)
 			}
 			if len(infos) > 1 {
-				log.Info("Multiple mount infos found, filtering for pod mount", "count", len(infos))
-				filtered := filterPodMounts(infos)
+				log.Info("Multiple mount infos found, filtering for global CSI mount", "count", len(infos))
+				filtered := filterGlobalMounts(infos)
 				if len(filtered) != 1 {
-					log.Info("Unable to determine unique pod mount", "count", len(filtered))
+					log.Info("Unable to determine unique global mount", "count", len(filtered))
 					os.Exit(1)
 				}
 				infos = filtered
@@ -375,18 +375,18 @@ func (b *DeviceInfo) GetSourceDevice() string {
 	return filepath.Join("dev", b.Name)
 }
 
-// filterPodMounts filters mount infos to only include pod volume mounts,
-// excluding CSI driver global mounts. This handles storage providers like
-// CephFS that create both a global mount and a per-pod bind mount.
-func filterPodMounts(infos []FindmntInfo) []FindmntInfo {
-	var podMounts []FindmntInfo
+// filterGlobalMounts filters mount infos to only include CSI global mounts,
+// excluding per-pod bind mounts. This handles storage providers like CephFS
+// that create both a global mount and a per-pod bind mount.
+func filterGlobalMounts(infos []FindmntInfo) []FindmntInfo {
+	var globalMounts []FindmntInfo
 	for _, info := range infos {
-		if strings.Contains(info.Target, "/pods/") {
-			podMounts = append(podMounts, info)
+		if strings.Contains(info.Target, "/globalmount") {
+			globalMounts = append(globalMounts, info)
 		}
 	}
-	if len(podMounts) == 0 {
+	if len(globalMounts) == 0 {
 		return infos
 	}
-	return podMounts
+	return globalMounts
 }
