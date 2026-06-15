@@ -385,8 +385,5 @@ func filterGlobalMounts(infos []FindmntInfo) []FindmntInfo {
 			globalMounts = append(globalMounts, info)
 		}
 	}
-	if len(globalMounts) == 0 {
-		return infos
-	}
 	return globalMounts
 }

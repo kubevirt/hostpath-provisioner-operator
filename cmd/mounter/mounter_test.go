@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Mounter tests", func() {
 			gomega.Expect(result[0].Target).To(gomega.ContainSubstring("/globalmount"))
 		})
 
-		ginkgo.It("should return all infos when no global mount is found", func() {
+		ginkgo.It("should return empty when no global mount is found", func() {
 			infos := []FindmntInfo{
 				{
 					Target: "/var/lib/kubelet/pods/pod-uid-1/volumes/kubernetes.io~csi/pvc-1/mount",
@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("Mounter tests", func() {
 				},
 			}
 			result := filterGlobalMounts(infos)
-			gomega.Expect(result).To(gomega.HaveLen(2))
+			gomega.Expect(result).To(gomega.BeEmpty())
 		})
 
 		ginkgo.It("should return single global mount unchanged", func() {
