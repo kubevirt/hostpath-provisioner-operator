@@ -277,9 +277,18 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 			if err != nil {
 				panic(err)
 			}
-			if len(infos) != 1 {
-				log.Info("Number of infos is not 1", "count", len(infos))
+			if len(infos) == 0 {
+				log.Info("No mount info found for source", "source", hostMountPath)
 				os.Exit(1)
+			}
+			if len(infos) > 1 {
+				log.Info("Multiple mount infos found, filtering for global CSI mount", "count", len(infos))
+				filtered := filterGlobalMounts(infos)
+				if len(filtered) != 1 {
+					log.Info("Unable to determine unique global mount", "count", len(filtered))
+					os.Exit(1)
+				}
+				infos = filtered
 			}
 			log.Info("Found host path by source", "path", infos[0].Target)
 			hostMountPath = string(infos[0].Target)
@@ -364,4 +373,17 @@ func (f *FindmntInfo) GetOptions() []string {
 // GetSourceDevice returns the path to the device /dev/<device>
 func (b *DeviceInfo) GetSourceDevice() string {
 	return filepath.Join("dev", b.Name)
+}
+
+// filterGlobalMounts filters mount infos to only include CSI global mounts,
+// excluding per-pod bind mounts. This handles storage providers like CephFS
+// that create both a global mount and a per-pod bind mount.
+func filterGlobalMounts(infos []FindmntInfo) []FindmntInfo {
+	var globalMounts []FindmntInfo
+	for _, info := range infos {
+		if strings.Contains(info.Target, "/globalmount") {
+			globalMounts = append(globalMounts, info)
+		}
+	}
+	return globalMounts
 }
