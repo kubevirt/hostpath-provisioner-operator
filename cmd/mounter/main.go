@@ -363,5 +363,5 @@ func (f *FindmntInfo) GetOptions() []string {
 
 // GetSourceDevice returns the path to the device /dev/<device>
 func (b *DeviceInfo) GetSourceDevice() string {
-	return filepath.Join("dev", b.Name)
+	return filepath.Join("/dev", b.Name)
 }
