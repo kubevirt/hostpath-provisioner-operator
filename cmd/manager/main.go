@@ -127,8 +127,12 @@ func main() {
 		log.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+	if err := mgr.AddReadyzCheck("healthz", healthz.Ping); err != nil {
 		log.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+		log.Error(err, "unable to set up webhook ready check")
 		os.Exit(1)
 	}
 
