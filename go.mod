@@ -22,10 +22,10 @@ require (
 	github.com/rhobs/operator-observability-toolkit v0.0.30
 	go.uber.org/zap v1.28.0
 	k8s.io/api v0.36.2
-	k8s.io/apiextensions-apiserver v0.36.0
+	k8s.io/apiextensions-apiserver v0.36.2
 	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.36.2
-	k8s.io/code-generator v0.36.0
+	k8s.io/code-generator v0.36.2
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
