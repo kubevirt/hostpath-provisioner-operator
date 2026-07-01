@@ -376,12 +376,13 @@ func (b *DeviceInfo) GetSourceDevice() string {
 }
 
 // filterGlobalMounts filters mount infos to only include CSI global mounts,
-// excluding per-pod bind mounts. This handles storage providers like CephFS
+// excluding per-pod bind mounts. This handles storage providers
 // that create both a global mount and a per-pod bind mount.
 func filterGlobalMounts(infos []FindmntInfo) []FindmntInfo {
 	var globalMounts []FindmntInfo
 	for _, info := range infos {
-		if strings.Contains(info.Target, "/globalmount") {
+		// filter out pod mounts
+		if !strings.Contains(info.Target, "/var/lib/kubelet/pods") {
 			globalMounts = append(globalMounts, info)
 		}
 	}
