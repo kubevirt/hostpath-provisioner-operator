@@ -28,10 +28,10 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
+	mount "github.com/moby/sys/mountinfo"
 	"github.com/pkg/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -198,25 +198,24 @@ func unmountPath(targetPath, hostPath string) bool {
 }
 
 func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
-	infos, err := lookupFindmntInfoByVolume(sourcePath)
-	if err != nil {
-		log.Error(err, "unable to determine volume info for path", "sourcePath", sourcePath)
-	}
-	if len(infos) > 1 {
-		log.Info("Got multiple infos", "infos", infos)
-	}
-	hostMountPath := infos[0].GetSourcePath()
-	exit, err := chroot(hostPath)
+	// get mounts within the container
+	mountf, err := os.Open("/proc/1/mountinfo")
 	if err != nil {
 		panic(err)
 	}
-	defer func() {
-		err := exit()
-		if err != nil {
-			panic(err)
-		}
-	}()
-	mountIfNotMounted(targetPath, hostPath, hostMountPath)
+	defer mountf.Close()
+
+	sourceMounts, err := mount.GetMountsFromReader(mountf, mount.SingleEntryFilter(sourcePath))
+	if err != nil {
+		log.Error(err, "failed to get source mount", "sourcePath", sourcePath)
+		return
+	}
+	if len(sourceMounts) == 0 {
+		log.Info("no mount point entries at sourcePath", "sourcePath", sourcePath)
+		return
+	}
+
+	bindMountPathOnHost(sourceMounts[0], targetPath, hostPath)
 }
 
 func mountBlockVolume(sourcePath, targetPath, hostPath string) {
@@ -255,6 +254,66 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 		}
 	}
 	mountIfNotMounted(targetPath, hostPath, deviceInfos[0].GetSourceDevice())
+}
+
+// performs a bindmount on the host if one is needed
+func bindMountPathOnHost(sourceMount *mount.Info, targetPath, hostPath string) {
+	exit, err := chroot(hostPath)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := exit()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// get mounts on the host
+	hostMountf, err := os.Open("/proc/1/mountinfo")
+	if err != nil {
+		log.Error(err, "unable to open host mountinfo")
+		os.Exit(1)
+	}
+	defer hostMountf.Close()
+
+	major, minor := sourceMount.Major, sourceMount.Minor
+
+	// filter out any mounts that aren't associated with the source device
+	hostMounts, err := mount.GetMountsFromReader(hostMountf, func(m *mount.Info) (skip, stop bool) {
+		return m.Major != major || m.Minor != minor, false
+	})
+	if err != nil {
+		log.Error(err, "unable to read host mountinfo")
+		os.Exit(1)
+	}
+
+	bindSource := ""
+	for _, m := range hostMounts {
+		// if a mount exists on the host with our targetPath as the mount point, no new bind mount is needed
+		if m.Mountpoint == targetPath {
+			return
+		}
+
+		// only consider if existing mount is a kubelet pod mount mapped to the root filesystem
+		// and is not a consumer mount, indicated by the Root="/subdir"
+		if bindSource == "" && strings.HasPrefix(m.Mountpoint, "/var/lib/kubelet/pods/") && m.Root == "/" {
+			bindSource = m.Mountpoint
+			break
+		}
+	}
+	if bindSource != "" {
+		log.Info("Bind mounting", "source", bindSource, "target", targetPath)
+		out, err := bindMountCommand(bindSource, targetPath)
+		if err != nil {
+			log.Error(err, "failed to bind mount")
+		}
+		log.Info("Output", "out", string(out))
+		return
+	}
+
+	log.Info("Unable to find kubelet pod mount for filesystem", "major", major, "minor", minor)
+	os.Exit(1)
 }
 
 func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
