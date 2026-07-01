@@ -22,7 +22,7 @@ import (
 
 var _ = ginkgo.Describe("Mounter tests", func() {
 	ginkgo.Context("filterGlobalMounts", func() {
-		ginkgo.It("should filter to global mount when multiple mounts exist", func() {
+		ginkgo.It("should filter to cephfs global mount when multiple mounts exist", func() {
 			infos := []FindmntInfo{
 				{
 					Target: "/var/lib/kubelet/plugins/kubernetes.io/csi/openshift-storage.cephfs.csi.ceph.com/abc123/globalmount",
@@ -36,6 +36,26 @@ var _ = ginkgo.Describe("Mounter tests", func() {
 			result := filterGlobalMounts(infos)
 			gomega.Expect(result).To(gomega.HaveLen(1))
 			gomega.Expect(result[0].Target).To(gomega.ContainSubstring("/globalmount"))
+		})
+
+		ginkgo.It("should filter to nfs global mount when multiple mounts exist", func() {
+			infos := []FindmntInfo{
+				{
+					Target: "/var/lib/nfs-data/volume-1/csi",
+					Source: "nfs:/pvc-1234-5678",
+				},
+				{
+					Target: "/host/var/lib/kubelet/pods/abcd-1234/volumes/kubernetes.io~csi/pvc-1234-5678/mount",
+					Source: "nfs:/pvc-1234-5678",
+				},
+				{
+					Target: "/host/var/lib/kubelet/pods/abcd-4567/volumes/kubernetes.io~csi/pvc-8910/mount",
+					Source: "nfs:/pvc-1234-5678",
+				},
+			}
+			result := filterGlobalMounts(infos)
+			gomega.Expect(result).To(gomega.HaveLen(1))
+			gomega.Expect(result[0].Target).To(gomega.ContainSubstring("/nfs-data"))
 		})
 
 		ginkgo.It("should return empty when no global mount is found", func() {
