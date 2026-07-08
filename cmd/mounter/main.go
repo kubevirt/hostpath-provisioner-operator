@@ -299,7 +299,6 @@ func bindMountPathOnHost(sourceMount *mount.Info, targetPath, hostPath string) {
 		// and is not a consumer mount, indicated by the Root="/subdir"
 		if bindSource == "" && strings.HasPrefix(m.Mountpoint, "/var/lib/kubelet/pods/") && m.Root == "/" {
 			bindSource = m.Mountpoint
-			break
 		}
 	}
 	if bindSource != "" {
