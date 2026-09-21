@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -578,7 +579,8 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								Privileged: pointer.BoolPtr(true),
+								Privileged: ptr.To(true),     // pointer.BoolPointer is depracated
+								RunAsUser:  ptr.To(int64(0)), // mount-linux checks for root
 							},
 							Args: []string{
 								fmt.Sprintf("--drivername=%s", driverName),
