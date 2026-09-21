@@ -275,6 +275,11 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 			serviceNameEnv := findEnvVar(container, "SERVICE_NAME")
 			gomega.Expect(serviceNameEnv).NotTo(gomega.BeNil())
 			gomega.Expect(serviceNameEnv.Value).To(gomega.Equal(PrometheusServiceName))
+
+			// Verify SecurityContext RunAsUser is set to 0 (root) for mount-linux
+			gomega.Expect(container.SecurityContext).NotTo(gomega.BeNil())
+			gomega.Expect(container.SecurityContext.RunAsUser).NotTo(gomega.BeNil())
+			gomega.Expect(*container.SecurityContext.RunAsUser).To(gomega.Equal(int64(0)))
 		},
 			ginkgo.Entry("legacyCr", createLegacyCr()),
 			ginkgo.Entry("legacyStoragePoolCr", createLegacyStoragePoolCr()),
