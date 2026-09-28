@@ -16,7 +16,10 @@ OPERATOR_IMAGE?=hostpath-provisioner-operator
 TAG?=latest
 DOCKER_REPO?=quay.io/kubevirt
 GOOS?=linux
-GOARCH?=amd64
+# Default to the host architecture so unit tests and host tools (metricsdocs,
+# prom-metrics-collector) can actually run. Image-build jobs already override
+# this explicitly, e.g. GOARCH=s390x make manifest.
+GOARCH ?= $(shell go env GOARCH)
 BUILDAH_TLS_VERIFY?=true
 BUILDAH_PLATFORM_FLAG?=--platform $(GOOS)/$(GOARCH)
 
@@ -85,4 +88,5 @@ generate-doc: build-docgen
 	_out/metricsdocs > docs/metrics.md
 
 build-docgen:
+	mkdir -p _out
 	go build -ldflags="-s -w" -o _out/metricsdocs ./tools/metricsdocs
