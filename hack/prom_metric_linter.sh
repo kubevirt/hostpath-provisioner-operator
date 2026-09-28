@@ -17,6 +17,13 @@ set -ex
 
 linter_image_tag="v0.0.11"
 
+# quay.io/kubevirt/prom-metrics-linter is published for amd64 only. Metric-name
+# linting is architecture-independent and is already gated by the amd64 unit-test job.
+if [[ "$(go env GOHOSTARCH)" != "amd64" ]]; then
+    echo "Skipping prom-metrics-linter on $(go env GOHOSTARCH); image quay.io/kubevirt/prom-metrics-linter:${linter_image_tag} is amd64-only"
+    exit 0
+fi
+
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../)"
 export METRICS_COLLECTOR_PATH="${METRICS_COLLECTOR_PATH:-${PROJECT_ROOT}/tools/prom-metrics-collector}"
 
@@ -44,6 +51,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Get the metrics list
+mkdir -p _out
 go build -o _out/prom-metrics-collector "$METRICS_COLLECTOR_PATH/..."
 json_output=$(_out/prom-metrics-collector 2>/dev/null)
 
