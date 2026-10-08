@@ -56,7 +56,9 @@ var (
 	}
 
 	mountDeviceCommand = func(source, target string) ([]byte, error) {
-		return exec.Command("/usr/bin/mount", source, target).CombinedOutput()
+		// prjquota turns on project quotas for this filesystem. XFS and ext4 use the same option name.
+		// tune2fs for ext4 still belongs in mountBlockVolume, before this mount, not in the CSI driver.
+		return exec.Command("/usr/bin/mount", "-o", "prjquota", source, target).CombinedOutput()
 	}
 
 	unmountPathCommand = func(target string) ([]byte, error) {
@@ -73,6 +75,10 @@ var (
 
 	createXfs = func(source string) ([]byte, error) {
 		return exec.Command("/usr/sbin/mkfs.xfs", source).CombinedOutput()
+	}
+
+	enableExt4ProjectQuota = func(source string) ([]byte, error) {
+		return exec.Command("/usr/bin/tune2fs", "-Q", "prjquota", source).CombinedOutput()
 	}
 )
 
@@ -198,6 +204,9 @@ func unmountPath(targetPath, hostPath string) bool {
 }
 
 func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
+	// TODO: this path bind-mounts an existing directory. If that directory is on the
+	// root disk, we cannot remount it to add quota flags. Log a warning and leave
+	// quotas disabled for this pool. Dedicated block devices are handled in mountBlockVolume.
 	// get mounts within the container
 	mountf, err := os.Open("/proc/1/mountinfo")
 	if err != nil {
@@ -246,13 +255,27 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 		log.Error(err, "unable to determine filesystem type on device")
 		log.Info("Output", "out", string(out))
 	}
+	fsType := strings.TrimSpace(string(out))
 	if len(out) == 0 {
 		out, err := createXfs(deviceInfos[0].GetSourceDevice())
 		log.Info("Output", "out", string(out))
 		if err != nil {
 			panic(err)
 		}
+		fsType = "xfs"
 	}
+	// If ext4, run tune2fs -Q prjquota on the device before mounting.
+	// tune2fs needs a block device.
+	if fsType == "ext4" {
+		out, err := enableExt4ProjectQuota(deviceInfos[0].GetSourceDevice())
+		log.Info("Output", "out", string(out))
+		if err != nil {
+			panic(err)
+		}
+	}
+	// If xfs, the prjquota mount option is enough (see mountDeviceCommand).
+	// This only enables the filesystem feature. It does not cap existing directories.
+	// Per-PVC opt-in is the StorageClass parameter enforceQuota, read in the CSI driver.
 	mountIfNotMounted(targetPath, hostPath, deviceInfos[0].GetSourceDevice())
 }
 
