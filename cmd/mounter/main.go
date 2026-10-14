@@ -366,7 +366,17 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 			log.Info("Mounting device", "path", hostMountPath)
 			// Make sure the target exists.
 			if err := os.MkdirAll(targetPath, 0750); err != nil {
-				panic(err)
+				// MkdirAll returns nil if it can successfully stat targetPath and sees it as a directory
+				// however, if the stat fails (due to a broken mount), it will still attemp to call Mkdir which
+				// will return an ErrExist error since the directory already exists.
+				if !os.IsExist(err) {
+					panic(err)
+				}
+				log.Info("Unmounting stale mount", "path", targetPath)
+				out, umountErr := unmountPathCommand(targetPath)
+				if umountErr != nil {
+					panic(fmt.Errorf("failed to unmount stale mount: %w: %s", umountErr, string(out)))
+				}
 			}
 			out, err := mountDeviceCommand(hostMountPath, targetPath)
 			if err != nil {
