@@ -302,6 +302,9 @@ func bindMountPathOnHost(sourceMount *mount.Info, targetPath, hostPath string) {
 		}
 	}
 	if bindSource != "" {
+		if err := prepareMountTarget(targetPath); err != nil {
+			panic(err)
+		}
 		log.Info("Bind mounting", "source", bindSource, "target", targetPath)
 		out, err := bindMountCommand(bindSource, targetPath)
 		if err != nil {
@@ -355,6 +358,10 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 		if err != nil {
 			panic(err)
 		}
+		if err := prepareMountTarget(targetPath); err != nil {
+			panic(err)
+		}
+
 		if pathInfo.IsDir() {
 			log.Info("Bind mounting", "path", hostMountPath)
 			out, err := bindMountCommand(hostMountPath, targetPath)
@@ -364,20 +371,6 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 			log.Info("Output", "out", string(out))
 		} else if pathInfo.Mode()&os.ModeDevice > 0 {
 			log.Info("Mounting device", "path", hostMountPath)
-			// Make sure the target exists.
-			if err := os.MkdirAll(targetPath, 0750); err != nil {
-				// MkdirAll returns nil if it can successfully stat targetPath and sees it as a directory
-				// however, if the stat fails (due to a broken mount), it will still attemp to call Mkdir which
-				// will return an ErrExist error since the directory already exists.
-				if !os.IsExist(err) {
-					panic(err)
-				}
-				log.Info("Unmounting stale mount", "path", targetPath)
-				out, umountErr := unmountPathCommand(targetPath)
-				if umountErr != nil {
-					panic(fmt.Errorf("failed to unmount stale mount: %w: %s", umountErr, string(out)))
-				}
-			}
 			out, err := mountDeviceCommand(hostMountPath, targetPath)
 			if err != nil {
 				log.Error(err, "failed to mount device to path on host.")
@@ -385,6 +378,25 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 			log.Info("Output", "out", string(out))
 		}
 	}
+}
+
+// prepareMountTarget creates directory tree for targetPath if it does not exist.
+// if targetPath is found to be a stale mount, it is unmounted so the proper mount can be performed.
+func prepareMountTarget(targetPath string) error {
+	// MkdirAll returns nil if it can successfully stat targetPath and sees it as a directory
+	// however, if the stat fails (due to a broken mount), it will still attempt to call Mkdir which
+	// will return an ErrExist error since the directory already exists.
+	if err := os.MkdirAll(targetPath, 0750); err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+		log.Info("Unmounting stale mount", "path", targetPath)
+		out, umountErr := unmountPathCommand(targetPath)
+		if umountErr != nil {
+			return fmt.Errorf("failed to unmount stale mount: %w: %s", umountErr, string(out))
+		}
+	}
+	return nil
 }
 
 func isBlockDevice(path string) (bool, error) {
