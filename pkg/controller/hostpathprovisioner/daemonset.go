@@ -407,11 +407,16 @@ func getStoragePoolPaths(cr *hostpathprovisionerv1.HostPathProvisioner) []Storag
 		})
 	} else if len(cr.Spec.StoragePools) > 0 {
 		for _, storagePool := range cr.Spec.StoragePools {
+			var volumeMode *corev1.PersistentVolumeMode
+			if storagePool.PVCTemplate != nil {
+				volumeMode = storagePool.PVCTemplate.VolumeMode
+			}
 			storagePoolPaths = append(storagePoolPaths, StoragePoolInfo{
 				Name:             storagePool.Name,
 				Path:             storagePool.Path,
 				SnapshotProvider: storagePool.SnapshotProvider,
 				Shared:           isShared(storagePool.PVCTemplate),
+				VolumeMode:       volumeMode,
 			})
 		}
 	}
@@ -476,12 +481,72 @@ func buildVolumeMountsFromStoragePoolInfo(storagePools []StoragePoolInfo) []core
 	return mounts
 }
 
+// blockDeviceAlias returns the stable /dev entry name used for a storage pool's block device.
+func blockDeviceAlias(poolName string) string {
+	if poolName == "" {
+		poolName = "csi"
+	}
+	return getResourceNameWithMaxLength(poolName, "device", maxNameLength)
+}
+
+// buildBlockDeviceVolumesFromStoragePoolInfo creates HostPath volumes for pools that use raw block PVCs.
+func buildBlockDeviceVolumesFromStoragePoolInfo(storagePools []StoragePoolInfo) []corev1.Volume {
+	blockDevice := corev1.HostPathBlockDev
+	volumes := make([]corev1.Volume, 0)
+
+	for _, pool := range storagePools {
+		if pool.VolumeMode == nil || *pool.VolumeMode != corev1.PersistentVolumeBlock {
+			continue
+		}
+
+		alias := blockDeviceAlias(pool.Name)
+		volumeName := blockDeviceAlias(pool.Name)
+
+		volumes = append(volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: filepath.Join("/dev", alias),
+					Type: &blockDevice,
+				},
+			},
+		})
+	}
+
+	return volumes
+}
+
+// buildBlockDeviceMountsFromStoragePoolInfo maps each block-pool device into the CSI provisioner container.
+func buildBlockDeviceMountsFromStoragePoolInfo(
+	storagePools []StoragePoolInfo,
+) []corev1.VolumeMount {
+	mounts := make([]corev1.VolumeMount, 0)
+
+	for _, pool := range storagePools {
+		if pool.VolumeMode == nil ||
+			*pool.VolumeMode != corev1.PersistentVolumeBlock {
+			continue
+		}
+
+		alias := blockDeviceAlias(pool.Name)
+		volumeName := blockDeviceAlias(pool.Name)
+
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join("/dev", alias),
+		})
+	}
+	return mounts
+}
+
 func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLogger logr.Logger, args *daemonSetArgs) *appsv1.DaemonSet {
 	reqLogger.V(3).Info("CR nodeselector", "nodeselector", cr.Spec.Workload)
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	directory := corev1.HostPathDirectory
 	storagePoolPaths := getStoragePoolPaths(cr)
 	pathVolumes := buildVolumesFromStoragePoolInfo(storagePoolPaths)
+	deviceVolumes := buildBlockDeviceVolumesFromStoragePoolInfo(storagePoolPaths)
+	deviceMounts := buildBlockDeviceMountsFromStoragePoolInfo(storagePoolPaths)
 	pathMounts := buildVolumeMountsFromStoragePoolInfo(storagePoolPaths)
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := util.GetRecommendedLabels()
@@ -804,12 +869,16 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 		},
 	}
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, pathVolumes...)
+	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, deviceVolumes...)
 	if r.isFeatureGateEnabled(snapshotFeatureGate, cr) {
 		ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, *createSnapshotSideCarContainer(args.snapshotterImage, cr.Spec.ImagePullPolicy, args.verbosity))
 	}
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == MultiPurposeHostPathProvisionerName || container.Name == nodeDriverRegistrarName {
 			ds.Spec.Template.Spec.Containers[i].VolumeMounts = append(ds.Spec.Template.Spec.Containers[i].VolumeMounts, pathMounts...)
+		}
+		if container.Name == MultiPurposeHostPathProvisionerName {
+			ds.Spec.Template.Spec.Containers[i].VolumeMounts = append(ds.Spec.Template.Spec.Containers[i].VolumeMounts, deviceMounts...)
 		}
 	}
 

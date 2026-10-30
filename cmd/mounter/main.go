@@ -25,11 +25,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	mount "github.com/moby/sys/mountinfo"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -80,6 +82,10 @@ var (
 	enableExt4ProjectQuota = func(source string) ([]byte, error) {
 		return exec.Command("/usr/bin/tune2fs", "-Q", "prjquota", source).CombinedOutput()
 	}
+
+	mknodCommand = func(path, major, minor string) ([]byte, error) {
+		return exec.Command("/usr/bin/mknod", "-m", "0600", path, "b", major, minor).CombinedOutput()
+	}
 )
 
 // DeviceInfo returns device information returned by lsblk
@@ -116,15 +122,17 @@ func printVersion() {
 
 func main() {
 	var (
-		sourcePath string
-		targetPath string
-		hostPath   string
-		unmount    bool
+		sourcePath  string
+		targetPath  string
+		hostPath    string
+		deviceAlias string
+		unmount     bool
 	)
 	flag.Set("logtostderr", "true")
 	flag.StringVar(&sourcePath, "storagePoolPath", "/source", "path the source storagePool is mounted under")
 	flag.StringVar(&targetPath, "mountPath", "/", "target path the volume should be mounted on the host")
 	flag.StringVar(&hostPath, "hostPath", "/", "path of the host in container")
+	flag.StringVar(&deviceAlias, "deviceAlias", "pool", "name of pool used as the block device alias")
 	flag.BoolVar(&unmount, "unmount", false, "set to have the target path unmounted")
 
 	// Add the zap logger flag set to the CLI. The flag set must
@@ -151,6 +159,11 @@ func main() {
 			if !unmountPath(targetPath, hostPath) {
 				time.Sleep(time.Second)
 			} else {
+				if err := cleanupBlockDeviceAlias(hostPath, deviceAlias); err != nil {
+					log.Error(err, "unable to clean up block device alias")
+					time.Sleep(time.Second)
+					continue
+				}
 				return
 			}
 		}
@@ -165,7 +178,7 @@ func main() {
 			if !isBlock {
 				mountFileSystemVolume(sourcePath, targetPath, hostPath)
 			} else {
-				mountBlockVolume(sourcePath, targetPath, hostPath)
+				mountBlockVolume(sourcePath, targetPath, hostPath, deviceAlias)
 			}
 			time.Sleep(time.Second)
 			i++
@@ -174,6 +187,27 @@ func main() {
 			}
 		}
 	}
+}
+
+func cleanupBlockDeviceAlias(hostPath, aliasName string) error {
+	if filepath.Base(aliasName) != aliasName || aliasName == "." || aliasName == ".." {
+		return fmt.Errorf("invalid device alias name %q", aliasName)
+	}
+	devicePath := filepath.Join(hostPath, "dev", aliasName)
+	info, err := os.Lstat(devicePath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
+		return fmt.Errorf("%s exists but is not a block device", devicePath)
+	}
+	if err := os.Remove(devicePath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func unmountPath(targetPath, hostPath string) bool {
@@ -236,8 +270,64 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 	bindMountPathOnHost(sourceMount, targetPath, hostPath)
 }
 
-func mountBlockVolume(sourcePath, targetPath, hostPath string) {
-	log.Info("Attempting to mount block volume at target path", "targetPath", targetPath)
+func ensureBlockDeviceAlias(aliasName, majmin string) error {
+	parts := strings.Split(majmin, ":")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid major:minor value %q", majmin)
+	}
+
+	major, err := strconv.ParseUint(parts[0], 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid device major %q", major)
+	}
+	minor, err := strconv.ParseUint(parts[1], 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid device minor %q", minor)
+	}
+
+	if filepath.Base(aliasName) != aliasName || aliasName == "." || aliasName == ".." {
+		return fmt.Errorf("invalid ddevice alias name %q", aliasName)
+	}
+	fullDevicePath := filepath.Join("/dev", aliasName)
+
+	verify := func() error {
+		var st unix.Stat_t
+		if err := unix.Lstat(fullDevicePath, &st); err != nil {
+			return err
+		}
+		if st.Mode&unix.S_IFMT != unix.S_IFBLK {
+			return fmt.Errorf("%s exists but is not a block device", fullDevicePath)
+		}
+
+		gotMajor := unix.Major(uint64(st.Rdev))
+		gotMinor := unix.Minor(uint64(st.Rdev))
+		if gotMajor != uint32(major) || gotMinor != uint32(minor) {
+			return fmt.Errorf(
+				"%s has device %d:%d; expected %d:%d",
+				fullDevicePath, gotMajor, gotMinor, major, minor,
+			)
+		}
+		return nil
+	}
+
+	// reuse existing alias only if it points at the expected block device
+	if err := verify(); err == nil {
+		return nil
+	} else if err != unix.ENOENT {
+		return err
+	}
+
+	out, err := mknodCommand(fullDevicePath, parts[0], parts[1])
+	if err != nil {
+		return fmt.Errorf("failed to create block device %s: %w (output: %q)", fullDevicePath, err, out)
+	}
+
+	// confirm mknod created the expected device
+	return verify()
+}
+
+func mountBlockVolume(sourcePath, targetPath, hostPath, deviceAlias string) {
+	log.Info("Attempting to mount block volume at target path from source path", "targetPath", targetPath, "sourcePath", sourcePath)
 	deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
 	if err != nil {
 		panic(err)
@@ -259,16 +349,21 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 		}
 	}()
 
+	if err := ensureBlockDeviceAlias(deviceAlias, deviceInfos[0].Majmin); err != nil {
+		panic(err)
+	}
+	devicePath := filepath.Join("/dev", deviceAlias)
+
 	// Check if filesystem exists on device
-	out, err := fsTypeCommand(deviceInfos[0].GetSourceDevice())
+	out, err := fsTypeCommand(devicePath)
 	if err != nil {
 		log.Error(err, "unable to determine filesystem type on device")
 		log.Info("Output", "out", string(out))
 	}
 	fsType := strings.TrimSpace(string(out))
 	if len(out) == 0 {
-		log.Info("Creating XFS filesystem on", deviceInfos[0].GetSourceDevice())
-		out, err := createXfs(deviceInfos[0].GetSourceDevice())
+		log.Info("Creating XFS filesystem on", devicePath)
+		out, err := createXfs(devicePath)
 		log.Info("Output", "out", string(out))
 		if err != nil {
 			panic(err)
@@ -278,7 +373,7 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 	// If ext4, run tune2fs -Q prjquota on the device before mounting.
 	// tune2fs needs a block device.
 	if fsType == "ext4" {
-		out, err := enableExt4ProjectQuota(deviceInfos[0].GetSourceDevice())
+		out, err := enableExt4ProjectQuota(devicePath)
 		log.Info("Output", "out", string(out))
 		if err != nil {
 			panic(err)
@@ -287,7 +382,7 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 	// If xfs, the prjquota mount option is enough (see mountDeviceCommand).
 	// This only enables the filesystem feature. It does not cap existing directories.
 	// Per-PVC opt-in is the StorageClass parameter enforceQuota, read in the CSI driver.
-	mountIfNotMounted(targetPath, hostPath, deviceInfos[0].GetSourceDevice())
+	mountIfNotMounted(targetPath, hostPath, devicePath)
 }
 
 // performs a bindmount on the host if one is needed
