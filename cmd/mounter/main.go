@@ -25,11 +25,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	mount "github.com/moby/sys/mountinfo"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -41,7 +43,8 @@ const (
 var (
 	log = logf.Log.WithName("mounter")
 
-	sourceRgx = regexp.MustCompile(`\[(.+)\]`)
+	sourceRgx      = regexp.MustCompile(`\[(.+)\]`)
+	deviceAliasRgx = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
 
 	findMntByVolume = func(volumeName string) ([]byte, error) {
 		return exec.Command("/usr/bin/findmnt", "-T", fmt.Sprintf("/%s", volumeName), "-J").CombinedOutput()
@@ -80,6 +83,10 @@ var (
 	enableExt4ProjectQuota = func(source string) ([]byte, error) {
 		return exec.Command("/usr/bin/tune2fs", "-Q", "prjquota", source).CombinedOutput()
 	}
+
+	mknodCommand = func(path, major, minor string) ([]byte, error) {
+		return exec.Command("/usr/bin/mknod", "-m", "0600", path, "b", major, minor).CombinedOutput()
+	}
 )
 
 // DeviceInfo returns device information returned by lsblk
@@ -116,15 +123,17 @@ func printVersion() {
 
 func main() {
 	var (
-		sourcePath string
-		targetPath string
-		hostPath   string
-		unmount    bool
+		sourcePath  string
+		targetPath  string
+		hostPath    string
+		deviceAlias string
+		unmount     bool
 	)
 	flag.Set("logtostderr", "true")
 	flag.StringVar(&sourcePath, "storagePoolPath", "/source", "path the source storagePool is mounted under")
 	flag.StringVar(&targetPath, "mountPath", "/", "target path the volume should be mounted on the host")
 	flag.StringVar(&hostPath, "hostPath", "/", "path of the host in container")
+	flag.StringVar(&deviceAlias, "deviceAlias", "", "name of pool used as the block device alias")
 	flag.BoolVar(&unmount, "unmount", false, "set to have the target path unmounted")
 
 	// Add the zap logger flag set to the CLI. The flag set must
@@ -148,9 +157,21 @@ func main() {
 
 	if unmount {
 		for {
+			// Capture the mounted filesystem's backing device before unmounting.
+			// Once unmounted, there is no reliable way to verify which device the
+			// alias was created for.
+			majmin, deviceErr := mountedBlockDeviceMajorMinor(targetPath, hostPath)
 			if !unmountPath(targetPath, hostPath) {
 				time.Sleep(time.Second)
 			} else {
+				if deviceErr != nil {
+					log.Error(deviceErr, "unable to identify backing device; leaving block device alias in place", "aliasName", deviceAlias)
+					return
+				}
+				if err := cleanupBlockDeviceAlias(hostPath, deviceAlias, majmin); err != nil {
+					log.Error(err, "unable to clean up block device alias")
+					continue
+				}
 				return
 			}
 		}
@@ -165,7 +186,7 @@ func main() {
 			if !isBlock {
 				mountFileSystemVolume(sourcePath, targetPath, hostPath)
 			} else {
-				mountBlockVolume(sourcePath, targetPath, hostPath)
+				mountBlockVolume(sourcePath, targetPath, hostPath, deviceAlias)
 			}
 			time.Sleep(time.Second)
 			i++
@@ -174,6 +195,84 @@ func main() {
 			}
 		}
 	}
+}
+
+func cleanupBlockDeviceAlias(hostPath, aliasName, majmin string) error {
+	if err := validateBlockDeviceAlias(aliasName); err != nil {
+		return err
+	}
+	if majmin == "" {
+		// This mount is not backed by a block device, so it has no alias to clean up.
+		return nil
+	}
+	exit, err := chroot(hostPath)
+	if err != nil {
+		return fmt.Errorf("failed to enter host root %s: %w", hostPath, err)
+	}
+	defer func() {
+		if err := exit(); err != nil {
+			log.Error(err, "failed to leave host root", "hostPath", hostPath)
+		}
+	}()
+
+	// In cleanup mode this verifies that the alias is the expected block device.
+	// A missing alias is safe to ignore; a mismatched path must not be removed.
+	if err := ensureBlockDeviceAlias(aliasName, majmin, true); err != nil {
+		return fmt.Errorf("refusing to remove block device alias %s: %w", aliasName, err)
+	}
+	devicePath := filepath.Join("/dev", aliasName)
+	info, err := os.Lstat(devicePath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
+		return fmt.Errorf("%s exists but is not a block device", devicePath)
+	}
+	if err := os.Remove(devicePath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// mountedBlockDeviceMajorMinor returns the major:minor number for the block
+// device backing targetPath. It must run before unmounting so cleanup can
+// verify that the alias still refers to the device used by this mount.
+func mountedBlockDeviceMajorMinor(targetPath, hostPath string) (string, error) {
+	exit, err := chroot(hostPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to enter host root %s: %w", hostPath, err)
+	}
+	defer func() {
+		if err := exit(); err != nil {
+			log.Error(err, "failed to leave host root", "hostPath", hostPath)
+		}
+	}()
+
+	mounts, err := lookupFindmntInfoByVolume(targetPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to find mount for %s: %w", targetPath, err)
+	}
+	if len(mounts) == 0 {
+		return "", fmt.Errorf("no mount found for %s", targetPath)
+	}
+	if filepath.Clean(mounts[0].Target) != filepath.Clean(targetPath) {
+		// The target is not mounted directly; do not infer an alias from its
+		// parent filesystem.
+		return "", nil
+	}
+
+	source := mounts[0].GetSourcePath()
+	var st unix.Stat_t
+	if err := unix.Stat(source, &st); err != nil {
+		return "", fmt.Errorf("failed to stat mount source %s: %w", source, err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFBLK {
+		return "", nil
+	}
+	return fmt.Sprintf("%d:%d", unix.Major(uint64(st.Rdev)), unix.Minor(uint64(st.Rdev))), nil
 }
 
 func unmountPath(targetPath, hostPath string) bool {
@@ -242,8 +341,79 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 	bindMountPathOnHost(sourceMount, sourceInfo, targetPath, hostPath)
 }
 
-func mountBlockVolume(sourcePath, targetPath, hostPath string) {
-	log.Info("Attempting to mount block volume at target path", "targetPath", targetPath)
+func ensureBlockDeviceAlias(aliasName, majmin string, cleanup bool) error {
+	if aliasName == "" {
+		return fmt.Errorf("device alias is required for block device setup")
+	}
+	if err := validateBlockDeviceAlias(aliasName); err != nil {
+		return err
+	}
+	log.Info("Ensuring block device alias", "aliasName", aliasName)
+	parts := strings.Split(majmin, ":")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid major:minor value %q", majmin)
+	}
+
+	major, err := strconv.ParseUint(parts[0], 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid device major %d", major)
+	}
+	minor, err := strconv.ParseUint(parts[1], 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid device minor %d", minor)
+	}
+
+	fullDevicePath := filepath.Join("/dev", aliasName)
+
+	verify := func() error {
+		var st unix.Stat_t
+		if err := unix.Lstat(fullDevicePath, &st); err != nil {
+			return err
+		}
+		if st.Mode&unix.S_IFMT != unix.S_IFBLK {
+			return fmt.Errorf("%s exists but is not a block device", fullDevicePath)
+		}
+
+		gotMajor := unix.Major(uint64(st.Rdev))
+		gotMinor := unix.Minor(uint64(st.Rdev))
+		if gotMajor != uint32(major) || gotMinor != uint32(minor) {
+			return fmt.Errorf(
+				"%s has device %d:%d; expected %d:%d",
+				fullDevicePath, gotMajor, gotMinor, major, minor,
+			)
+		}
+		return nil
+	}
+
+	// reuse existing alias only if it points at the expected block device
+	if err := verify(); err == nil {
+		return nil
+	} else if err != unix.ENOENT {
+		return err
+	}
+	if cleanup {
+		log.Info("Block device alias is already absent; skipping creation during cleanup", "aliasName", aliasName)
+		return nil
+	}
+
+	out, err := mknodCommand(fullDevicePath, parts[0], parts[1])
+	if err != nil {
+		return fmt.Errorf("failed to create block device %s: %w (output: %q)", fullDevicePath, err, out)
+	}
+
+	// confirm mknod created the expected device
+	return verify()
+}
+
+func validateBlockDeviceAlias(aliasName string) error {
+	if !deviceAliasRgx.MatchString(aliasName) {
+		return fmt.Errorf("invalid block device alias %q: only ASCII letters, digits, and hyphens are allowed", aliasName)
+	}
+	return nil
+}
+
+func mountBlockVolume(sourcePath, targetPath, hostPath, deviceAlias string) {
+	log.Info("Attempting to mount block volume at target path from source path", "targetPath", targetPath, "sourcePath", sourcePath)
 	deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
 	if err != nil {
 		panic(err)
@@ -265,7 +435,11 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 		}
 	}()
 
-	mountIfNotMounted(targetPath, hostPath, deviceInfos[0].GetSourceDevice())
+	if err := ensureBlockDeviceAlias(deviceAlias, deviceInfos[0].Majmin, false); err != nil {
+		panic(err)
+	}
+	devicePath := filepath.Join("/dev", deviceAlias)
+	mountIfNotMounted(targetPath, hostPath, devicePath)
 }
 
 // prepareBlockDeviceFilesystem detects or creates the filesystem on devicePath
