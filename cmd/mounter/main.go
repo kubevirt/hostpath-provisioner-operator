@@ -146,16 +146,16 @@ func main() {
 
 	printVersion()
 
+	log.Info("Mounter starting",
+		"sourcePath", sourcePath,
+		"targetPath", targetPath,
+		"hostPath", hostPath,
+		"unmount", unmount,
+	)
+
 	if unmount {
-		// Capture the device once before the first unmount attempt and keep it
-		// across retries, since the mount source is no longer visible afterward.
-		majmin, deviceErr := mountedBlockDeviceMajorMinor(targetPath, hostPath)
-		for {
-			if !unmountPath(targetPath, hostPath) {
-				time.Sleep(time.Second)
-			} else {
-				return
-			}
+		for !unmountPath(targetPath, hostPath) {
+			time.Sleep(time.Second)
 		}
 	} else {
 		i := 0
@@ -211,6 +211,7 @@ func unmountPath(targetPath, hostPath string) bool {
 		return true
 	}
 
+	log.Info("attempting to unmount target path", "targetPath", targetPath)
 	out, err := unmountPathCommand(targetPath)
 	if err != nil {
 		log.Error(err, "failed to unmount target", "path", targetPath)
@@ -268,17 +269,12 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 		log.Error(err, "failed to stat root filesystem")
 		return
 	}
-	rootMajor := int(unix.Major(uint64(rootStat.Dev)))
-	rootMinor := int(unix.Minor(uint64(rootStat.Dev)))
-	if sourceMount.Major == rootMajor && sourceMount.Minor == rootMinor {
-		log.Info("storage pool is on the root disk; project quotas are disabled for this pool", "sourcePath", sourcePath)
-	}
 
 	bindMountPathOnHost(sourceMount, sourceInfo, targetPath, hostPath)
 }
 
 func mountBlockVolume(sourcePath, targetPath, hostPath string) {
-	log.Info("Attempting to mount block volume at target path", "targetPath", targetPath)
+	log.Info("Attempting to mount block volume at target path from source path", "targetPath", targetPath, "sourcePath", sourcePath)
 	deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
 	if err != nil {
 		panic(err)
@@ -301,7 +297,8 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 		}
 	}()
 
-	mountIfNotMounted(targetPath, hostPath, deviceInfos[0].GetSourceDevice())
+	devicePath := deviceInfos[0].GetSourceDevice()
+	mountIfNotMounted(targetPath, hostPath, devicePath)
 }
 
 // prepareBlockDeviceFilesystem detects or creates the filesystem on devicePath

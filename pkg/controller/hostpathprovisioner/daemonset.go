@@ -484,6 +484,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	pathVolumes := buildVolumesFromStoragePoolInfo(storagePoolPaths)
 	pathMounts := buildVolumeMountsFromStoragePoolInfo(storagePoolPaths)
 	biDirectional := corev1.MountPropagationBidirectional
+	hostToContainer := corev1.MountPropagationHostToContainer
 	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
 	ds := &appsv1.DaemonSet{
@@ -804,12 +805,28 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 		},
 	}
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, pathVolumes...)
+	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: "host-dev",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: "/dev",
+				Type: &directory,
+			},
+		},
+	})
 	if r.isFeatureGateEnabled(snapshotFeatureGate, cr) {
 		ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, *createSnapshotSideCarContainer(args.snapshotterImage, cr.Spec.ImagePullPolicy, args.verbosity))
 	}
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == MultiPurposeHostPathProvisionerName || container.Name == nodeDriverRegistrarName {
 			ds.Spec.Template.Spec.Containers[i].VolumeMounts = append(ds.Spec.Template.Spec.Containers[i].VolumeMounts, pathMounts...)
+		}
+		if container.Name == MultiPurposeHostPathProvisionerName {
+			ds.Spec.Template.Spec.Containers[i].VolumeMounts = append(ds.Spec.Template.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
+				Name:             "host-dev",
+				MountPath:        "/dev",
+				MountPropagation: &hostToContainer,
+			})
 		}
 	}
 
