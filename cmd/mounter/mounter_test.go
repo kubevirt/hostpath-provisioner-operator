@@ -16,6 +16,10 @@ limitations under the License.
 package main
 
 import (
+	"os"
+	"syscall"
+
+	mount "github.com/moby/sys/mountinfo"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 )
@@ -90,6 +94,51 @@ var _ = ginkgo.Describe("Mounter tests", func() {
 		},
 			ginkgo.Entry("integer value", intJSON),
 			ginkgo.Entry("actual boolean", boolJSON),
+		)
+	})
+
+	ginkgo.Context("selectBindSource", func() {
+		const (
+			pool     = "/var/lib/kubelet/pods/mounter/volumes/kubernetes.io~csi/pool/mount"
+			consumer = "/var/lib/kubelet/pods/consumer/volumes/kubernetes.io~csi/pvc/mount"
+			target   = "/var/hpvolumes/csi"
+		)
+
+		// Every entry models an NFS mount with the pool's device number and
+		// Root="/", so only directory identity distinguishes the pool.
+		ginkgo.DescribeTable("should select the source directory", func(mountpoints []string, targetSource, stale, want string, wantErr bool) {
+			poolInfo, err := os.Stat(ginkgo.GinkgoT().TempDir())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			consumerInfo, err := os.Stat(ginkgo.GinkgoT().TempDir())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			files := map[string]os.FileInfo{pool: poolInfo, consumer: consumerInfo}
+			files[target] = files[targetSource]
+			stat := func(path string) (os.FileInfo, error) {
+				if info := files[path]; info != nil && path != stale {
+					return info, nil
+				}
+				return nil, &os.PathError{Op: "stat", Path: path, Err: syscall.ESTALE}
+			}
+			var mounts []*mount.Info
+			for _, mountpoint := range mountpoints {
+				mounts = append(mounts, &mount.Info{Mountpoint: mountpoint, Root: "/"})
+			}
+
+			got, err := selectBindSource(poolInfo, mounts, target, stat)
+			if wantErr {
+				gomega.Expect(err).To(gomega.HaveOccurred())
+			} else {
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+			gomega.Expect(got).To(gomega.Equal(want))
+		},
+			ginkgo.Entry("consumer listed before the pool", []string{consumer, pool}, "", "", pool, false),
+			ginkgo.Entry("pool listed before a consumer", []string{pool, consumer}, "", "", pool, false),
+			ginkgo.Entry("stale consumer", []string{consumer, pool}, "", consumer, pool, false),
+			ginkgo.Entry("only a consumer mounted", []string{consumer}, "", "", "", true),
+			ginkgo.Entry("target mounts the pool", []string{pool, consumer, target}, pool, "", "", false),
+			ginkgo.Entry("target mounts a consumer", []string{pool, consumer, target}, consumer, "", "", true),
+			ginkgo.Entry("stale target", []string{pool, target}, pool, target, "", true),
 		)
 	})
 })
