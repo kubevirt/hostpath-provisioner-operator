@@ -198,6 +198,12 @@ func unmountPath(targetPath, hostPath string) bool {
 }
 
 func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
+	// The host sees the same directory identity after chroot.
+	sourceInfo, err := os.Stat(sourcePath)
+	if err != nil {
+		log.Error(err, "failed to stat source mount", "sourcePath", sourcePath)
+		return
+	}
 	// get mounts within the container
 	mountf, err := os.Open("/proc/1/mountinfo")
 	if err != nil {
@@ -215,7 +221,7 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 		return
 	}
 
-	bindMountPathOnHost(sourceMounts[0], targetPath, hostPath)
+	bindMountPathOnHost(sourceMounts[0], sourceInfo, targetPath, hostPath)
 }
 
 func mountBlockVolume(sourcePath, targetPath, hostPath string) {
@@ -257,7 +263,7 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 }
 
 // performs a bindmount on the host if one is needed
-func bindMountPathOnHost(sourceMount *mount.Info, targetPath, hostPath string) {
+func bindMountPathOnHost(sourceMount *mount.Info, sourceInfo os.FileInfo, targetPath, hostPath string) {
 	exit, err := chroot(hostPath)
 	if err != nil {
 		panic(err)
@@ -288,34 +294,52 @@ func bindMountPathOnHost(sourceMount *mount.Info, targetPath, hostPath string) {
 		os.Exit(1)
 	}
 
-	bindSource := ""
-	for _, m := range hostMounts {
-		// if a mount exists on the host with our targetPath as the mount point, no new bind mount is needed
-		if m.Mountpoint == targetPath {
-			return
-		}
-
-		// only consider if existing mount is a kubelet pod mount mapped to the root filesystem
-		// and is not a consumer mount, indicated by the Root="/subdir"
-		if bindSource == "" && strings.HasPrefix(m.Mountpoint, "/var/lib/kubelet/pods/") && m.Root == "/" {
-			bindSource = m.Mountpoint
-		}
+	bindSource, err := selectBindSource(sourceInfo, hostMounts, targetPath, os.Stat)
+	if err != nil {
+		log.Error(err, "unable to bind mount filesystem", "major", major, "minor", minor)
+		os.Exit(1)
 	}
-	if bindSource != "" {
-		if err := prepareMountTarget(targetPath); err != nil {
-			panic(err)
-		}
-		log.Info("Bind mounting", "source", bindSource, "target", targetPath)
-		out, err := bindMountCommand(bindSource, targetPath)
-		if err != nil {
-			log.Error(err, "failed to bind mount")
-		}
-		log.Info("Output", "out", string(out))
+	if bindSource == "" {
 		return
 	}
+	if err := prepareMountTarget(targetPath); err != nil {
+		panic(err)
+	}
+	log.Info("Bind mounting", "source", bindSource, "target", targetPath)
+	out, err := bindMountCommand(bindSource, targetPath)
+	if err != nil {
+		log.Error(err, "failed to bind mount")
+	}
+	log.Info("Output", "out", string(out))
+}
 
-	log.Info("Unable to find kubelet pod mount for filesystem", "major", major, "minor", minor)
-	os.Exit(1)
+// selectBindSource returns the kubelet pod mount of the source directory, or an
+// empty path if targetPath already mounts it. Some filesystems, such as NFS,
+// report Root="/" for subdirectory mounts, so compare directory identity instead.
+func selectBindSource(sourceInfo os.FileInfo, hostMounts []*mount.Info, targetPath string, stat func(string) (os.FileInfo, error)) (string, error) {
+	for _, m := range hostMounts {
+		if m.Mountpoint != targetPath {
+			continue
+		}
+		info, err := stat(targetPath)
+		if err != nil {
+			return "", fmt.Errorf("unable to check existing mount %s: %w", targetPath, err)
+		}
+		if !os.SameFile(sourceInfo, info) {
+			return "", fmt.Errorf("%s is already mounted from another directory", targetPath)
+		}
+		return "", nil
+	}
+	for _, m := range hostMounts {
+		if !strings.HasPrefix(m.Mountpoint, "/var/lib/kubelet/pods/") {
+			continue
+		}
+		// A mount that cannot be checked, such as a stale consumer volume, is not the source.
+		if info, err := stat(m.Mountpoint); err == nil && os.SameFile(sourceInfo, info) {
+			return m.Mountpoint, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find kubelet pod mount for filesystem")
 }
 
 func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
