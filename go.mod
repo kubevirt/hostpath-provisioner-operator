@@ -18,7 +18,7 @@ require (
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/operator-framework/api v0.46.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.2
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.95.1
 	github.com/prometheus/client_model v0.6.3
 	github.com/rhobs/operator-observability-toolkit v0.0.30
 	go.uber.org/zap v1.28.0
@@ -29,7 +29,7 @@ require (
 	k8s.io/code-generator v0.37.2
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260821135717-be32def86098
-	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
+	k8s.io/utils v0.0.0-20261023123148-ca04ba58ecab
 	sigs.k8s.io/controller-runtime v0.25.2
 )
 
