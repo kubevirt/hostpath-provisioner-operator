@@ -55,11 +55,11 @@ func NewManagedTLSWatcher() *ManagedTLSWatcher {
 		Type:         ocpconfigv1.TLSProfileIntermediateType,
 		Intermediate: &ocpconfigv1.IntermediateTLSProfile{},
 	}
-	cipherNames, minVersion := selectCipherSuitesAndMinTLSVersion(defaultProfile)
+	profileSpec := getTLSProfileSpec(defaultProfile)
 	return &ManagedTLSWatcher{
 		defaultConfig: &cryptoConfig{
-			CipherSuites: cipherSuitesIDs(cipherNames),
-			MinVersion:   getTLSVersionOrDefault(string(minVersion)),
+			CipherSuites: cipherSuitesIDs(profileSpec.Ciphers),
+			MinVersion:   getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
 		},
 	}
 }
@@ -129,8 +129,11 @@ func (m *ManagedTLSWatcher) GetTLSConfig(ctx context.Context) *cryptoConfig {
 	if err := c.Get(ctx, types.NamespacedName{Name: "cluster"}, apiServer); err != nil {
 		return m.defaultConfig
 	}
-
-	return cryptoConfigFromProfile(apiServer.Spec.TLSSecurityProfile)
+	profileSpec := getTLSProfileSpec(apiServer.Spec.TLSSecurityProfile)
+	return &cryptoConfig{
+		CipherSuites: cipherSuitesIDs(profileSpec.Ciphers),
+		MinVersion:   getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
+	}
 }
 
 // CryptoPolicyOpt returns a TLS config mutator that dynamically applies
@@ -147,14 +150,6 @@ func (m *ManagedTLSWatcher) CryptoPolicyOpt() func(*tls.Config) {
 			config.MinVersion = cc.MinVersion
 			return config, nil
 		}
-	}
-}
-
-func cryptoConfigFromProfile(profile *ocpconfigv1.TLSSecurityProfile) *cryptoConfig {
-	cipherNames, minVersion := selectCipherSuitesAndMinTLSVersion(profile)
-	return &cryptoConfig{
-		CipherSuites: cipherSuitesIDs(cipherNames),
-		MinVersion:   getTLSVersionOrDefault(string(minVersion)),
 	}
 }
 
@@ -195,8 +190,8 @@ func GetTLSMinVersionString(reader client.Reader) string {
 		return "VersionTLS13"
 	}
 
-	_, minVersion := selectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
-	return string(minVersion)
+	profileSpec := getTLSProfileSpec(apiServer.Spec.TLSSecurityProfile)
+	return string(profileSpec.MinTLSVersion)
 }
 
 func cipherSuitesIDs(names []string) []uint16 {
@@ -240,17 +235,16 @@ func cipherSuitesIDs(names []string) []uint16 {
 	return ids
 }
 
-func selectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile) ([]string, ocpconfigv1.TLSProtocolVersion) {
+func getTLSProfileSpec(profile *ocpconfigv1.TLSSecurityProfile) ocpconfigv1.TLSProfileSpec {
 	if profile == nil {
-		profile = &ocpconfigv1.TLSSecurityProfile{
-			Type:         ocpconfigv1.TLSProfileIntermediateType,
-			Intermediate: &ocpconfigv1.IntermediateTLSProfile{},
-		}
+		return *ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType]
 	}
-
 	if profile.Custom != nil {
-		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion
+		return profile.Custom.TLSProfileSpec
 	}
-
-	return ocpconfigv1.TLSProfiles[profile.Type].Ciphers, ocpconfigv1.TLSProfiles[profile.Type].MinTLSVersion
+	if spec, ok := ocpconfigv1.TLSProfiles[profile.Type]; ok {
+		return *spec
+	}
+	log.V(1).Info("invalid TLS security profile, falling back to Intermediate", "type", profile.Type)
+	return *ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType]
 }
