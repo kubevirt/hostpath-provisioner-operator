@@ -155,10 +155,25 @@ func main() {
 
 	printVersion()
 
+	log.Info("Mounter starting",
+		"sourcePath", sourcePath,
+		"targetPath", targetPath,
+		"hostPath", hostPath,
+		"deviceAlias", deviceAlias,
+		"unmount", unmount,
+	)
+
 	if unmount {
+		var majmin string
+		var deviceErr error
 		for {
 			// Capture the mounted filesystem's backing device before unmounting.
-			majmin, deviceErr := mountedBlockDeviceMajorMinor(targetPath, hostPath)
+			// Keep a discovered device identity across retries: after unmounting,
+			// findmnt reports the parent filesystem instead of the pool device.
+			if majmin == "" && deviceErr == nil {
+				majmin, deviceErr = mountedBlockDeviceMajorMinor(targetPath, hostPath)
+				log.Info("captured maj:min of device at target path", "majmin", majmin, "targetPath", targetPath)
+			}
 			if !unmountPath(targetPath, hostPath) {
 				time.Sleep(time.Second)
 			} else {
@@ -196,11 +211,13 @@ func main() {
 }
 
 func cleanupBlockDeviceAlias(hostPath, aliasName, majmin string) error {
+	log.Info("Attempting to cleanup block device alias", "aliasName", aliasName)
 	if err := validateBlockDeviceAlias(aliasName); err != nil {
 		return err
 	}
 	if majmin == "" {
 		// This mount is not backed by a block device, so it has no alias to clean up.
+		log.Info("Missing block device", "deviceName", aliasName)
 		return nil
 	}
 	exit, err := chroot(hostPath)
@@ -221,6 +238,7 @@ func cleanupBlockDeviceAlias(hostPath, aliasName, majmin string) error {
 	devicePath := filepath.Join("/dev", aliasName)
 	info, err := os.Lstat(devicePath)
 	if os.IsNotExist(err) {
+		log.Info("path to device does not exist", "devicePath", devicePath)
 		return nil
 	}
 	if err != nil {
@@ -229,6 +247,7 @@ func cleanupBlockDeviceAlias(hostPath, aliasName, majmin string) error {
 	if info.Mode()&os.ModeDevice == 0 || info.Mode()&os.ModeCharDevice != 0 {
 		return fmt.Errorf("%s exists but is not a block device", devicePath)
 	}
+	log.Info("Trying to remove device at path", "devicePath", devicePath)
 	if err := os.Remove(devicePath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -239,6 +258,7 @@ func cleanupBlockDeviceAlias(hostPath, aliasName, majmin string) error {
 // device backing targetPath. It must run before unmounting so cleanup can
 // verify that the alias still refers to the device used by this mount.
 func mountedBlockDeviceMajorMinor(targetPath, hostPath string) (string, error) {
+	log.Info("Inspecting mount backing device", "targetPath", targetPath, "hostPath", hostPath)
 	exit, err := chroot(hostPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to enter host root %s: %w", hostPath, err)
@@ -256,21 +276,38 @@ func mountedBlockDeviceMajorMinor(targetPath, hostPath string) (string, error) {
 	if len(mounts) == 0 {
 		return "", fmt.Errorf("no mount found for %s", targetPath)
 	}
-	if filepath.Clean(mounts[0].Target) != filepath.Clean(targetPath) {
+	mount := mounts[0]
+	log.Info("Found mount entry for target",
+		"targetPath", targetPath,
+		"mountTarget", mount.Target,
+		"source", mount.Source,
+		"filesystem", mount.Fstype,
+		"options", mount.Options,
+	)
+	if filepath.Clean(mount.Target) != filepath.Clean(targetPath) {
 		// The target is not mounted directly; do not infer an alias from its
 		// parent filesystem.
+		log.Info("Target is not a direct mountpoint; skipping block device lookup",
+			"targetPath", targetPath, "mountTarget", mount.Target)
 		return "", nil
 	}
 
-	source := mounts[0].GetSourcePath()
+	source := mount.GetSourcePath()
+	log.Info("Checking mount source type", "source", source)
 	var st unix.Stat_t
 	if err := unix.Stat(source, &st); err != nil {
 		return "", fmt.Errorf("failed to stat mount source %s: %w", source, err)
 	}
 	if st.Mode&unix.S_IFMT != unix.S_IFBLK {
+		log.Info("Mount source is not a block device",
+			"source", source,
+			"fileType", fmt.Sprintf("%#o", st.Mode&unix.S_IFMT),
+		)
 		return "", nil
 	}
-	return fmt.Sprintf("%d:%d", unix.Major(uint64(st.Rdev)), unix.Minor(uint64(st.Rdev))), nil
+	majmin := fmt.Sprintf("%d:%d", unix.Major(uint64(st.Rdev)), unix.Minor(uint64(st.Rdev)))
+	log.Info("Identified mount backing block device", "source", source, "majorMinor", majmin)
+	return majmin, nil
 }
 
 func unmountPath(targetPath, hostPath string) bool {
@@ -301,6 +338,7 @@ func unmountPath(targetPath, hostPath string) bool {
 		// if targetPath is listed in the mounts, it's still mounted.
 		if filepath.Clean(info.Target) == filepath.Clean(targetPath) {
 			targetIsMounted = true
+			log.Info("target is mounted")
 			break
 		}
 	}
@@ -308,6 +346,7 @@ func unmountPath(targetPath, hostPath string) bool {
 		return true
 	}
 
+	log.Info("attempting to unmount target path", "targetPath", targetPath)
 	out, err := unmountPathCommand(targetPath)
 	if err != nil {
 		log.Error(err, "failed to unmount target", "path", targetPath)
