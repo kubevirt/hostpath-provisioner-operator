@@ -57,11 +57,12 @@ const (
 
 // StoragePoolInfo contains the name and path of a hostpath storage pool.
 type StoragePoolInfo struct {
-	Name             string  `json:"name"`
-	Path             string  `json:"path"`
-	SnapshotPath     *string `json:"snapshotPath,omitempty"`
-	SnapshotProvider *string `json:"snapshotProvider,omitempty"`
-	Shared           bool    `json:"shared"`
+	Name             string                       `json:"name"`
+	Path             string                       `json:"path"`
+	SnapshotPath     *string                      `json:"snapshotPath,omitempty"`
+	SnapshotProvider *string                      `json:"snapshotProvider,omitempty"`
+	Shared           bool                         `json:"shared"`
+	VolumeMode       *corev1.PersistentVolumeMode `json:"volumeMode,omitempty"`
 }
 
 func (r *ReconcileHostPathProvisioner) reconcileStoragePools(logger logr.Logger, cr *hostpathprovisionerv1.HostPathProvisioner, namespace string) (reconcile.Result, error) {
@@ -545,6 +546,8 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 								filepath.Join(sourceStoragePool.Path, "csi"),
 								"--hostPath",
 								"/host",
+								"--deviceAlias",
+								blockDeviceAlias(sourceStoragePool.Name),
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: &privileged,
@@ -832,6 +835,8 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 								"--hostPath",
 								"/host",
 								"--unmount",
+								"--deviceAlias",
+								blockDeviceAlias(sourceStoragePool.Name),
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: pointer.Bool(true),
