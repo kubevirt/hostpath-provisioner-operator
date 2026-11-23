@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.44.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v1.1.2
-	github.com/operator-framework/api v0.46.0
+	github.com/operator-framework/api v0.47.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.95.2
 	github.com/prometheus/client_model v0.6.3
