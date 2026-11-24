@@ -160,6 +160,13 @@ func main() {
 	} else {
 		i := 0
 		for {
+			// Recover the saved host and container mounts before inspecting /source;
+			// it may itself be one of the binds that needs to be restored.
+			if err := rememberedPoolMounts.recover(); err != nil {
+				log.Error(err, "failed to recover pool mounts; will retry", "sourcePath", sourcePath, "targetPath", targetPath)
+				time.Sleep(time.Second)
+				continue
+			}
 			isBlock, err := isBlockDevice(sourcePath)
 			if err != nil {
 				panic(err)
@@ -169,6 +176,11 @@ func main() {
 				mountFileSystemVolume(sourcePath, targetPath, hostPath)
 			} else {
 				mountBlockVolume(sourcePath, targetPath, hostPath)
+				// Block pools become trackable after their host filesystem is mounted;
+				// unlike filesystem pools, they have no container source bind to save.
+				if err := rememberBlockPoolMounts(sourcePath, targetPath, hostPath); err != nil {
+					log.Error(err, "failed to record block pool mounts for recovery")
+				}
 			}
 			time.Sleep(time.Second)
 			i++
@@ -246,7 +258,7 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 		return
 	}
 	// get mounts within the container
-	log.Info("Attempting to mount filesystem volume")
+	log.V(3).Info("Checking filesystem pool mount", "sourcePath", sourcePath, "targetPath", targetPath)
 	mountf, err := os.Open("/proc/1/mountinfo")
 	if err != nil {
 		panic(err)
@@ -264,16 +276,20 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 	}
 
 	sourceMount := sourceMounts[0]
-	if err := enableFilesystemPoolQuota(sourcePath, hostPath, sourceMount); err != nil {
+	if err := enableFilesystemPoolQuota(sourcePath, targetPath, hostPath, sourceMount); err != nil {
 		log.Error(err, "failed to enable filesystem pool project quotas", "sourcePath", sourcePath)
 		return
 	}
 
 	bindMountPathOnHost(sourceMount, sourceInfo, targetPath, hostPath)
+	// Quota setup saves existing mounts; this also records a newly created target.
+	if err := rememberedPoolMounts.rememberTarget(); err != nil {
+		log.Error(err, "failed to record pool target mount for recovery")
+	}
 }
 
 func mountBlockVolume(sourcePath, targetPath, hostPath string) {
-	log.Info("Attempting to mount block volume at target path from source path", "targetPath", targetPath, "sourcePath", sourcePath)
+	log.V(3).Info("Checking block pool mount", "targetPath", targetPath, "sourcePath", sourcePath)
 	deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
 	if err != nil {
 		panic(err)

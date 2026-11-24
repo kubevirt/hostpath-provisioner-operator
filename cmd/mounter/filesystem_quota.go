@@ -380,6 +380,7 @@ func lockFilesystemQuotaSetup(hostPath string, source *mount.Info) (func(), erro
 // Keep host operations replaceable so the complete flow can be tested without mounting disks.
 type filesystemQuotaOps struct {
 	readMounts     func(string) ([]*mount.Info, error)
+	readDeviceUUID func(string) (string, error)
 	stat           func(string, *unix.Stat_t) error
 	runLocal       func(string, ...string) error
 	runHost        func(string, ...string) error
@@ -387,15 +388,33 @@ type filesystemQuotaOps struct {
 	checkUnmounted func() error
 }
 
-func enableFilesystemPoolQuota(sourcePath, hostPath string, source *mount.Info) error {
-	return enableFilesystemPoolQuotaWithOps(sourcePath, hostPath, source, filesystemQuotaOps{
+// Production operations read real mount tables and run host commands through
+// nsenter. Unit tests replace these functions without touching any real disks.
+func filesystemQuotaSystem(hostPath string, source *mount.Info) filesystemQuotaOps {
+	return filesystemQuotaOps{
 		readMounts:     readQuotaMounts,
+		readDeviceUUID: func(device string) (string, error) { return readPoolDeviceUUID(hostPath, device) },
 		stat:           unix.Stat,
 		runLocal:       runQuotaCommand,
 		runHost:        hostQuotaCommand(hostPath, runQuotaCommand),
 		lock:           func() (func(), error) { return lockFilesystemQuotaSetup(hostPath, source) },
 		checkUnmounted: func() error { return quotaDeviceUnmounted(hostPath, source) },
-	})
+	}
+}
+
+// Keep the original mount layout, enable quotas, then retain the new quota
+// settings for any recovery needed by later iterations of the mounter loop.
+func enableFilesystemPoolQuota(sourcePath, targetPath, hostPath string, source *mount.Info) error {
+	system := filesystemQuotaSystem(hostPath, source)
+	// Save the original layout before quota setup can remove any mounts.
+	if err := rememberedPoolMounts.capture(sourcePath, targetPath, hostPath, source, true, system); err != nil {
+		return err
+	}
+	if err := enableFilesystemPoolQuotaWithOps(sourcePath, hostPath, source, system); err != nil {
+		return err
+	}
+	rememberedPoolMounts.enableQuota()
+	return nil
 }
 
 // Check device identity, host tools, and namespace visibility before removing any mounts.
@@ -404,7 +423,7 @@ func checkQuotaPrerequisites(hostPath, device string, sourceMount *mount.Info, h
 	if err := system.stat(filepath.Join(hostPath, device), &deviceInfo); err != nil {
 		return 0, fmt.Errorf("failed to stat pool device %s: %w", device, err)
 	}
-	if deviceInfo.Mode&unix.S_IFMT != unix.S_IFBLK || int(unix.Major(uint64(deviceInfo.Rdev))) != sourceMount.Major || int(unix.Minor(uint64(deviceInfo.Rdev))) != sourceMount.Minor {
+	if !matchesPoolDevice(&deviceInfo, sourceMount) {
 		return 0, fmt.Errorf("mount source %s does not match pool block device", device)
 	}
 	commands := []string{"/usr/bin/mount", "/usr/bin/umount", "/usr/bin/findmnt"}
@@ -433,6 +452,18 @@ func prepareContainerQuotaUnmounts(sourcePath, hostPath string, sourceMount *mou
 	if err != nil {
 		return nil, err
 	}
+	containerMountPlan, err := containerQuotaMountPlan(containerMounts, sourcePath, sourceMount)
+	if err != nil {
+		return nil, err
+	}
+	if err := isolateQuotaUnmountParents(containerMounts, containerMountPlan, hostPath, system); err != nil {
+		return nil, err
+	}
+	return containerMountPlan, nil
+}
+
+// Build a parent-first list without changing any mounts or propagation settings.
+func containerQuotaMountPlan(containerMounts []*mount.Info, sourcePath string, sourceMount *mount.Info) ([]*mount.Info, error) {
 	var containerMountPlan []*mount.Info
 	seenPaths := map[string]bool{}
 	for _, info := range containerMounts {
@@ -455,9 +486,6 @@ func prepareContainerQuotaUnmounts(sourcePath, hostPath string, sourceMount *mou
 	sort.Slice(containerMountPlan, func(i, j int) bool {
 		return len(containerMountPlan[i].Mountpoint) < len(containerMountPlan[j].Mountpoint)
 	})
-	if err := isolateQuotaUnmountParents(containerMounts, containerMountPlan, hostPath, system); err != nil {
-		return nil, err
-	}
 	return containerMountPlan, nil
 }
 
