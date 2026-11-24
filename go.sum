@@ -221,8 +221,8 @@ github.com/openshift/api v0.0.0-20240116035456-11ed2fbcb805 h1:5NjcOG5i+WH0F4FI8
 github.com/openshift/api v0.0.0-20240116035456-11ed2fbcb805/go.mod h1:qNtV0315F+f8ld52TLtPvrfivZpdimOzTi3kn9IVbtU=
 github.com/openshift/custom-resource-status v1.1.2 h1:C3DL44LEbvlbItfd8mT5jWrqPfHnSOQoQf/sypqA6A4=
 github.com/openshift/custom-resource-status v1.1.2/go.mod h1:DB/Mf2oTeiAmVVX1gN+NEqweonAPY0TKUwADizj8+ZA=
-github.com/operator-framework/api v0.46.0 h1:EitSlfRJZKYDewTK+ntH9L/p+NIKv/L1PgRoaIWH+to=
-github.com/operator-framework/api v0.46.0/go.mod h1:oFXzh7rHCnMwC6N0B92NEsfQyLGJ7FrceAYemjwoKPI=
+github.com/operator-framework/api v0.47.1 h1:T6Zb6IFm3ATqNUKgVSd8XopJapJWtEaVldZA9XdMKm0=
+github.com/operator-framework/api v0.47.1/go.mod h1:aocPGvG10JfwKk1UPzEpPAQtKidKB0Bgr8ckEy1elPA=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
