@@ -264,9 +264,8 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 	}
 
 	sourceMount := sourceMounts[0]
-	var rootStat unix.Stat_t
-	if err := unix.Stat("/", &rootStat); err != nil {
-		log.Error(err, "failed to stat root filesystem")
+	if err := enableFilesystemPoolQuota(sourcePath, hostPath, sourceMount); err != nil {
+		log.Error(err, "failed to enable filesystem pool project quotas", "sourcePath", sourcePath)
 		return
 	}
 
