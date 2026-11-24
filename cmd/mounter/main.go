@@ -56,7 +56,9 @@ var (
 	}
 
 	mountDeviceCommand = func(source, target string) ([]byte, error) {
-		return exec.Command("/usr/bin/mount", source, target).CombinedOutput()
+		// prjquota turns on project quotas for this filesystem. XFS and ext4 use the same option name.
+		// tune2fs for ext4 still belongs in mountBlockVolume, before this mount, not in the CSI driver.
+		return exec.Command("/usr/bin/mount", "-o", "prjquota", source, target).CombinedOutput()
 	}
 
 	unmountPathCommand = func(target string) ([]byte, error) {
@@ -73,6 +75,10 @@ var (
 
 	createXfs = func(source string) ([]byte, error) {
 		return exec.Command("/usr/sbin/mkfs.xfs", source).CombinedOutput()
+	}
+
+	enableExt4ProjectQuota = func(source string) ([]byte, error) {
+		return exec.Command("/usr/bin/tune2fs", "-Q", "prjquota", source).CombinedOutput()
 	}
 )
 
@@ -140,17 +146,27 @@ func main() {
 
 	printVersion()
 
+	log.Info("Mounter starting",
+		"sourcePath", sourcePath,
+		"targetPath", targetPath,
+		"hostPath", hostPath,
+		"unmount", unmount,
+	)
+
 	if unmount {
-		for {
-			if !unmountPath(targetPath, hostPath) {
-				time.Sleep(time.Second)
-			} else {
-				return
-			}
+		for !unmountPath(targetPath, hostPath) {
+			time.Sleep(time.Second)
 		}
 	} else {
 		i := 0
 		for {
+			// Recover the saved host and container mounts before inspecting /source;
+			// it may itself be one of the binds that needs to be restored.
+			if err := rememberedPoolMounts.recover(); err != nil {
+				log.Error(err, "failed to recover pool mounts; will retry", "sourcePath", sourcePath, "targetPath", targetPath)
+				time.Sleep(time.Second)
+				continue
+			}
 			isBlock, err := isBlockDevice(sourcePath)
 			if err != nil {
 				panic(err)
@@ -160,6 +176,11 @@ func main() {
 				mountFileSystemVolume(sourcePath, targetPath, hostPath)
 			} else {
 				mountBlockVolume(sourcePath, targetPath, hostPath)
+				// Block pools become trackable after their host filesystem is mounted;
+				// unlike filesystem pools, they have no container source bind to save.
+				if err := rememberBlockPoolMounts(sourcePath, targetPath, hostPath); err != nil {
+					log.Error(err, "failed to record block pool mounts for recovery")
+				}
 			}
 			time.Sleep(time.Second)
 			i++
@@ -181,20 +202,52 @@ func unmountPath(targetPath, hostPath string) bool {
 			panic(err)
 		}
 	}()
-	beforeUnmountInfos, err := lookupFindmntInfoByVolume(targetPath)
+
+	// findmnt -T reports the mount containing targetPath, even when the target
+	// itself is not a mountpoint. A lookup error means we cannot safely confirm
+	// that unmounting is complete, so let the caller retry.
+	mounts, err := lookupFindmntInfoByVolume(targetPath)
 	if err != nil {
-		log.Error(err, "unable to determine volume info", "path", targetPath)
+		log.Error(err, "failed to determine whether target is mounted", "path", targetPath)
+		return false
 	}
+	if len(mounts) != 1 {
+		log.Error(fmt.Errorf("expected one mount entry, got %d", len(mounts)),
+			"unable to determine whether target is mounted", "path", targetPath)
+		return false
+	}
+	// Only an entry whose mountpoint exactly matches targetPath means this
+	// volume is still mounted. If findmnt returned a parent mount instead, the
+	// target has already been unmounted.
+	if filepath.Clean(mounts[0].Target) != filepath.Clean(targetPath) {
+		return true
+	}
+
+	log.Info("attempting to unmount target path", "targetPath", targetPath)
 	out, err := unmountPathCommand(targetPath)
 	if err != nil {
-		log.Error(err, "unable to determine filesystem type on device")
+		log.Error(err, "failed to unmount target", "path", targetPath)
 		log.Info("Output", "out", string(out))
+		return false
 	}
-	afterUnmountInfos, err := lookupFindmntInfoByVolume(targetPath)
+
+	// A successful umount may expose another mount stacked at the same target.
+	// Confirm the target is gone before reporting completion.
+	mounts, err = lookupFindmntInfoByVolume(targetPath)
 	if err != nil {
-		log.Error(err, "unable to determine volume info", "path", targetPath)
+		log.Error(err, "failed to verify target is unmounted", "path", targetPath)
+		return false
 	}
-	return beforeUnmountInfos[0].GetSourcePath() == afterUnmountInfos[0].GetSourcePath()
+	if len(mounts) != 1 {
+		log.Error(fmt.Errorf("expected one mount entry, got %d", len(mounts)),
+			"unable to verify target is unmounted", "path", targetPath)
+		return false
+	}
+	if filepath.Clean(mounts[0].Target) == filepath.Clean(targetPath) {
+		log.Info("Target remains mounted after unmount; retrying", "targetPath", targetPath)
+		return false
+	}
+	return true
 }
 
 func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
@@ -205,6 +258,7 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 		return
 	}
 	// get mounts within the container
+	log.V(3).Info("Checking filesystem pool mount", "sourcePath", sourcePath, "targetPath", targetPath)
 	mountf, err := os.Open("/proc/1/mountinfo")
 	if err != nil {
 		panic(err)
@@ -221,16 +275,28 @@ func mountFileSystemVolume(sourcePath, targetPath, hostPath string) {
 		return
 	}
 
-	bindMountPathOnHost(sourceMounts[0], sourceInfo, targetPath, hostPath)
+	sourceMount := sourceMounts[0]
+	if err := enableFilesystemPoolQuota(sourcePath, targetPath, hostPath, sourceMount); err != nil {
+		log.Error(err, "failed to enable filesystem pool project quotas", "sourcePath", sourcePath)
+		return
+	}
+
+	bindMountPathOnHost(sourceMount, sourceInfo, targetPath, hostPath)
+	// Quota setup saves existing mounts; this also records a newly created target.
+	if err := rememberedPoolMounts.rememberTarget(); err != nil {
+		log.Error(err, "failed to record pool target mount for recovery")
+	}
 }
 
 func mountBlockVolume(sourcePath, targetPath, hostPath string) {
+	log.V(3).Info("Checking block pool mount", "targetPath", targetPath, "sourcePath", sourcePath)
 	deviceInfos, err := lookupDeviceInfoByVolume(sourcePath)
 	if err != nil {
 		panic(err)
 	}
 	if len(deviceInfos) > 1 {
-		log.Info("Multiple device infos found")
+		log.Info("Multiple device infos found, panicking")
+		panic(fmt.Errorf("Multiple device infos found"))
 	} else if len(deviceInfos) == 0 {
 		log.Info("No device info found")
 		panic("No device infos found")
@@ -246,20 +312,39 @@ func mountBlockVolume(sourcePath, targetPath, hostPath string) {
 		}
 	}()
 
-	// Check if filesystem exists on device
-	out, err := fsTypeCommand(deviceInfos[0].GetSourceDevice())
+	devicePath := deviceInfos[0].GetSourceDevice()
+	mountIfNotMounted(targetPath, hostPath, devicePath)
+}
+
+// prepareBlockDeviceFilesystem detects or creates the filesystem on devicePath
+// and enables ext4 project quotas before the device is mounted.
+func prepareBlockDeviceFilesystem(devicePath string) error {
+	// Check if a filesystem already exists on the device.
+	out, err := fsTypeCommand(devicePath)
 	if err != nil {
-		log.Error(err, "unable to determine filesystem type on device")
-		log.Info("Output", "out", string(out))
+		log.Error(err, "unable to determine filesystem type on device", "devicePath", devicePath)
+		log.Info("Filesystem type command output", "output", string(out))
 	}
+	fsType := strings.TrimSpace(string(out))
 	if len(out) == 0 {
-		out, err := createXfs(deviceInfos[0].GetSourceDevice())
-		log.Info("Output", "out", string(out))
+		log.Info("Creating XFS filesystem on device", "devicePath", devicePath)
+		out, err := createXfs(devicePath)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to create XFS filesystem on %s: %w (output: %q)", devicePath, err, out)
 		}
+		log.Info("Created XFS filesystem", "output", string(out))
+		fsType = "xfs"
 	}
-	mountIfNotMounted(targetPath, hostPath, deviceInfos[0].GetSourceDevice())
+
+	// tune2fs needs the block device, so enable ext4 project quotas before mount.
+	if fsType == "ext4" {
+		out, err := enableExt4ProjectQuota(devicePath)
+		if err != nil {
+			return fmt.Errorf("failed to enable ext4 project quotas on %s: %w (output: %q)", devicePath, err, out)
+		}
+		log.Info("Enabled ext4 project quotas", "devicePath", devicePath, "output", string(out))
+	}
+	return nil
 }
 
 // performs a bindmount on the host if one is needed
@@ -395,6 +480,11 @@ func mountIfNotMounted(targetPath, hostPath, hostMountPath string) {
 			log.Info("Output", "out", string(out))
 		} else if pathInfo.Mode()&os.ModeDevice > 0 {
 			log.Info("Mounting device", "path", hostMountPath)
+			// Filesystem setup can be destructive or expensive, so only do it
+			// when this path is actually about to be mounted.
+			if err := prepareBlockDeviceFilesystem(hostMountPath); err != nil {
+				panic(err)
+			}
 			out, err := mountDeviceCommand(hostMountPath, targetPath)
 			if err != nil {
 				log.Error(err, "failed to mount device to path on host.")

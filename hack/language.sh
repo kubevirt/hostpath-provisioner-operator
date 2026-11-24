@@ -9,6 +9,8 @@ HPP_DIR="$(cd $(dirname $0)/../ && pwd -P)"
 
 PHRASES='master|slave|whitelist|blacklist'
 
+# Linux mount flags and mountinfo tags have fixed names. Allow their quoted
+# strings only in the filesystem quota implementation and its tests.
 VIOLATIONS=$(git grep -iI -E $PHRASES -- \
 	':!vendor' \
 	':!cluster-up' \
@@ -18,11 +20,13 @@ VIOLATIONS=$(git grep -iI -E $PHRASES -- \
 	':!contrib/machineconfig-selinux-hpp.yaml' \
 	':!hack/language.sh' \
 		"${HPP_DIR}" \
-		| grep -v \
+		| grep -vE \
 			-e 'github.com/Masterminds' \
 			-e 'github.com/kubernetes' \
 			-e 'golang/dep' \
-			-e 'kubernetes-sigs/sig-storage-lib-external-provisioner')
+			-e 'kubernetes-sigs/sig-storage-lib-external-provisioner' \
+			-e '^cmd/mounter/filesystem_quota(_test)?\.go:.*"[^"]*--make-r?slave([ /"]|$)' \
+			-e '^cmd/mounter/filesystem_quota(_test)?\.go:.*"[^"]*master:')
 			# Allowed exceptions
 
 if [ ! -z "${VIOLATIONS}" ]; then
