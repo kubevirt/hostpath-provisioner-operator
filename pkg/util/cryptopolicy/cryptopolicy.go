@@ -225,7 +225,7 @@ func cipherSuitesIDs(names []string) []uint16 {
 		idByName[cipherSuite.Name] = cipherSuite.ID
 	}
 
-	ids := []uint16{}
+	ids := make([]uint16, 0, len(names))
 	for _, name := range names {
 		if id, ok := idByName[name]; ok {
 			ids = append(ids, id)
