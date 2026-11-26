@@ -98,9 +98,6 @@ github.com/go-openapi/swag/yamlutils
 # github.com/go-task/slim-sprig/v3 v3.0.0
 ## explicit; go 1.20
 github.com/go-task/slim-sprig/v3
-# github.com/gogo/protobuf v1.3.2
-## explicit; go 1.15
-github.com/gogo/protobuf/proto
 # github.com/google/gnostic-models v0.7.1
 ## explicit; go 1.22
 github.com/google/gnostic-models/compiler
@@ -179,8 +176,8 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible => github.com/openshift/api v0.0.0-20240116035456-11ed2fbcb805
-## explicit; go 1.20
+# github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible => github.com/openshift/api v0.0.0-20261109214721-7a9ff1ebb38f
+## explicit; go 1.26.0
 github.com/openshift/api/config/v1
 github.com/openshift/api/security/v1
 # github.com/openshift/custom-resource-status v1.1.2
@@ -961,5 +958,5 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309
-# github.com/openshift/api => github.com/openshift/api v0.0.0-20240116035456-11ed2fbcb805
+# github.com/openshift/api => github.com/openshift/api v0.0.0-20261109214721-7a9ff1ebb38f
 # github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225

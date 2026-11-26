@@ -27,7 +27,6 @@ import (
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,8 +35,18 @@ import (
 var log = ctrl.Log.WithName("cryptopolicy")
 
 type cryptoConfig struct {
-	CipherSuites []uint16
-	MinVersion   uint16
+	CipherSuites     []uint16
+	CurvePreferences []tls.CurveID
+	MinVersion       uint16
+}
+
+// TLSArgs holds TLS settings as strings, ready to pass as command-line flags
+// to the CSI plugin's metrics server. Lists are comma-separated; an empty
+// field leaves Go's default in place.
+type TLSArgs struct {
+	CipherSuites string
+	Groups       string
+	MinVersion   string
 }
 
 // ManagedTLSWatcher reads TLS configuration from the cluster's APIServer CR
@@ -51,15 +60,12 @@ type ManagedTLSWatcher struct {
 
 // NewManagedTLSWatcher creates a new ManagedTLSWatcher with Intermediate profile defaults.
 func NewManagedTLSWatcher() *ManagedTLSWatcher {
-	defaultProfile := &ocpconfigv1.TLSSecurityProfile{
-		Type:         ocpconfigv1.TLSProfileIntermediateType,
-		Intermediate: &ocpconfigv1.IntermediateTLSProfile{},
-	}
-	cipherNames, minVersion := selectCipherSuitesAndMinTLSVersion(defaultProfile)
+	profileSpec := getTLSProfileSpec(nil)
 	return &ManagedTLSWatcher{
 		defaultConfig: &cryptoConfig{
-			CipherSuites: cipherSuitesIDs(cipherNames),
-			MinVersion:   getTLSVersionOrDefault(string(minVersion)),
+			CipherSuites:     cipherSuitesIDs(profileSpec.Ciphers),
+			CurvePreferences: groupsToCurves(profileSpec.Groups),
+			MinVersion:       getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
 		},
 	}
 }
@@ -99,19 +105,63 @@ func (m *ManagedTLSWatcher) NeedLeaderElection() bool {
 	return false
 }
 
-// GetTLSConfig returns the current TLS configuration. Override env vars take
+func tlsOverrides() *TLSArgs {
+	tlsArgs := &TLSArgs{
+		CipherSuites: os.Getenv("TLS_CIPHERS_OVERRIDE"),
+		MinVersion:   os.Getenv("TLS_MIN_VERSION_OVERRIDE"),
+		Groups:       os.Getenv("TLS_GROUPS_OVERRIDE"),
+	}
+	if tlsArgs.CipherSuites == "" && tlsArgs.MinVersion == "" && tlsArgs.Groups == "" {
+		return nil
+	}
+	return tlsArgs
+}
+
+// ResolveTLSArgs returns the TLS settings for the CSI plugin's metrics server.
+// Env var overrides take precedence, then the cluster APIServer's TLS profile,
+// then the Intermediate profile when no APIServer CR is available.
+func ResolveTLSArgs(reader client.Reader) *TLSArgs {
+	if override := tlsOverrides(); override != nil {
+		return override
+	}
+	var profile *ocpconfigv1.TLSSecurityProfile
+	apiServer := &ocpconfigv1.APIServer{}
+	if err := reader.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, apiServer); err == nil {
+		profile = apiServer.Spec.TLSSecurityProfile
+	}
+	spec := getTLSProfileSpec(profile)
+	return &TLSArgs{
+		CipherSuites: strings.Join(spec.Ciphers, ","),
+		MinVersion:   string(spec.MinTLSVersion),
+		Groups:       joinGroups(spec.Groups),
+	}
+}
+
+func joinGroups(items []ocpconfigv1.TLSGroup) string {
+	s := make([]string, 0, len(items))
+	for _, v := range items {
+		s = append(s, string(v))
+	}
+	return strings.Join(s, ",")
+}
+
+// getTLSConfig returns the current TLS configuration. Override env vars take
 // precedence, then the APIServer CR from cache, then the default Intermediate profile.
-func (m *ManagedTLSWatcher) GetTLSConfig(ctx context.Context) *cryptoConfig {
-	// Override env vars always take precedence
-	ciphersOverride := os.Getenv("TLS_CIPHERS_OVERRIDE")
-	versionOverride := os.Getenv("TLS_MIN_VERSION_OVERRIDE")
-	if ciphersOverride != "" || versionOverride != "" {
+func (m *ManagedTLSWatcher) getTLSConfig(ctx context.Context) *cryptoConfig {
+	if overrides := tlsOverrides(); overrides != nil {
 		cc := &cryptoConfig{}
-		if ciphersOverride != "" {
-			cc.CipherSuites = cipherSuitesIDs(strings.Split(ciphersOverride, ","))
+		if overrides.CipherSuites != "" {
+			cc.CipherSuites = cipherSuitesIDs(strings.Split(overrides.CipherSuites, ","))
 		}
-		if versionOverride != "" {
-			cc.MinVersion = getTLSVersionOrDefault(versionOverride)
+		if overrides.MinVersion != "" {
+			cc.MinVersion = getTLSVersionOrDefault(overrides.MinVersion)
+		}
+		if overrides.Groups != "" {
+			var tlsGroups []ocpconfigv1.TLSGroup
+			for group := range strings.SplitSeq(overrides.Groups, ",") {
+				tlsGroups = append(tlsGroups, ocpconfigv1.TLSGroup(group))
+			}
+			cc.CurvePreferences = groupsToCurves(tlsGroups)
 		}
 		return cc
 	}
@@ -129,8 +179,12 @@ func (m *ManagedTLSWatcher) GetTLSConfig(ctx context.Context) *cryptoConfig {
 	if err := c.Get(ctx, types.NamespacedName{Name: "cluster"}, apiServer); err != nil {
 		return m.defaultConfig
 	}
-
-	return cryptoConfigFromProfile(apiServer.Spec.TLSSecurityProfile)
+	profileSpec := getTLSProfileSpec(apiServer.Spec.TLSSecurityProfile)
+	return &cryptoConfig{
+		CipherSuites:     cipherSuitesIDs(profileSpec.Ciphers),
+		CurvePreferences: groupsToCurves(profileSpec.Groups),
+		MinVersion:       getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
+	}
 }
 
 // CryptoPolicyOpt returns a TLS config mutator that dynamically applies
@@ -142,19 +196,12 @@ func (m *ManagedTLSWatcher) CryptoPolicyOpt() func(*tls.Config) {
 		c.NextProtos = []string{"http/1.1"}
 		c.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 			config := c.Clone()
-			cc := m.GetTLSConfig(hello.Context())
+			cc := m.getTLSConfig(hello.Context())
 			config.CipherSuites = cc.CipherSuites
+			config.CurvePreferences = cc.CurvePreferences
 			config.MinVersion = cc.MinVersion
 			return config, nil
 		}
-	}
-}
-
-func cryptoConfigFromProfile(profile *ocpconfigv1.TLSSecurityProfile) *cryptoConfig {
-	cipherNames, minVersion := selectCipherSuitesAndMinTLSVersion(profile)
-	return &cryptoConfig{
-		CipherSuites: cipherSuitesIDs(cipherNames),
-		MinVersion:   getTLSVersionOrDefault(string(minVersion)),
 	}
 }
 
@@ -176,27 +223,6 @@ func getTLSVersion(versionName string) *uint16 {
 		return &version
 	}
 	return nil
-}
-
-// GetTLSMinVersionString returns the minimum TLS version string suitable for
-// command-line arguments. It checks in order: TLS_MIN_VERSION_OVERRIDE env var,
-// the cluster APIServer CR via the provided reader, then defaults to VersionTLS13.
-func GetTLSMinVersionString(reader client.Reader) string {
-	if tlsVersion := os.Getenv("TLS_MIN_VERSION_OVERRIDE"); tlsVersion != "" {
-		if getTLSVersion(tlsVersion) == nil {
-			klog.Warningf("Invalid TLS_MIN_VERSION_OVERRIDE value '%s', defaulting to VersionTLS13. Valid values: VersionTLS10, VersionTLS11, VersionTLS12, VersionTLS13", tlsVersion)
-			return "VersionTLS13"
-		}
-		return tlsVersion
-	}
-
-	apiServer := &ocpconfigv1.APIServer{}
-	if err := reader.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, apiServer); err != nil {
-		return "VersionTLS13"
-	}
-
-	_, minVersion := selectCipherSuitesAndMinTLSVersion(apiServer.Spec.TLSSecurityProfile)
-	return string(minVersion)
 }
 
 func cipherSuitesIDs(names []string) []uint16 {
@@ -230,7 +256,7 @@ func cipherSuitesIDs(names []string) []uint16 {
 		idByName[cipherSuite.Name] = cipherSuite.ID
 	}
 
-	ids := []uint16{}
+	ids := make([]uint16, 0, len(names))
 	for _, name := range names {
 		if id, ok := idByName[name]; ok {
 			ids = append(ids, id)
@@ -240,17 +266,39 @@ func cipherSuitesIDs(names []string) []uint16 {
 	return ids
 }
 
-func selectCipherSuitesAndMinTLSVersion(profile *ocpconfigv1.TLSSecurityProfile) ([]string, ocpconfigv1.TLSProtocolVersion) {
+func getTLSProfileSpec(profile *ocpconfigv1.TLSSecurityProfile) ocpconfigv1.TLSProfileSpec {
 	if profile == nil {
-		profile = &ocpconfigv1.TLSSecurityProfile{
-			Type:         ocpconfigv1.TLSProfileIntermediateType,
-			Intermediate: &ocpconfigv1.IntermediateTLSProfile{},
+		return *ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType]
+	}
+	if profile.Custom != nil {
+		return profile.Custom.TLSProfileSpec
+	}
+	if spec, ok := ocpconfigv1.TLSProfiles[profile.Type]; ok {
+		return *spec
+	}
+	log.V(1).Info("invalid TLS security profile, falling back to Intermediate", "type", profile.Type)
+	return *ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType]
+}
+
+// groupsToCurves translates groups names to CurveID which can go straight to the tls.Config
+func groupsToCurves(names []ocpconfigv1.TLSGroup) []tls.CurveID {
+	// ref: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-8
+	var idByName = map[ocpconfigv1.TLSGroup]tls.CurveID{
+		ocpconfigv1.TLSGroupX25519:             tls.X25519,
+		ocpconfigv1.TLSGroupSecP256r1:          tls.CurveP256,
+		ocpconfigv1.TLSGroupSecP384r1:          tls.CurveP384,
+		ocpconfigv1.TLSGroupSecP521r1:          tls.CurveP521,
+		ocpconfigv1.TLSGroupX25519MLKEM768:     tls.X25519MLKEM768,
+		ocpconfigv1.TLSGroupSecP256r1MLKEM768:  tls.SecP256r1MLKEM768,
+		ocpconfigv1.TLSGroupSecP384r1MLKEM1024: tls.SecP384r1MLKEM1024,
+	}
+
+	ids := make([]tls.CurveID, 0, len(names))
+	for _, name := range names {
+		if id, ok := idByName[name]; ok {
+			ids = append(ids, id)
 		}
 	}
 
-	if profile.Custom != nil {
-		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion
-	}
-
-	return ocpconfigv1.TLSProfiles[profile.Type].Ciphers, ocpconfigv1.TLSProfiles[profile.Type].MinTLSVersion
+	return ids
 }
