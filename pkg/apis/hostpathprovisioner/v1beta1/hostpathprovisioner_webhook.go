@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -43,17 +44,28 @@ var _ admission.Validator[*HostPathProvisioner] = &HostPathProvisionerValidator{
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *HostPathProvisionerValidator) ValidateCreate(ctx context.Context, obj *HostPathProvisioner) (warnings admission.Warnings, err error) {
-	return v.validatePathConfigAndStoragePools(obj)
+	return v.validateSpec(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *HostPathProvisionerValidator) ValidateUpdate(ctx context.Context, oldObj, newObj *HostPathProvisioner) (warnings admission.Warnings, err error) {
-	return v.validatePathConfigAndStoragePools(newObj)
+	return v.validateSpec(newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *HostPathProvisionerValidator) ValidateDelete(ctx context.Context, obj *HostPathProvisioner) (warnings admission.Warnings, err error) {
 	return nil, nil
+}
+
+func (v *HostPathProvisionerValidator) validateSpec(hpp *HostPathProvisioner) (admission.Warnings, error) {
+	warnings, err := v.validatePathConfigAndStoragePools(hpp)
+	if err != nil {
+		return warnings, err
+	}
+	if err := validateComponentResources(hpp.Spec.Resources); err != nil {
+		return warnings, err
+	}
+	return warnings, nil
 }
 
 func (v *HostPathProvisionerValidator) validatePathConfigAndStoragePools(hpp *HostPathProvisioner) (admission.Warnings, error) {
@@ -97,6 +109,49 @@ func validateStoragePool(storagePool StoragePool) error {
 	}
 	if len(storagePool.Path) > maxPathLength {
 		return fmt.Errorf("storagePool.path cannot have a length greater than 255")
+	}
+	return nil
+}
+
+func validateComponentResources(resources *ComponentResources) error {
+	if resources == nil {
+		return nil
+	}
+	components := []struct {
+		name         string
+		requirements *corev1.ResourceRequirements
+	}{
+		{"hostPathProvisioner", resources.HostPathProvisioner},
+		{"csiProvisioner", resources.CSIProvisioner},
+		{"nodeDriverRegistrar", resources.NodeDriverRegistrar},
+		{"livenessProbe", resources.LivenessProbe},
+		{"csiSnapshotter", resources.CSISnapshotter},
+		{"mounter", resources.Mounter},
+	}
+	for _, component := range components {
+		if err := validateResourceRequirements(fmt.Sprintf("spec.resources.%s", component.name), component.requirements); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateResourceRequirements(fieldPath string, requirements *corev1.ResourceRequirements) error {
+	if requirements == nil {
+		return nil
+	}
+	for name, quantity := range requirements.Limits {
+		if quantity.Sign() < 0 {
+			return fmt.Errorf("%s.limits.%s cannot be negative", fieldPath, name)
+		}
+	}
+	for name, quantity := range requirements.Requests {
+		if quantity.Sign() < 0 {
+			return fmt.Errorf("%s.requests.%s cannot be negative", fieldPath, name)
+		}
+		if limit, ok := requirements.Limits[name]; ok && quantity.Cmp(limit) > 0 {
+			return fmt.Errorf("%s.requests.%s must be less than or equal to %s.limits.%s", fieldPath, name, fieldPath, name)
+		}
 	}
 	return nil
 }

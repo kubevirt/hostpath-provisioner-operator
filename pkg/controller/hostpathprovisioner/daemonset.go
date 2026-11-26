@@ -31,7 +31,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -293,12 +292,7 @@ func createDaemonSetObject(cr *hostpathprovisionerv1.HostPathProvisioner, reqLog
 					SecurityContext:               &corev1.PodSecurityContext{},
 					Containers: []corev1.Container{
 						{
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("150Mi"),
-								},
-							},
+							Resources:       getContainerResources(cr, provisionerResources, defaultContainerResources()),
 							Name:            MultiPurposeHostPathProvisionerName,
 							Image:           args.provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -524,12 +518,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 					RestartPolicy:      corev1.RestartPolicyAlways,
 					Containers: []corev1.Container{
 						{
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("150Mi"),
-								},
-							},
+							Resources:       getContainerResources(cr, provisionerResources, defaultContainerResources()),
 							Name:            MultiPurposeHostPathProvisionerName,
 							Image:           args.provisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -636,13 +625,8 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
-							Name: nodeDriverRegistrarName,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("150Mi"),
-								},
-							},
+							Name:            nodeDriverRegistrarName,
+							Resources:       getContainerResources(cr, nodeDriverRegistrarResources, defaultContainerResources()),
 							Image:           args.nodeDriverRegistrarImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
 							Args: []string{
@@ -675,12 +659,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						},
 						{
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("150Mi"),
-								},
-							},
+							Resources:       getContainerResources(cr, livenessProbeResources, defaultContainerResources()),
 							Name:            "liveness-probe",
 							Image:           args.livenessProbeImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -695,12 +674,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 							},
 						},
 						{
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("150Mi"),
-								},
-							},
+							Resources:       getContainerResources(cr, csiProvisionerResources, defaultContainerResources()),
 							Name:            "csi-provisioner",
 							Image:           args.csiProvisionerImage,
 							ImagePullPolicy: cr.Spec.ImagePullPolicy,
@@ -805,7 +779,8 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	}
 	ds.Spec.Template.Spec.Volumes = append(ds.Spec.Template.Spec.Volumes, pathVolumes...)
 	if r.isFeatureGateEnabled(snapshotFeatureGate, cr) {
-		ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, *createSnapshotSideCarContainer(args.snapshotterImage, cr.Spec.ImagePullPolicy, args.verbosity))
+		snapshotterResources := getContainerResources(cr, csiSnapshotterResources, corev1.ResourceRequirements{})
+		ds.Spec.Template.Spec.Containers = append(ds.Spec.Template.Spec.Containers, *createSnapshotSideCarContainer(args.snapshotterImage, cr.Spec.ImagePullPolicy, args.verbosity, snapshotterResources))
 	}
 	for i, container := range ds.Spec.Template.Spec.Containers {
 		if container.Name == MultiPurposeHostPathProvisionerName || container.Name == nodeDriverRegistrarName {
@@ -816,11 +791,12 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	return ds
 }
 
-func createSnapshotSideCarContainer(image string, pullPolicy corev1.PullPolicy, verbosity int) *corev1.Container {
+func createSnapshotSideCarContainer(image string, pullPolicy corev1.PullPolicy, verbosity int, resources corev1.ResourceRequirements) *corev1.Container {
 	return &corev1.Container{
 		Name:            "csi-snapshotter",
 		Image:           image,
 		ImagePullPolicy: pullPolicy,
+		Resources:       resources,
 		Args: []string{
 			fmt.Sprintf("--v=%d", verbosity),
 			fmt.Sprintf("--csi-address=%s", csiSocket),
