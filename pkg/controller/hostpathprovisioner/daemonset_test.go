@@ -26,13 +26,14 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	hppv1 "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1"
-	"kubevirt.io/hostpath-provisioner-operator/pkg/util/cryptopolicy"
 	"kubevirt.io/hostpath-provisioner-operator/version"
 )
 
@@ -486,18 +487,12 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 
 		ginkgo.Context("metrics TLS configuration", func() {
 			ginkgo.BeforeEach(func() {
-				// Clear env vars to ensure deterministic test behavior
-				os.Unsetenv("TLS_MIN_VERSION")
+				os.Unsetenv("TLS_CIPHERS_OVERRIDE")
 				os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
+				os.Unsetenv("TLS_GROUPS_OVERRIDE")
 			})
 
-			ginkgo.AfterEach(func() {
-				// Clean up env vars after test
-				os.Unsetenv("TLS_MIN_VERSION")
-				os.Unsetenv("TLS_MIN_VERSION_OVERRIDE")
-			})
-
-			ginkgo.It("Should include --metrics-tls-version argument in CSI daemonset", func() {
+			ginkgo.It("Should pass the Intermediate profile as --metrics-tls-* arguments when no APIServer CR exists", func() {
 				_, _, cl := createDeployedCr(createLegacyCr())
 				ds := &appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
@@ -508,18 +503,13 @@ var _ = ginkgo.Describe("Controller reconcile loop", func() {
 				err := cl.Get(context.TODO(), client.ObjectKeyFromObject(ds), ds)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-				// Verify --metrics-tls-version argument is present and matches current policy
-				container := ds.Spec.Template.Spec.Containers[0]
-				expectedArg := fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString(cl))
-				foundArg := false
-				for _, arg := range container.Args {
-					if strings.HasPrefix(arg, "--metrics-tls-version=") {
-						foundArg = true
-						gomega.Expect(arg).To(gomega.Equal(expectedArg))
-						break
-					}
-				}
-				gomega.Expect(foundArg).To(gomega.BeTrue(), "Expected --metrics-tls-version argument not found")
+				intermediate := ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType]
+				gomega.Expect(ds.Spec.Template.Spec.Containers[0].Args).To(gomega.ContainElements(
+					"--metrics-tls-version=VersionTLS12",
+					"--metrics-tls-ciphers="+strings.Join(intermediate.Ciphers, ","),
+					"--metrics-tls-groups=X25519MLKEM768,X25519,secp256r1,secp384r1",
+				))
+
 			})
 		})
 

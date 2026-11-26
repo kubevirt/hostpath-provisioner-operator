@@ -486,6 +486,7 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 	biDirectional := corev1.MountPropagationBidirectional
 	labels := util.GetRecommendedLabels()
 	labels[PrometheusLabelKey] = PrometheusLabelValue
+	tlsArgs := cryptopolicy.ResolveTLSArgs(r.client)
 	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -589,7 +590,9 @@ func (r *ReconcileHostPathProvisioner) createCSIDaemonSetObject(cr *hostpathprov
 								"--nodeid=$(NODE_NAME)",
 								"--version=$(VERSION)",
 								"--datadir=$(PV_DIR)",
-								fmt.Sprintf("--metrics-tls-version=%s", cryptopolicy.GetTLSMinVersionString(r.client)),
+								fmt.Sprintf("--metrics-tls-ciphers=%s", tlsArgs.CipherSuites),
+								fmt.Sprintf("--metrics-tls-groups=%s", tlsArgs.Groups),
+								fmt.Sprintf("--metrics-tls-version=%s", tlsArgs.MinVersion),
 							},
 							Ports: []corev1.ContainerPort{
 								{

@@ -27,7 +27,6 @@ import (
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +38,15 @@ type cryptoConfig struct {
 	CipherSuites     []uint16
 	CurvePreferences []tls.CurveID
 	MinVersion       uint16
+}
+
+// TLSArgs holds TLS settings as strings, ready to pass as command-line flags
+// to the CSI plugin's metrics server. Lists are comma-separated; an empty
+// field leaves Go's default in place.
+type TLSArgs struct {
+	CipherSuites string
+	Groups       string
+	MinVersion   string
 }
 
 // ManagedTLSWatcher reads TLS configuration from the cluster's APIServer CR
@@ -97,15 +105,63 @@ func (m *ManagedTLSWatcher) NeedLeaderElection() bool {
 	return false
 }
 
-// GetTLSConfig returns the current TLS configuration. Override env vars take
+func tlsOverrides() *TLSArgs {
+	tlsArgs := &TLSArgs{
+		CipherSuites: os.Getenv("TLS_CIPHERS_OVERRIDE"),
+		MinVersion:   os.Getenv("TLS_MIN_VERSION_OVERRIDE"),
+		Groups:       os.Getenv("TLS_GROUPS_OVERRIDE"),
+	}
+	if tlsArgs.CipherSuites == "" && tlsArgs.MinVersion == "" && tlsArgs.Groups == "" {
+		return nil
+	}
+	return tlsArgs
+}
+
+// ResolveTLSArgs returns the TLS settings for the CSI plugin's metrics server.
+// Env var overrides take precedence, then the cluster APIServer's TLS profile,
+// then the Intermediate profile when no APIServer CR is available.
+func ResolveTLSArgs(reader client.Reader) *TLSArgs {
+	if override := tlsOverrides(); override != nil {
+		return override
+	}
+	var profile *ocpconfigv1.TLSSecurityProfile
+	apiServer := &ocpconfigv1.APIServer{}
+	if err := reader.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, apiServer); err == nil {
+		profile = apiServer.Spec.TLSSecurityProfile
+	}
+	spec := getTLSProfileSpec(profile)
+	return &TLSArgs{
+		CipherSuites: strings.Join(spec.Ciphers, ","),
+		MinVersion:   string(spec.MinTLSVersion),
+		Groups:       joinGroups(spec.Groups),
+	}
+}
+
+func joinGroups(items []ocpconfigv1.TLSGroup) string {
+	s := make([]string, 0, len(items))
+	for _, v := range items {
+		s = append(s, string(v))
+	}
+	return strings.Join(s, ",")
+}
+
+// getTLSConfig returns the current TLS configuration. Override env vars take
 // precedence, then the APIServer CR from cache, then the default Intermediate profile.
 func (m *ManagedTLSWatcher) getTLSConfig(ctx context.Context) *cryptoConfig {
+	if overrides := tlsOverrides(); overrides != nil {
 		cc := &cryptoConfig{}
-		if ciphersOverride != "" {
-			cc.CipherSuites = cipherSuitesIDs(strings.Split(ciphersOverride, ","))
+		if overrides.CipherSuites != "" {
+			cc.CipherSuites = cipherSuitesIDs(strings.Split(overrides.CipherSuites, ","))
 		}
-		if versionOverride != "" {
-			cc.MinVersion = getTLSVersionOrDefault(versionOverride)
+		if overrides.MinVersion != "" {
+			cc.MinVersion = getTLSVersionOrDefault(overrides.MinVersion)
+		}
+		if overrides.Groups != "" {
+			var tlsGroups []ocpconfigv1.TLSGroup
+			for group := range strings.SplitSeq(overrides.Groups, ",") {
+				tlsGroups = append(tlsGroups, ocpconfigv1.TLSGroup(group))
+			}
+			cc.CurvePreferences = groupsToCurves(tlsGroups)
 		}
 		return cc
 	}
@@ -167,27 +223,6 @@ func getTLSVersion(versionName string) *uint16 {
 		return &version
 	}
 	return nil
-}
-
-// GetTLSMinVersionString returns the minimum TLS version string suitable for
-// command-line arguments. It checks in order: TLS_MIN_VERSION_OVERRIDE env var,
-// the cluster APIServer CR via the provided reader, then defaults to VersionTLS13.
-func GetTLSMinVersionString(reader client.Reader) string {
-	if tlsVersion := os.Getenv("TLS_MIN_VERSION_OVERRIDE"); tlsVersion != "" {
-		if getTLSVersion(tlsVersion) == nil {
-			klog.Warningf("Invalid TLS_MIN_VERSION_OVERRIDE value '%s', defaulting to VersionTLS13. Valid values: VersionTLS10, VersionTLS11, VersionTLS12, VersionTLS13", tlsVersion)
-			return "VersionTLS13"
-		}
-		return tlsVersion
-	}
-
-	apiServer := &ocpconfigv1.APIServer{}
-	if err := reader.Get(context.TODO(), types.NamespacedName{Name: "cluster"}, apiServer); err != nil {
-		return "VersionTLS13"
-	}
-
-	profileSpec := getTLSProfileSpec(apiServer.Spec.TLSSecurityProfile)
-	return string(profileSpec.MinTLSVersion)
 }
 
 func cipherSuitesIDs(names []string) []uint16 {
