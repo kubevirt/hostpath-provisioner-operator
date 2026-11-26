@@ -81,6 +81,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                                 schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
 		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                                  schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
 		"k8s.io/apimachinery/pkg/version.Info":                                                                     schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.ComponentResources":        schema_pkg_apis_hostpathprovisioner_v1beta1_ComponentResources(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.HostPathProvisioner":       schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisioner(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.HostPathProvisionerSpec":   schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerSpec(ref),
 		"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.HostPathProvisionerStatus": schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerStatus(ref),
@@ -2629,6 +2630,57 @@ func schema_k8sio_apimachinery_pkg_version_Info(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_pkg_apis_hostpathprovisioner_v1beta1_ComponentResources(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentResources defines the compute resource requirements of each container created by the operator. When a container entry is set, its value replaces the operator default resource requirements for that container as a whole (it is not merged with the defaults).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"hostPathProvisioner": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HostPathProvisioner is the resource requirements of the hostpath-provisioner container, in both the CSI driver and the legacy provisioner DaemonSets. Defaults to requests of 10m CPU and 150Mi memory.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"csiProvisioner": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CSIProvisioner is the resource requirements of the csi-provisioner sidecar container. Defaults to requests of 10m CPU and 150Mi memory.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"nodeDriverRegistrar": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeDriverRegistrar is the resource requirements of the node-driver-registrar sidecar container. Defaults to requests of 10m CPU and 150Mi memory.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"livenessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LivenessProbe is the resource requirements of the liveness-probe sidecar container. Defaults to requests of 10m CPU and 150Mi memory.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"csiSnapshotter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CSISnapshotter is the resource requirements of the csi-snapshotter sidecar container, which is only deployed when the Snapshotting feature gate is enabled. Defaults to no requests or limits.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"mounter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mounter is the resource requirements of the mounter container, used by the per node pods that mount storage pools created from a PVC template, and by the jobs that clean them up. Defaults to requests of 10m CPU and 100Mi memory.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
+	}
+}
+
 func schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisioner(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2742,11 +2794,17 @@ func schema_pkg_apis_hostpathprovisioner_v1beta1_HostPathProvisionerSpec(ref com
 							},
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources allows overriding the compute resource requirements (requests and limits) of the containers created by the operator. Containers that are not specified keep the operator defaults.",
+							Ref:         ref("kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.ComponentResources"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.PathConfig", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePool"},
+			"kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.ComponentResources", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.NodePlacement", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.PathConfig", "kubevirt.io/hostpath-provisioner-operator/pkg/apis/hostpathprovisioner/v1beta1.StoragePool"},
 	}
 }
 

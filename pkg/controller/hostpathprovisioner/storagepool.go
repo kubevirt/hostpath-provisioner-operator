@@ -32,7 +32,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
@@ -550,12 +549,7 @@ func (r *ReconcileHostPathProvisioner) storagePoolDeploymentByNode(logger logr.L
 								Privileged: &privileged,
 								RunAsUser:  pointer.Int64(0),
 							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-							},
+							Resources: getContainerResources(cr, mounterResources, defaultMounterResources()),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:             "host-root",
@@ -837,12 +831,7 @@ func (r *ReconcileHostPathProvisioner) createCleanupJobForNode(logger logr.Logge
 								Privileged: pointer.Bool(true),
 								RunAsUser:  pointer.Int64(0),
 							},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-							},
+							Resources: getContainerResources(cr, mounterResources, defaultMounterResources()),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:             "host-root",

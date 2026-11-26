@@ -37,6 +37,49 @@ type HostPathProvisionerSpec struct {
 	// StoragePools are a list of storage pools
 	// +listType=atomic
 	StoragePools []StoragePool `json:"storagePools,omitempty" optional:"true"`
+	// Resources allows overriding the compute resource requirements (requests and limits) of the
+	// containers created by the operator. Containers that are not specified keep the operator defaults.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Resources *ComponentResources `json:"resources,omitempty"`
+}
+
+// ComponentResources defines the compute resource requirements of each container created by the operator.
+// When a container entry is set, its value replaces the operator default resource requirements for that
+// container as a whole (it is not merged with the defaults).
+// +k8s:openapi-gen=true
+type ComponentResources struct {
+	// HostPathProvisioner is the resource requirements of the hostpath-provisioner container, in both the
+	// CSI driver and the legacy provisioner DaemonSets. Defaults to requests of 10m CPU and 150Mi memory.
+	// +kubebuilder:validation:Optional
+	// +optional
+	HostPathProvisioner *corev1.ResourceRequirements `json:"hostPathProvisioner,omitempty"`
+	// CSIProvisioner is the resource requirements of the csi-provisioner sidecar container.
+	// Defaults to requests of 10m CPU and 150Mi memory.
+	// +kubebuilder:validation:Optional
+	// +optional
+	CSIProvisioner *corev1.ResourceRequirements `json:"csiProvisioner,omitempty"`
+	// NodeDriverRegistrar is the resource requirements of the node-driver-registrar sidecar container.
+	// Defaults to requests of 10m CPU and 150Mi memory.
+	// +kubebuilder:validation:Optional
+	// +optional
+	NodeDriverRegistrar *corev1.ResourceRequirements `json:"nodeDriverRegistrar,omitempty"`
+	// LivenessProbe is the resource requirements of the liveness-probe sidecar container.
+	// Defaults to requests of 10m CPU and 150Mi memory.
+	// +kubebuilder:validation:Optional
+	// +optional
+	LivenessProbe *corev1.ResourceRequirements `json:"livenessProbe,omitempty"`
+	// CSISnapshotter is the resource requirements of the csi-snapshotter sidecar container, which is only
+	// deployed when the Snapshotting feature gate is enabled. Defaults to no requests or limits.
+	// +kubebuilder:validation:Optional
+	// +optional
+	CSISnapshotter *corev1.ResourceRequirements `json:"csiSnapshotter,omitempty"`
+	// Mounter is the resource requirements of the mounter container, used by the per node pods that mount
+	// storage pools created from a PVC template, and by the jobs that clean them up.
+	// Defaults to requests of 10m CPU and 100Mi memory.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Mounter *corev1.ResourceRequirements `json:"mounter,omitempty"`
 }
 
 // HostPathProvisionerStatus defines the observed state of HostPathProvisioner

@@ -145,6 +145,41 @@ $ kubectl create -f https://raw.githubusercontent.com/kubevirt/hostpath-provisio
 
 Once the CustomResource has been created, the operator will deploy the provisioner and CSI driver as a DaemonSet on each node.
 
+### Container resources
+
+By default every container created by the operator requests 10m CPU and 150Mi memory (100Mi for the storage pool `mounter`), with no limits, and the `csi-snapshotter` sidecar has no requests or limits. You can override the resource requirements of each container with `spec.resources`:
+
+```yaml
+apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
+kind: HostPathProvisioner
+metadata:
+  name: hostpath-provisioner
+spec:
+  imagePullPolicy: Always
+  storagePools:
+    - name: "local"
+      path: "/var/hpvolumes"
+  resources:
+    hostPathProvisioner:   # hostpath-provisioner container (CSI driver and legacy provisioner)
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    csiProvisioner:        # csi-provisioner sidecar
+      requests:
+        cpu: 10m
+        memory: 40Mi
+      limits:
+        memory: 128Mi
+    nodeDriverRegistrar: {} # node-driver-registrar sidecar, no requests or limits
+    # livenessProbe:       # liveness-probe sidecar
+    # csiSnapshotter:      # csi-snapshotter sidecar (Snapshotting feature gate)
+    # mounter:             # mounter pods and cleanup jobs of PVC template storage pools
+```
+
+A container that is not listed keeps the defaults. A listed container uses exactly the given requirements, they are not merged with the defaults, so an empty value (`{}`) removes the default requests.
+
 ### Storage Class
 
 The hostpath provisioner supports two volumeBindingModes, Immediate and WaitForFirstConsumer. In general WaitForFirstConsumer is preferred however this requires Kubernetes >= 1.12 and if one is running an older kubernetes that volumeBindingMode will not work. Immediate binding mode is now _deprecated_ and may be removed in the future. For this reason the operator will not create the StorageClass for you and you will have to do it yourself. Example storageclass yamls are available in [deploy](deploy) directory in this repository.

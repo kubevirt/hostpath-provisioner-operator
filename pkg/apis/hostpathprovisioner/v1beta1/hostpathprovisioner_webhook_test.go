@@ -22,6 +22,7 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -285,5 +286,68 @@ var _ = ginkgo.Describe("validating webhook", func() {
 			_, err := hppCrValidator.ValidateUpdate(context.Background(), &longPathCr, &longPathCr)
 			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("storagePool.path cannot have a length greater than 255")))
 		})
+	})
+
+	ginkgo.Context("resources", func() {
+		storagePoolCRWithResources := func(resources *ComponentResources) *HostPathProvisioner {
+			cr := multiSourceVolumeCR.DeepCopy()
+			cr.Spec.Resources = resources
+			return cr
+		}
+
+		ginkgo.DescribeTable("Should allow valid resources", func(resources *ComponentResources) {
+			hppCrValidator := HostPathProvisionerValidator{}
+			cr := storagePoolCRWithResources(resources)
+			_, err := hppCrValidator.ValidateCreate(context.Background(), cr)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			_, err = hppCrValidator.ValidateUpdate(context.Background(), cr, cr)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		},
+			ginkgo.Entry("no resources", nil),
+			ginkgo.Entry("empty resources", &ComponentResources{}),
+			ginkgo.Entry("empty requirements", &ComponentResources{CSIProvisioner: &corev1.ResourceRequirements{}}),
+			ginkgo.Entry("requests and limits", &ComponentResources{
+				HostPathProvisioner: &corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("150Mi")},
+					Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("1Gi")},
+				},
+			}),
+			ginkgo.Entry("limits only", &ComponentResources{
+				Mounter: &corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("50Mi")},
+				},
+			}),
+			ginkgo.Entry("requests only", &ComponentResources{
+				LivenessProbe: &corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("50Mi")},
+				},
+			}),
+		)
+
+		ginkgo.DescribeTable("Should reject invalid resources", func(resources *ComponentResources, expectedErr string) {
+			hppCrValidator := HostPathProvisionerValidator{}
+			cr := storagePoolCRWithResources(resources)
+			_, err := hppCrValidator.ValidateCreate(context.Background(), cr)
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("%s", expectedErr)))
+			_, err = hppCrValidator.ValidateUpdate(context.Background(), cr, cr)
+			gomega.Expect(err).To(gomega.BeEquivalentTo(fmt.Errorf("%s", expectedErr)))
+		},
+			ginkgo.Entry("request greater than limit", &ComponentResources{
+				CSIProvisioner: &corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("200Mi")},
+					Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("100Mi")},
+				},
+			}, "spec.resources.csiProvisioner.requests.memory must be less than or equal to spec.resources.csiProvisioner.limits.memory"),
+			ginkgo.Entry("negative request", &ComponentResources{
+				NodeDriverRegistrar: &corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("-1m")},
+				},
+			}, "spec.resources.nodeDriverRegistrar.requests.cpu cannot be negative"),
+			ginkgo.Entry("negative limit", &ComponentResources{
+				CSISnapshotter: &corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("-1")},
+				},
+			}, "spec.resources.csiSnapshotter.limits.cpu cannot be negative"),
+		)
 	})
 })
