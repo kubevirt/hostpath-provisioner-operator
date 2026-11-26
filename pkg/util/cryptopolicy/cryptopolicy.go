@@ -36,8 +36,9 @@ import (
 var log = ctrl.Log.WithName("cryptopolicy")
 
 type cryptoConfig struct {
-	CipherSuites []uint16
-	MinVersion   uint16
+	CipherSuites     []uint16
+	CurvePreferences []tls.CurveID
+	MinVersion       uint16
 }
 
 // ManagedTLSWatcher reads TLS configuration from the cluster's APIServer CR
@@ -51,15 +52,12 @@ type ManagedTLSWatcher struct {
 
 // NewManagedTLSWatcher creates a new ManagedTLSWatcher with Intermediate profile defaults.
 func NewManagedTLSWatcher() *ManagedTLSWatcher {
-	defaultProfile := &ocpconfigv1.TLSSecurityProfile{
-		Type:         ocpconfigv1.TLSProfileIntermediateType,
-		Intermediate: &ocpconfigv1.IntermediateTLSProfile{},
-	}
-	profileSpec := getTLSProfileSpec(defaultProfile)
+	profileSpec := getTLSProfileSpec(nil)
 	return &ManagedTLSWatcher{
 		defaultConfig: &cryptoConfig{
-			CipherSuites: cipherSuitesIDs(profileSpec.Ciphers),
-			MinVersion:   getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
+			CipherSuites:     cipherSuitesIDs(profileSpec.Ciphers),
+			CurvePreferences: groupsToCurves(profileSpec.Groups),
+			MinVersion:       getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
 		},
 	}
 }
@@ -101,11 +99,7 @@ func (m *ManagedTLSWatcher) NeedLeaderElection() bool {
 
 // GetTLSConfig returns the current TLS configuration. Override env vars take
 // precedence, then the APIServer CR from cache, then the default Intermediate profile.
-func (m *ManagedTLSWatcher) GetTLSConfig(ctx context.Context) *cryptoConfig {
-	// Override env vars always take precedence
-	ciphersOverride := os.Getenv("TLS_CIPHERS_OVERRIDE")
-	versionOverride := os.Getenv("TLS_MIN_VERSION_OVERRIDE")
-	if ciphersOverride != "" || versionOverride != "" {
+func (m *ManagedTLSWatcher) getTLSConfig(ctx context.Context) *cryptoConfig {
 		cc := &cryptoConfig{}
 		if ciphersOverride != "" {
 			cc.CipherSuites = cipherSuitesIDs(strings.Split(ciphersOverride, ","))
@@ -131,8 +125,9 @@ func (m *ManagedTLSWatcher) GetTLSConfig(ctx context.Context) *cryptoConfig {
 	}
 	profileSpec := getTLSProfileSpec(apiServer.Spec.TLSSecurityProfile)
 	return &cryptoConfig{
-		CipherSuites: cipherSuitesIDs(profileSpec.Ciphers),
-		MinVersion:   getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
+		CipherSuites:     cipherSuitesIDs(profileSpec.Ciphers),
+		CurvePreferences: groupsToCurves(profileSpec.Groups),
+		MinVersion:       getTLSVersionOrDefault(string(profileSpec.MinTLSVersion)),
 	}
 }
 
@@ -145,8 +140,9 @@ func (m *ManagedTLSWatcher) CryptoPolicyOpt() func(*tls.Config) {
 		c.NextProtos = []string{"http/1.1"}
 		c.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
 			config := c.Clone()
-			cc := m.GetTLSConfig(hello.Context())
+			cc := m.getTLSConfig(hello.Context())
 			config.CipherSuites = cc.CipherSuites
+			config.CurvePreferences = cc.CurvePreferences
 			config.MinVersion = cc.MinVersion
 			return config, nil
 		}
@@ -247,4 +243,27 @@ func getTLSProfileSpec(profile *ocpconfigv1.TLSSecurityProfile) ocpconfigv1.TLSP
 	}
 	log.V(1).Info("invalid TLS security profile, falling back to Intermediate", "type", profile.Type)
 	return *ocpconfigv1.TLSProfiles[ocpconfigv1.TLSProfileIntermediateType]
+}
+
+// groupsToCurves translates groups names to CurveID which can go straight to the tls.Config
+func groupsToCurves(names []ocpconfigv1.TLSGroup) []tls.CurveID {
+	// ref: https://www.iana.org/assignments/tls-parameters/tls-parameters.xml#tls-parameters-8
+	var idByName = map[ocpconfigv1.TLSGroup]tls.CurveID{
+		ocpconfigv1.TLSGroupX25519:             tls.X25519,
+		ocpconfigv1.TLSGroupSecP256r1:          tls.CurveP256,
+		ocpconfigv1.TLSGroupSecP384r1:          tls.CurveP384,
+		ocpconfigv1.TLSGroupSecP521r1:          tls.CurveP521,
+		ocpconfigv1.TLSGroupX25519MLKEM768:     tls.X25519MLKEM768,
+		ocpconfigv1.TLSGroupSecP256r1MLKEM768:  tls.SecP256r1MLKEM768,
+		ocpconfigv1.TLSGroupSecP384r1MLKEM1024: tls.SecP384r1MLKEM1024,
+	}
+
+	ids := make([]tls.CurveID, 0, len(names))
+	for _, name := range names {
+		if id, ok := idByName[name]; ok {
+			ids = append(ids, id)
+		}
+	}
+
+	return ids
 }
